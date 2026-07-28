@@ -1,0 +1,69 @@
+# Bud
+
+A digital groovebox modelled on the Sonicware deconstruct MINIMAL: an 11-track
+sampler-integrated drum machine with an analog-modelling bass synth, built for minimal
+techno and house.
+
+Targets:
+
+- **macOS standalone application**
+- **macOS AU / VST3**
+- **AUv3 for iPad**
+
+## Status
+
+Under construction. See [`docs/DEVICE_SPEC.md`](docs/DEVICE_SPEC.md) for the modelled device
+specification and [`docs/PARAMETERS.md`](docs/PARAMETERS.md) for the parameter reference.
+
+| Milestone | Scope | State |
+|---|---|---|
+| M0 | Build system, parameter table, docs | in progress |
+| M1 | Transport, sequencer, FEEL drift | in progress |
+| M2 | Voices (drum synth, sample, loop, bass) | pending |
+| M3 | Effects (master, reverb, tape echo) | pending |
+| M4 | Sampler (record, banks, stretch/repitch) | pending |
+| M5 | Procedural factory content | pending |
+| M6 | Hardware-replica interface | pending |
+| M7 | MIDI and sync | pending |
+| M8 | Project/pattern/kit state | pending |
+| M9 | macOS packaging | pending |
+| M10 | iPad AUv3 | pending |
+
+## Architecture
+
+The engine lives in `source/core/` and is **plain C++20 with no framework dependency** — not
+JUCE, not a GUI toolkit, not a host SDK. It builds and unit-tests on any platform with a
+C++20 compiler, which keeps the entire sound engine verifiable in CI on Linux while the
+macOS and iPadOS shells are built with Xcode.
+
+JUCE 8 appears only in `source/plugin/` and `source/ui/`, which wrap the core.
+
+```
+source/
+  core/        engine — framework-free, fully tested
+  plugin/      JUCE AudioProcessor, bus layout, host glue
+  ui/          panel replica; layout and menu tree are data, not code
+  standalone/  macOS audio device and file access
+tools/         offline factory-content generator
+tests/         engine and DSP tests (run anywhere)
+docs/          device spec, parameter reference, reference material
+```
+
+## Building the engine and tests
+
+Requires CMake 3.22+ and a C++20 compiler. No network access needed.
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+ctest --test-dir build --output-on-failure
+```
+
+This builds `BudCore` and `BudCoreTests`. The plugin and standalone targets are off by
+default and require JUCE; enable with `-DBUD_BUILD_PLUGIN=ON` (macOS/Xcode).
+
+## Provenance
+
+This is a clean-room implementation. It contains no firmware, no ROM data, and no factory
+samples from any hardware device; the DSP is written from published specifications and by-ear
+matching, and the factory sound set is synthesized from original recipes in `tools/factory_gen`.
