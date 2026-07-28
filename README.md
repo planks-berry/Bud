@@ -17,9 +17,9 @@ specification and [`docs/PARAMETERS.md`](docs/PARAMETERS.md) for the parameter r
 
 | Milestone | Scope | State |
 |---|---|---|
-| M0 | Build system, parameter table, docs | in progress |
-| M1 | Transport, sequencer, FEEL drift | in progress |
-| M2 | Voices (drum synth, sample, loop, bass) | pending |
+| M0 | Build system, parameter table, docs | done |
+| M1 | Transport, sequencer, FEEL drift | done |
+| M2 | Voices (drum synth, sample, loop, bass) | done |
 | M3 | Effects (master, reverb, tape echo) | pending |
 | M4 | Sampler (record, banks, stretch/repitch) | pending |
 | M5 | Procedural factory content | pending |
@@ -59,8 +59,19 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-This builds `BudCore` and `BudCoreTests`. The plugin and standalone targets are off by
-default and require JUCE; enable with `-DBUD_BUILD_PLUGIN=ON` (macOS/Xcode).
+This builds `BudCore`, `BudCoreTests` and `bud-render`. The plugin and standalone targets are
+off by default and require JUCE; enable with `-DBUD_BUILD_PLUGIN=ON` (macOS/Xcode).
+
+## Hearing it
+
+The engine has no framework dependency, so the whole instrument can be driven offline — the
+sound is audible long before there is a plugin to host it:
+
+```bash
+./build/tools/bud-render --out demo.wav --bars 8 --tempo 128 --feel minimal
+```
+
+`--feel` takes `808`, `909` or `minimal` and switches the per-voice drift model.
 
 ## Provenance
 

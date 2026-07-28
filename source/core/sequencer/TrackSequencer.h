@@ -39,6 +39,10 @@ struct TriggerEvent
     int subStep = 0;            ///< 0-based index within the step's retriggers
     int numSubSteps = 1;
 
+    /// Length of one step in samples at the current tempo. Voices need it for gate time,
+    /// which is expressed as a proportion of the step rather than an absolute duration.
+    double stepDurationSamples = 0.0;
+
     /// Parameter locks for this step, or nullptr. Points into the pattern; valid for as long
     /// as the pattern outlives the event.
     const PlockMap* locks = nullptr;
@@ -84,7 +88,8 @@ public:
 
 private:
     /// Turn the next nominal step into pending events and advance the playback head.
-    void consumeStep (const Groove&, double stepQuarterNotes, float globalSwing);
+    void consumeStep (const Groove&, double stepQuarterNotes, float globalSwing,
+                      double samplesPerQuarterNote);
 
     void advanceHead() noexcept;
 

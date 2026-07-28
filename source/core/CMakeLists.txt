@@ -7,11 +7,17 @@
 add_library(BudCore STATIC
     Types.cpp
     Transport.cpp
+    Engine.cpp
     params/ParameterIds.cpp
+    params/ParameterSet.cpp
     sequencer/Step.cpp
     sequencer/Pattern.cpp
     sequencer/TrackSequencer.cpp
     sequencer/Groove.cpp
+    sampler/WavIo.cpp
+    voices/DrumVoices.cpp
+    voices/SampleVoices.cpp
+    voices/BassVoice.cpp
 )
 
 target_include_directories(BudCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)

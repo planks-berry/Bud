@@ -75,7 +75,7 @@ void TrackSequencer::advanceHead() noexcept
 //==============================================================================
 
 void TrackSequencer::consumeStep (const Groove& groove, double stepQuarterNotes,
-                                  float globalSwing)
+                                  float globalSwing, double samplesPerQuarterNote)
 {
     const auto& step = pattern_->stepAt (chainIndex_, stepIndex_);
     const auto drift = groove.compute (track_, absoluteStep_);
@@ -126,6 +126,7 @@ void TrackSequencer::consumeStep (const Groove& groove, double stepQuarterNotes,
             e.variation = pattern_->chain[static_cast<std::size_t> (chainIndex_)];
             e.subStep = sub;
             e.numSubSteps = subSteps;
+            e.stepDurationSamples = stepQuarterNotes * samplesPerQuarterNote;
             e.locks = &step.locks;
 
             pending_.push_back (e);
@@ -177,7 +178,7 @@ void TrackSequencer::collectEvents (const Transport& transport, const Groove& gr
         if (guard >= kMaxStepsPerBlock)
             break;
 
-        consumeStep (groove, stepQn, globalSwing);
+        consumeStep (groove, stepQn, globalSwing, transport.samplesPerQuarterNote());
     }
 
     // Emit everything that landed inside the block, keeping the rest for later blocks.

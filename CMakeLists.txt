@@ -16,6 +16,7 @@ endif()
 # The plugin and standalone targets need JUCE and (for AUv3) Xcode. The engine does not:
 # BudCore is framework-free C++20 so that the whole sound engine builds and tests anywhere.
 option(BUD_BUILD_TESTS  "Build the engine test suite" ON)
+option(BUD_BUILD_TOOLS  "Build the offline render tools" ON)
 option(BUD_BUILD_PLUGIN "Build the JUCE plugin and standalone targets" OFF)
 option(BUD_BUILD_AUV3   "Include the iPad AUv3 target (implies BUD_BUILD_PLUGIN)" OFF)
 
@@ -24,6 +25,10 @@ add_subdirectory(source/core)
 if(BUD_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+if(BUD_BUILD_TOOLS)
+    add_subdirectory(tools)
 endif()
 
 if(BUD_BUILD_PLUGIN OR BUD_BUILD_AUV3)

@@ -4,6 +4,8 @@ add_executable(BudCoreTests
     TransportTests.cpp
     SequencerTests.cpp
     GrooveTests.cpp
+    DspTests.cpp
+    EngineTests.cpp
 )
 
 target_link_libraries(BudCoreTests PRIVATE Bud::Core)

@@ -59,7 +59,8 @@ static const std::array<ParamDescriptor, kNumParamKinds> kParamTable { {
     { ParamKind::FeelDepth,             "feel_depth",            "DEPTH",    S::Global, 0.f,    1.f,    0.5f,  C::Linear,      U::Percent,      true,  noLabels },
 
     { ParamKind::TrackLevel,            "level",                 "LEVEL",    S::Track,  0.f,    1.f,    0.8f,  C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::TrackEqFreq,           "eq_freq",               "FREQ",     S::Track,  20.f,   20000.f,1000.f,C::Exponential, U::Hertz,        true,  noLabels },
+    // Defaults to the top of its range so an untouched track is tonally neutral.
+    { ParamKind::TrackEqFreq,           "eq_freq",               "FREQ",     S::Track,  20.f,   20000.f,20000.f,C::Exponential,U::Hertz,        true,  noLabels },
     { ParamKind::TrackEqRes,            "eq_res",                "RES",      S::Track,  0.f,    1.f,    0.f,   C::Linear,      U::Percent,      true,  noLabels },
     { ParamKind::TrackReverbSend,       "rev_send",              "REV",      S::Track,  0.f,    1.f,    0.f,   C::Linear,      U::Percent,      true,  noLabels },
     { ParamKind::TrackDelaySend,        "dly_send",              "DLY",      S::Track,  0.f,    1.f,    0.f,   C::Linear,      U::Percent,      true,  noLabels },
