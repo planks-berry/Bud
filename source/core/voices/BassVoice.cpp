@@ -101,7 +101,7 @@ void BassVoice::trigger (const TriggerEvent& event, const ParamView& params,
 {
     applyWaveform (params);
 
-    const auto tune = curves::tuneSemitones (params (ParamKind::TrackTune))
+    const auto tune = curves::bassTuneSemitones (params (ParamKind::TrackTune))
                     + static_cast<float> (event.note);
 
     targetFrequency_ = kRootFrequency * curves::semitonesToRatio (tune)

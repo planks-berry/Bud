@@ -113,6 +113,13 @@ inline float tuneSemitones (int v) noexcept
     return bipolar (v) * 24.0f;
 }
 
+/// Bass tune. The bass track's own range is -60 to +60 (p. 77), wider than every other track's,
+/// so it does not share the law above.
+inline float bassTuneSemitones (int v) noexcept
+{
+    return bipolar (v) * 60.0f;
+}
+
 inline float semitonesToRatio (float semitones) noexcept
 {
     return std::pow (2.0f, semitones * (1.0f / 12.0f));

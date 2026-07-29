@@ -3,6 +3,10 @@
 #include "Transport.h"
 #include "Types.h"
 #include "dsp/Filters.h"
+#include "fx/Isolator.h"
+#include "fx/MasterFx.h"
+#include "fx/Reverb.h"
+#include "fx/TapeEcho.h"
 #include "params/ParameterSet.h"
 #include "sampler/SampleBank.h"
 #include "sequencer/Groove.h"
@@ -93,7 +97,16 @@ private:
     void rebindSequencers();
     void syncFromParameters();
     void renderTrack (int track, int numSamples);
-    void mixTrack (int track, float* left, float* right, int numSamples);
+
+    /// Fold a track into the buses it feeds: the drum bus or the direct bus, plus the sends.
+    void mixTrack (int track, int numSamples);
+
+    /// Isolator, master effect, pattern and master level.
+    void mixBusesToOutput (float* left, float* right, int numSamples);
+
+    /// Delay time in milliseconds, snapped to a tempo division when D.SY is on (p. 31).
+    float delayTimeMs() const noexcept;
+
     bool trackAudible (int track) const noexcept;
 
     /// The voice a trigger on this bank should reach.
@@ -122,6 +135,40 @@ private:
 
     std::array<dsp::StateVariableFilter, kNumTracks> filterLeft_;
     std::array<dsp::StateVariableFilter, kNumTracks> filterRight_;
+
+    //==========================================================================
+    // Buses, following the architecture on p. 112.
+    //
+    // The drum bus is separate from the direct bus because the isolator applies to the drum
+    // tracks alone (and optionally the loop track), and because the ducking compressor keys off
+    // it rather than off the mix it compresses.
+
+    struct StereoBus
+    {
+        std::vector<float> left, right;
+
+        void prepare (int size)
+        {
+            left.assign (static_cast<std::size_t> (size), 0.0f);
+            right.assign (static_cast<std::size_t> (size), 0.0f);
+        }
+
+        void clear (int numSamples)
+        {
+            std::fill_n (left.data(), numSamples, 0.0f);
+            std::fill_n (right.data(), numSamples, 0.0f);
+        }
+    };
+
+    StereoBus drumBus_;     ///< Tracks 1-9, and track 10 when ISO+LP is on
+    StereoBus directBus_;   ///< Everything that bypasses the isolator
+    StereoBus reverbSend_;
+    StereoBus delaySend_;
+
+    fx::Isolator isolator_;
+    fx::Reverb reverb_;
+    fx::TapeEcho delay_;
+    fx::MasterFx masterFx_;
 
     double sampleRate_ = 48000.0;
     int maxBlockSize_ = 512;

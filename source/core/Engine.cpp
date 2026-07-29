@@ -102,6 +102,14 @@ void Engine::prepare (double sampleRate, int maxBlockSize)
         }
     }
 
+    for (auto* bus : { &drumBus_, &directBus_, &reverbSend_, &delaySend_ })
+        bus->prepare (maxBlockSize_);
+
+    isolator_.prepare (sampleRate_);
+    reverb_.prepare (sampleRate_);
+    delay_.prepare (sampleRate_);
+    masterFx_.prepare (sampleRate_, maxBlockSize_);
+
     reset();
 }
 
@@ -123,6 +131,11 @@ void Engine::reset()
         filterLeft_[t].reset();
         filterRight_[t].reset();
     }
+
+    isolator_.reset();
+    reverb_.reset();
+    delay_.reset();
+    masterFx_.reset();
 }
 
 void Engine::start()
@@ -290,7 +303,7 @@ void Engine::renderTrack (int track, int numSamples)
     renderTo (numSamples);
 }
 
-void Engine::mixTrack (int track, float* left, float* right, int numSamples)
+void Engine::mixTrack (int track, int numSamples)
 {
     const auto t = static_cast<std::size_t> (track);
 
@@ -330,6 +343,16 @@ void Engine::mixTrack (int track, float* left, float* right, int numSamples)
 
     const auto pan = curves::panGains (view (ParamKind::TrackPan));
 
+    const auto reverbSend = curves::sendAmount (view (ParamKind::TrackReverbSend));
+    const auto delaySend = curves::sendAmount (view (ParamKind::TrackDelaySend));
+
+    // The isolator covers the drum tracks, and the loop track only when ISO+LP is on (p. 71).
+    const auto throughIsolator = track < kLoopTrack
+                              || (track == kLoopTrack
+                                  && parameters_.get (ParamKind::IsolatorOnLoop) != 0);
+
+    auto& bus = throughIsolator ? drumBus_ : directBus_;
+
     const auto* sourceLeft = trackLeft_[t].data();
     const auto* sourceRight = trackRight_[t].data();
 
@@ -344,8 +367,124 @@ void Engine::mixTrack (int track, float* left, float* right, int numSamples)
             r = filterRight_[t].process (r);
         }
 
-        left[i] += l * level * pan.left;
-        right[i] += r * level * pan.right;
+        l *= level * pan.left;
+        r *= level * pan.right;
+
+        bus.left[static_cast<std::size_t> (i)] += l;
+        bus.right[static_cast<std::size_t> (i)] += r;
+
+        // Sends are taken post-fader and post-pan, so riding a track's level takes its
+        // reverb and delay with it.
+        if (reverbSend > 0.0f)
+        {
+            reverbSend_.left[static_cast<std::size_t> (i)] += l * reverbSend;
+            reverbSend_.right[static_cast<std::size_t> (i)] += r * reverbSend;
+        }
+
+        if (delaySend > 0.0f)
+        {
+            delaySend_.left[static_cast<std::size_t> (i)] += l * delaySend;
+            delaySend_.right[static_cast<std::size_t> (i)] += r * delaySend;
+        }
+    }
+}
+
+//==============================================================================
+
+float Engine::delayTimeMs() const noexcept
+{
+    const auto raw = parameters_.get (ParamKind::DelayTime);
+    const auto tempo = static_cast<double> (parameters_.get (ParamKind::Tempo));
+    const auto quarterMs = 60000.0 / std::max (1.0, tempo);
+
+    if (parameters_.get (ParamKind::DelaySync) != 0)
+    {
+        // Snapped to a musical division. A tape echo locked to the grid is most of what makes
+        // a dub delay sit inside a pattern rather than smear across it.
+        //
+        // The manual does not list the sync divisions, so this set is chosen. It includes the
+        // dotted eighth, which is the classic dub delay and would be conspicuous by its
+        // absence. See docs/PARAMETERS.md.
+        static constexpr double kDivisions[] = {
+            0.125,        // 1/32
+            1.0 / 6.0,    // 1/16T
+            0.25,         // 1/16
+            1.0 / 3.0,    // 1/8T
+            0.5,          // 1/8
+            2.0 / 3.0,    // 1/4T
+            0.75,         // 1/8 dotted
+            1.0,          // 1/4
+            1.5,          // 1/4 dotted
+            2.0,          // 1/2
+            4.0           // 1/1
+        };
+
+        constexpr auto count = static_cast<int> (std::size (kDivisions));
+        const auto index = std::clamp (raw * count / (kRawMax + 1), 0, count - 1);
+
+        return static_cast<float> (kDivisions[index] * quarterMs);
+    }
+
+    return curves::timeMs (raw, 20.0f, 1500.0f);
+}
+
+void Engine::mixBusesToOutput (float* left, float* right, int numSamples)
+{
+    // ---- isolator, on the drum bus only -------------------------------------
+    isolator_.setBands (parameters_.get (ParamKind::IsolatorLow),
+                        parameters_.get (ParamKind::IsolatorMid),
+                        parameters_.get (ParamKind::IsolatorHigh));
+
+    isolator_.process (drumBus_.left.data(), drumBus_.right.data(), numSamples);
+
+    // ---- delay, which can feed the reverb ------------------------------------
+    delay_.setFeedback (parameters_.get (ParamKind::DelayFeedback));
+    delay_.setPingPong (parameters_.get (ParamKind::DelayPingPong) != 0);
+    delay_.setDelayMs (delayTimeMs());
+
+    const auto delayMix = curves::sendAmount (parameters_.get (ParamKind::DelayMix));
+    const auto delayToReverb = curves::sendAmount (parameters_.get (ParamKind::DelayToReverb));
+
+    delay_.process (delaySend_.left.data(), delaySend_.right.data(),
+                    directBus_.left.data(), directBus_.right.data(),
+                    reverbSend_.left.data(), reverbSend_.right.data(),
+                    numSamples, delayMix, delayToReverb);
+
+    // ---- reverb --------------------------------------------------------------
+    reverb_.setType (static_cast<ReverbType> (
+        std::clamp (parameters_.get (ParamKind::ReverbType), 0, 2)));
+
+    const auto reverbMix = curves::sendAmount (parameters_.get (ParamKind::ReverbMix));
+
+    reverb_.process (reverbSend_.left.data(), reverbSend_.right.data(),
+                     directBus_.left.data(), directBus_.right.data(),
+                     numSamples, reverbMix);
+
+    // ---- sum, then the master effect -----------------------------------------
+    for (int i = 0; i < numSamples; ++i)
+    {
+        left[i] = drumBus_.left[static_cast<std::size_t> (i)]
+                + directBus_.left[static_cast<std::size_t> (i)];
+        right[i] = drumBus_.right[static_cast<std::size_t> (i)]
+                 + directBus_.right[static_cast<std::size_t> (i)];
+    }
+
+    masterFx_.setType (static_cast<MasterFxType> (
+        std::clamp (parameters_.get (ParamKind::MasterFxType), 0, kNumMasterFxTypes - 1)));
+    masterFx_.setAmount (parameters_.get (ParamKind::MasterFxAmount));
+    masterFx_.setTempo (static_cast<double> (parameters_.get (ParamKind::Tempo)));
+    masterFx_.setEnabled (parameters_.get (ParamKind::MasterFxEnabled) != 0);
+
+    // Ducking keys off the drum bus, not off the mix it is compressing.
+    masterFx_.process (left, right, drumBus_.left.data(), drumBus_.right.data(), numSamples);
+
+    const auto gain = curves::levelGain (parameters_.get (ParamKind::PatternLevel))
+                    * curves::levelGain (parameters_.get (ParamKind::MasterVolume));
+
+    for (int i = 0; i < numSamples; ++i)
+    {
+        left[i] *= gain;
+        right[i] *= gain;
     }
 }
 
@@ -387,23 +526,18 @@ void Engine::process (float* left, float* right, int numSamples)
                    { return a.sampleOffset < b.sampleOffset; });
     }
 
+    for (auto* bus : { &drumBus_, &directBus_, &reverbSend_, &delaySend_ })
+        bus->clear (numSamples);
+
     for (int track = 0; track < kNumTracks; ++track)
     {
         renderTrack (track, numSamples);
-        mixTrack (track, left, right, numSamples);
+        mixTrack (track, numSamples);
     }
+
+    mixBusesToOutput (left, right, numSamples);
 
     transport_.endBlock();
-
-    const auto patternLevel = curves::levelGain (parameters_.get (ParamKind::PatternLevel));
-    const auto masterLevel = curves::levelGain (parameters_.get (ParamKind::MasterVolume));
-    const auto gain = patternLevel * masterLevel;
-
-    for (int i = 0; i < numSamples; ++i)
-    {
-        left[i] *= gain;
-        right[i] *= gain;
-    }
 }
 
 } // namespace bud

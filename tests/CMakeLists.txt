@@ -7,6 +7,7 @@ add_executable(BudCoreTests
     GrooveTests.cpp
     DspTests.cpp
     EngineTests.cpp
+    FxTests.cpp
 )
 
 target_link_libraries(BudCoreTests PRIVATE Bud::Core)

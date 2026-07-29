@@ -42,6 +42,18 @@ public:
         update();
     }
 
+    /// Set Q directly.
+    ///
+    /// Crossovers need an exact Q — a Linkwitz-Riley pair is two cascaded Butterworth sections
+    /// at Q = 0.7071, which puts each output 6 dB down at the corner so the two sum flat. Going
+    /// through setResonance to reach a specific Q means depending on its mapping, which is
+    /// tuned for musical sweeps rather than for hitting a number.
+    void setQ (float q)
+    {
+        q_ = std::max (0.05f, q);
+        update();
+    }
+
     void setMode (Mode m) noexcept { mode_ = m; }
 
     void reset() noexcept

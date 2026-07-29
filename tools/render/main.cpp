@@ -147,6 +147,28 @@ void buildDemoPattern (Engine& engine)
     params.set (ParamKind::BassDrive, kBassTrack, 46);
     params.set (ParamKind::BassLevel, kBassTrack, 96);
     params.set (ParamKind::BassGlideCurve, kBassTrack, 80);
+
+    // ---- sends --------------------------------------------------------------
+    params.set (ParamKind::TrackReverbSend, 2, 60);    // snare
+    params.set (ParamKind::TrackReverbSend, 3, 74);    // clap
+    params.set (ParamKind::TrackReverbSend, 6, 50);    // tom
+    params.set (ParamKind::TrackDelaySend, 4, 46);     // closed hats
+    params.set (ParamKind::TrackDelaySend, 8, 80);     // percussion
+    params.set (ParamKind::TrackDelaySend, 5, 40);     // open hat
+
+    // ---- send effects -------------------------------------------------------
+    params.set (ParamKind::ReverbType, static_cast<int> (ReverbType::Plate));
+    params.set (ParamKind::ReverbMix, 74);
+
+    params.set (ParamKind::DelaySync, 1);
+    params.set (ParamKind::DelayTime, 70);             // dotted eighth
+    params.set (ParamKind::DelayFeedback, 76);
+    params.set (ParamKind::DelayPingPong, 1);
+    params.set (ParamKind::DelayToReverb, 54);         // repeats wash into the plate
+    params.set (ParamKind::DelayMix, 68);
+
+    // ---- isolator, lifting the top a little ---------------------------------
+    params.set (ParamKind::IsolatorHigh, 12);
 }
 
 int usage()

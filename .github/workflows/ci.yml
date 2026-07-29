@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The engine has no framework dependency, so it builds and tests on a bare Linux runner with
+  # nothing installed beyond a compiler. That is the whole point of keeping JUCE out of core:
+  # the sound engine stays verifiable without a Mac.
+  engine:
+    name: Engine (${{ matrix.compiler }}, ${{ matrix.build_type }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+        build_type: [Debug, Release]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select compiler
+        run: |
+          if [ "${{ matrix.compiler }}" = "clang" ]; then
+            echo "CC=clang"   >> "$GITHUB_ENV"
+            echo "CXX=clang++" >> "$GITHUB_ENV"
+          else
+            echo "CC=gcc"   >> "$GITHUB_ENV"
+            echo "CXX=g++"  >> "$GITHUB_ENV"
+          fi
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      # Rendering exercises the whole instrument end to end — sequencer, every voice, the factory
+      # generator and the mixer — and catches anything that leaves the output silent, clipped or
+      # full of NaNs without a single unit test having to assert it.
+      - name: Render smoke test
+        run: |
+          ./build/tools/bud-render --out demo-minimal.wav --bars 4 --feel minimal
+          ./build/tools/bud-render --out demo-808.wav     --bars 4 --feel 808
+          ./build/tools/bud-render --out demo-909.wav     --bars 4 --feel 909 --tempo 138
+
+      - name: Upload rendered audio
+        if: matrix.compiler == 'gcc' && matrix.build_type == 'Release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendered-demos
+          path: demo-*.wav
+          retention-days: 14
+
+  # A release build with the sanitisers on. Kept separate because they slow the tests down enough
+  # that running them on every matrix entry would not be worth it.
+  sanitisers:
+    name: Sanitisers
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        env:
+          CXX: clang++
+        run: >
+          cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        env:
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ctest --test-dir build --output-on-failure
+
+  # Placeholder for the Apple targets. It runs as soon as BUD_BUILD_PLUGIN exists and produces
+  # something; until then it reports that there is nothing to build rather than failing, so the
+  # workflow is already in place when the JUCE targets land.
+  apple:
+    name: macOS (standalone, AU, VST3)
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for plugin targets
+        id: check
+        run: |
+          if [ -d source/plugin ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "No plugin targets yet — the engine job covers everything that exists."
+          fi
+
+      - name: Configure
+        if: steps.check.outputs.ready == 'true'
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUD_BUILD_PLUGIN=ON
+
+      - name: Build
+        if: steps.check.outputs.ready == 'true'
+        run: cmake --build build -j
+
+      - name: Validate the audio unit
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          # auval needs the component registered, so copy it into the user component folder.
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          find build -name '*.component' -maxdepth 6 -exec cp -R {} ~/Library/Audio/Plug-Ins/Components/ \;
+          killall -9 AudioComponentRegistrar || true
+          auval -a
+          auval -v aumu Bud1 Budd
+
+      # Engine tests also run here, because the macOS toolchain is the one the shipped build uses
+      # and Apple clang differs from the Linux compilers often enough to matter.
+      - name: Test the engine on macOS
+        if: steps.check.outputs.ready == 'true'
+        run: ctest --test-dir build --output-on-failure

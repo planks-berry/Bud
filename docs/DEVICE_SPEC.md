@@ -87,7 +87,7 @@ everything else is constant.
 | SY / BS / FX | Sound select | LPF/HPF | Decay curve | Attack time | Decay time | Level |
 | S2, S4 (T7–9) | Sound select | LPF/HPF | Slope | Start position | Length | Level |
 | S8 (T10) | Sound select | LPF/HPF | Loop: X-fade / One-shot: Slope | Start position | Length | Level |
-| BASS (T11) | OSC waveform | Sub OSC octave | Decay curve (S01: OSC mix) | Glide time | Gate time | Sub OSC level |
+| BASS (T11) **[p.77]** | OSC waveform | Sub OSC octave | Glide time | Filter env curve (S01: OSC mix) | Gate time | Sub OSC level |
 
 `TONE` as a filter is a **single bipolar knob**: `LPF50 – FLT OFF – HPF50` (p. 65). Turning one
 way attenuates highs, the other attenuates lows, with the filter bypassed at centre.
@@ -116,7 +116,9 @@ A dedicated knob section, independent of `SOUND`, so it can be edited alongside 
 | LEVEL | Bass track level |
 
 - Oscillator: SAW, SQUARE, TRIANGLE, RECTANGLE, plus `S01` (p. 116)
-- Sine sub-oscillator, range −2 / −1 / UNISON, bypasses the filter and sends
+- Tune spans **−60 … 0 … +60**, wider than the ±24 semitones every other track gets (p. 77)
+- Sine sub-oscillator, octave −2 / −1 / 0, bypasses the filter and sends
+- Gate time spans **10–90 %** of the step (p. 77)
 - 4-pole acid-style ladder low-pass with resonance and envelope amount
 - Monophonic; glide entered per step, with glide time and glide curve (0 = downward curve,
   higher = more linear) (p. 76)
@@ -327,5 +329,12 @@ Recorded so they do not resurface as bugs:
 - **TONE description** — p. 66 and p. 67 describe TONE as "adjusts the pitch of the
   sub-oscillator" while their own column headers say LPF/HPF, and the surrounding text describes
   filter behaviour. Treating the body text as a copy-paste error and taking **LPF/HPF**.
+- **Bass MOVE and ATTACK are swapped between p. 62 and p. 77.** The knob matrix on p. 62 gives
+  MOVE as the decay curve and ATTACK as the glide time; the bass chapter on p. 77 gives the
+  reverse, and does so twice — once in its own table and once in prose ("the ATTACK knob controls
+  the mix balance between the sawtooth and square wave oscillators"). Taking **p. 77**: two
+  independent statements that agree with each other outweigh one that does not, and p. 77 is the
+  chapter dedicated to the bass track. p. 77 is also the only place that gives the bass tune and
+  gate-time ranges, which p. 62 omits entirely.
 - Sample type selection on p. 81 labels option C as "ARM. S8 Mono (8 seconds)", but S8 is stereo
   everywhere else (p. 67, 116). Taking **stereo**.

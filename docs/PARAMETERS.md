@@ -186,16 +186,21 @@ As S2/S4, except MOVE depends on playback mode *(Measured, p. 62, 69)*:
 
 ### BASS (track 11)
 
-Track-row knobs *(Measured, p. 62, 77)*:
+Track-row knobs. **Taken from p. 77, which contradicts p. 62** — see
+[Manual discrepancies](DEVICE_SPEC.md#manual-discrepancies).
 
 | Knob | Meaning | Maps to | Source |
 |---|---|---|---|
-| SOUND | OSC waveform | `SAW SQR TRI RECT S01` | Measured p. 116 |
-| TONE | Sub OSC octave | `−2`, `−1`, `UNISON` | Measured p. 116 |
-| MOVE | Decay curve (S01: OSC mix) | −50…0…+50 / 0–1 mix | Measured p. 62, 77 |
-| ATTACK | Glide time (S01: saw/square mix) | `T(v, 5 ms, 400 ms)` / 0–1 | Measured p. 62, 77 |
-| DECAY | Gate time | 5–100 % of step | Chosen |
-| LEVEL | Sub OSC level | `L(v)` | Measured p. 62 |
+| SOUND | OSC waveform | `SAW SQR TRI RECT S01` | Measured p. 77, 116 |
+| TUNE | Oscillator tune | −60 … 0 … +60 | Measured p. 77 |
+| TONE | Sub OSC octave | `−2`, `−1`, `0` (unison) | Measured p. 77 |
+| MOVE | Glide time | `T(v, 5 ms, 400 ms)` | Measured p. 77 |
+| ATTACK | Filter envelope curve (S01: oscillator mix `SAW50 – C – SQR50`) | 0–1 curve / 0–1 mix | Measured p. 77 |
+| DECAY | Gate time | 10–90 % of step | Measured p. 77 |
+| LEVEL | Sub OSC level | `L(v)` | Measured p. 77 |
+
+Bass TUNE spans ±60 rather than the ±24 semitones the shared `tuneSemitones` law gives every
+other track, so the bass voice scales it separately.
 
 Dedicated bass knobs, all 0–127 *(Measured, p. 73–75)*:
 
@@ -273,7 +278,7 @@ than an EQ.
 | Reverb type | `ROOM` `HALL` `PLAT` | — |
 | Reverb mix | 0–127 | `S(v)` |
 | Delay mix | 0–127 | `S(v)` |
-| Delay TIME | 0–127 | `T(v, 20 ms, 1500 ms)`, or a tempo division when `D.SY` is on *(Chosen)* |
+| Delay TIME | 0–127 | `T(v, 20 ms, 1500 ms)` free, or a tempo division when `D.SY` is on |
 | Delay F.BACK | 0–127 | 0 … 0.95 *(Chosen)* |
 | `D>R` | 0–127 | `S(v)` |
 | `D.PP` | OFF/ON | ping-pong |
