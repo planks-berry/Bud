@@ -21,8 +21,5 @@ xcuserdata/
 # Generated factory content (produced by tools/factory_gen at build time)
 resources/factory/generated/
 
-# Reference material is user-supplied and not redistributable
-docs/reference/*.pdf
-
 # Test scratch output
 tests/output/
