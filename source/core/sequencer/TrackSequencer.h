@@ -2,6 +2,7 @@
 
 #include "../Transport.h"
 #include "../Types.h"
+#include "../params/ParameterSet.h"
 #include "Groove.h"
 #include "Pattern.h"
 #include "Step.h"
@@ -15,36 +16,37 @@ namespace bud
 struct TriggerEvent
 {
     int track = 0;
+    SoundBank bank = SoundBank::BD;
 
-    /// Offset within the current block. Fractional — voices should honour the sub-sample part,
-    /// because that fraction is where the FEEL drift lives.
+    /// Offset within the current block. Fractional — the sub-sample part is where the FEEL
+    /// drift lives.
     double sampleOffset = 0.0;
 
     /// Musical position this trigger actually landed on, drift included.
     double ppq = 0.0;
 
-    float velocity = 1.0f;      ///< 0-1, after accent, random velocity and drift level
+    float velocity = 1.0f;      ///< 0-1, after accent, random velocity and bank scaling
     Accent accent = Accent::Normal;
 
-    int note = 0;               ///< Semitone offset for pitched voices
-    float pitchCents = 0.0f;    ///< FEEL pitch drift
+    int note = 0;               ///< Semitone offset for pitched voices, transpose included
+    float pitchCents = 0.0f;    ///< FEEL pitch drift; hi-hats only
 
-    bool slide = false;
+    bool glide = false;
     bool tie = false;
+    bool retrigger = false;
 
     int stepIndex = 0;
     int chainIndex = 0;
     Variation variation = Variation::A;
 
-    int subStep = 0;            ///< 0-based index within the step's retriggers
+    int subStep = 0;            ///< Index within the step's sub-step figure
     int numSubSteps = 1;
 
-    /// Length of one step in samples at the current tempo. Voices need it for gate time,
-    /// which is expressed as a proportion of the step rather than an absolute duration.
+    /// Length of one step in samples at the current tempo. Voices need it for gate time, which
+    /// is a proportion of the step rather than an absolute duration.
     double stepDurationSamples = 0.0;
 
-    /// Parameter locks for this step, or nullptr. Points into the pattern; valid for as long
-    /// as the pattern outlives the event.
+    /// Parameter locks for this step, or nullptr. Points into the pattern.
     const PlockMap* locks = nullptr;
 };
 
@@ -52,15 +54,15 @@ struct TriggerEvent
 
 /** One track's playback head.
 
-    Tracks advance independently — each has its own step length, time division and rotation —
-    so eleven of these run in parallel over a shared transport, producing the device's
-    polymetric behaviour naturally.
+    Tracks advance independently — each has its own step length, note length and rotation — so
+    eleven of these run in parallel over a shared transport, which is what produces the device's
+    polymetric behaviour.
 
     Scheduling is two-stage. Nominal step times are consumed slightly ahead of the block, then
-    each is offset by swing, manual nudge and FEEL drift to produce its *actual* time and
-    parked in a pending queue. Only events whose actual time lands inside the block are
-    emitted. Without that lookahead, a step drifting backwards across a block boundary would
-    be lost and one drifting forwards would fire twice.
+    offset by swing, nudge and FEEL drift to produce their *actual* times and parked in a pending
+    queue. Only events whose actual time lands inside the block are emitted. Without that
+    lookahead, a step drifting backwards across a block boundary would be lost and one drifting
+    forwards would fire twice.
 */
 class TrackSequencer
 {
@@ -75,7 +77,7 @@ public:
     void reset() noexcept;
 
     /// Append every trigger landing inside the transport's current block.
-    void collectEvents (const Transport&, const Groove&, float globalSwing,
+    void collectEvents (const Transport&, const Groove&, const ParameterSet&,
                         std::vector<TriggerEvent>& out);
 
     int trackIndex()      const noexcept { return track_; }
@@ -87,24 +89,21 @@ public:
     int playheadStep() const noexcept { return playheadStep_; }
 
 private:
-    /// Turn the next nominal step into pending events and advance the playback head.
-    void consumeStep (const Groove&, double stepQuarterNotes, float globalSwing,
-                      double samplesPerQuarterNote);
+    void consumeStep (const Groove&, const ParameterSet&, double stepQuarterNotes,
+                      double samplesPerQuarterNote, double tempo);
 
-    void advanceHead() noexcept;
+    void advanceHead (int stepLength) noexcept;
 
     /// Nominal (undrifted) musical time of the next step.
     ///
-    /// Derived from a step count against an anchor rather than accumulated step by step, so
-    /// that divisions which are not exactly representable in binary — triplets, when they
-    /// arrive — cannot accumulate error over a long performance.
+    /// Derived from a step count against an anchor rather than accumulated step by step. The
+    /// device's note lengths include triplets and dotted values, which are not exactly
+    /// representable in binary, so accumulation would drift over a long performance.
     double nextStepPpq (double stepQuarterNotes) const noexcept
     {
         return originPpq_ + static_cast<double> (stepsSinceOrigin_) * stepQuarterNotes;
     }
 
-    /// Re-pin the anchor to the current step time, so a live division change takes effect
-    /// from here rather than retroactively rescaling the phrase.
     void reanchor (double previousStepQuarterNotes, StepDivision newDivision) noexcept;
 
     const TrackPattern* pattern_ = nullptr;

@@ -9,11 +9,15 @@
 namespace bud
 {
 
-/** One track's worth of a pattern: four variations plus that track's sequencer settings.
+/** One track's sequence within a pattern.
 
-    Length, division, rotation and swing are per track, which is what lets tracks run
-    polymetrically against one another — a 12-step hi-hat over a 16-step kick, or a hat at
-    1/32 against a kick at 1/16.
+    Holds only what is structural: the steps themselves, which variations are chained, and the
+    phrase rotation. Everything adjustable by a knob — note length, step length, swing, random
+    velocity, sound, level — lives in ParameterSet, so there is exactly one source of truth for
+    a parameter value.
+
+    Saving a pattern (a later milestone) snapshots the relevant parameters alongside this data,
+    which is how the hardware behaves: selecting a pattern reloads its sound settings.
 */
 struct TrackPattern
 {
@@ -21,27 +25,14 @@ struct TrackPattern
 
     std::array<StepArray, kNumVariations> variations {};
 
-    /// Active steps per variation, 1 to 16.
-    int stepLength = kStepsPerVariation;
-
-    /// Time occupied by one step.
-    StepDivision division = StepDivision::Sixteenth;
-
-    /// Phrase rotation, in steps. Positive rotates the phrase later.
-    int rotation = 0;
-
-    /// Per-track swing, -0.5 to +0.5, delaying (or advancing) odd-numbered steps.
-    float swing = 0.0f;
-
-    /// Per-track random velocity amount, 0 to 1.
-    float randomVelocity = 0.0f;
-
     /// The variations this track plays, in order. Length 1 to kNumVariations.
     std::array<Variation, kNumVariations> chain { Variation::A, Variation::B,
                                                   Variation::C, Variation::D };
     int chainLength = 1;
 
-    bool muted = false;
+    /// Phrase rotation, in steps. Positive moves the phrase later. Not saved with the pattern
+    /// (p. 55) and applied as a read offset, so it can be swept during playback.
+    int rotation = 0;
 
     //==========================================================================
 
@@ -49,34 +40,27 @@ struct TrackPattern
     const StepArray& variation (Variation v) const noexcept;
 
     /// The step at a position in the chained sequence, with rotation applied.
-    Step& stepAt (int chainIndex, int stepIndex) noexcept;
-    const Step& stepAt (int chainIndex, int stepIndex) const noexcept;
-
-    /// Total steps in one pass of the chain.
-    int totalSteps() const noexcept { return stepLength * chainLength; }
+    /// `stepLength` comes from the parameter set, so it is passed in.
+    Step& stepAt (int chainIndex, int stepIndex, int stepLength) noexcept;
+    const Step& stepAt (int chainIndex, int stepIndex, int stepLength) const noexcept;
 
     void clear();
     void clearVariation (Variation);
     void copyVariation (Variation from, Variation to);
 
-    /// Rotate the stored steps of a variation in place, leaving `rotation` untouched.
-    /// Use this for a destructive rotate; use `rotation` for a non-destructive one.
-    void rotateVariationInPlace (Variation, int amount);
+    /// Destructively rotate the stored steps of a variation, as opposed to the non-destructive
+    /// `rotation` read offset.
+    void rotateVariationInPlace (Variation, int amount, int stepLength);
 
     void setChain (std::initializer_list<Variation>);
 };
 
 //==============================================================================
 
-/** A pattern: all eleven tracks, plus the settings stored with it. */
+/** A pattern: all eleven tracks' sequences, plus its name. */
 struct Pattern
 {
     std::array<TrackPattern, kNumTracks> tracks {};
-
-    double tempo = 128.0;
-    float globalSwing = 0.0f;
-    FeelModel feel = FeelModel::Minimal;
-    float feelDepth = 0.5f;
     std::string name;
 
     void clear();
@@ -87,7 +71,11 @@ struct Pattern
 
 //==============================================================================
 
-/** The 128-pattern bank. */
+/** The pattern store: 8 banks of 16 (p. 17).
+
+    Patterns are addressed either by a flat 0-127 index or by bank and slot; the hardware
+    presents the latter, so both are offered.
+*/
 class PatternBank
 {
 public:
@@ -95,6 +83,16 @@ public:
 
     Pattern& pattern (int index) noexcept;
     const Pattern& pattern (int index) const noexcept;
+
+    Pattern& pattern (int bank, int slot) noexcept { return pattern (flatIndex (bank, slot)); }
+
+    static constexpr int flatIndex (int bank, int slot) noexcept
+    {
+        return bank * kPatternsPerBank + slot;
+    }
+
+    static constexpr int bankOf (int index) noexcept { return index / kPatternsPerBank; }
+    static constexpr int slotOf (int index) noexcept { return index % kPatternsPerBank; }
 
     static constexpr int size() noexcept { return kNumPatterns; }
 

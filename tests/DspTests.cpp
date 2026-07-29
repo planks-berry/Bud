@@ -450,20 +450,43 @@ BUD_TEST (Dsp, wavRejectsGarbage)
 
 BUD_TEST (Dsp, sampleBankDimensionsMatchTheDevice)
 {
-    CHECK_EQ (slotCount (BankId::S2), 32);
-    CHECK_EQ (slotCount (BankId::S4), 16);
-    CHECK_EQ (slotCount (BankId::S8), 12);
+    // Slot counts and lengths follow the device (p. 67, 116).
+    CHECK_EQ (userSlotCount (SoundBank::S2), 32);
+    CHECK_EQ (userSlotCount (SoundBank::S4), 16);
+    CHECK_EQ (userSlotCount (SoundBank::S8), 12);
 
-    CHECK_EQ (maxSeconds (BankId::S2), 2.0);
-    CHECK_EQ (maxSeconds (BankId::S4), 4.0);
-    CHECK_EQ (maxSeconds (BankId::S8), 8.0);
+    CHECK_EQ (userMaxSeconds (SoundBank::S2), 2.0);
+    CHECK_EQ (userMaxSeconds (SoundBank::S4), 4.0);
+    CHECK_EQ (userMaxSeconds (SoundBank::S8), 8.0);
 
-    CHECK (! isStereo (BankId::S2));
-    CHECK (! isStereo (BankId::S4));
-    CHECK (isStereo (BankId::S8));
+    // Only the loop bank is stereo.
+    CHECK (! userBankIsStereo (SoundBank::S2));
+    CHECK (! userBankIsStereo (SoundBank::S4));
+    CHECK (userBankIsStereo (SoundBank::S8));
 
     // Out-of-range slot indices clamp rather than reading past the end.
-    SampleLibrary library;
-    library.bank (BankId::S8).slot (999).name = "clamped";
-    CHECK_EQ (library.bank (BankId::S8).slot (11).name, std::string ("clamped"));
+    SoundLibrary library;
+    library.userSlot (SoundBank::S8, 999).name = "clamped";
+    CHECK_EQ (library.userSlot (SoundBank::S8, 11).name, std::string ("clamped"));
+}
+
+BUD_TEST (Dsp, soundLibraryRoutesUserAndFactoryBanks)
+{
+    SoundLibrary library;
+
+    // An empty slot reports nothing rather than a silent buffer.
+    CHECK (library.find (SoundBank::S2, 0) == nullptr);
+
+    library.userSlot (SoundBank::S2, 3).left.assign (64, 0.25f);
+    CHECK (library.find (SoundBank::S2, 3) != nullptr);
+
+    // A factory bank wraps rather than dead-zoning the top of the SOUND knob.
+    auto& kicks = library.factory (SoundBank::BD);
+    kicks.resize (4);
+    for (auto& k : kicks)
+        k.left.assign (32, 0.5f);
+
+    CHECK (library.find (SoundBank::BD, 0) == library.find (SoundBank::BD, 4));
+    CHECK (library.find (SoundBank::BD, 1) == library.find (SoundBank::BD, 5));
+    CHECK (library.find (SoundBank::BD, 127) != nullptr);
 }

@@ -5,12 +5,25 @@
 namespace bud
 {
 
-void PlockMap::set (ParamId id, float value)
+namespace
 {
-    const auto clamped = clampToRange (kindOf (id), value);
+    auto findEntry (auto& entries, ParamId id)
+    {
+        return std::lower_bound (entries.begin(), entries.end(), id,
+                                 [] (const PlockEntry& e, ParamId target) { return e.id < target; });
+    }
+}
 
-    auto it = std::lower_bound (entries_.begin(), entries_.end(), id,
-                                [] (const PlockEntry& e, ParamId target) { return e.id < target; });
+void PlockMap::set (ParamId id, int value)
+{
+    // The hardware excludes accent, isolator, MFX, reverb, delay, swing and master from
+    // parameter locking (p. 44). Enforcing it here means no caller can create a lock the device
+    // could not, however the value arrived.
+    if (! paramInfo (kindOf (id)).plockable)
+        return;
+
+    const auto clamped = clampToRange (kindOf (id), value);
+    auto it = findEntry (entries_, id);
 
     if (it != entries_.end() && it->id == id)
         it->value = clamped;
@@ -20,17 +33,15 @@ void PlockMap::set (ParamId id, float value)
 
 void PlockMap::clear (ParamId id)
 {
-    auto it = std::lower_bound (entries_.begin(), entries_.end(), id,
-                                [] (const PlockEntry& e, ParamId target) { return e.id < target; });
+    auto it = findEntry (entries_, id);
 
     if (it != entries_.end() && it->id == id)
         entries_.erase (it);
 }
 
-const float* PlockMap::find (ParamId id) const noexcept
+const int* PlockMap::find (ParamId id) const noexcept
 {
-    auto it = std::lower_bound (entries_.begin(), entries_.end(), id,
-                                [] (const PlockEntry& e, ParamId target) { return e.id < target; });
+    auto it = findEntry (entries_, id);
 
     if (it != entries_.end() && it->id == id)
         return &it->value;
@@ -50,11 +61,11 @@ bool Step::isDefault() const noexcept
     return ! gate
         && accent == Accent::Normal
         && velocity == 100
-        && subSteps == 1
-        && microShift == 0.0f
+        && subStep == SubStepPattern::Off
         && note == 0
-        && ! slide
+        && ! glide
         && ! tie
+        && ! retrigger
         && locks.empty();
 }
 

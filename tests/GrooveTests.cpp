@@ -18,13 +18,22 @@ namespace
         return g;
     }
 
-    /// Peak absolute timing drift a track shows over a long span.
-    double peakTimingDrift (const Groove& g, int track, int steps = 4096)
+    double peakTimingDrift (const Groove& g, SoundBank bank, int track, int steps = 4096)
     {
         double peak = 0.0;
 
         for (int i = 0; i < steps; ++i)
-            peak = std::max (peak, std::abs (g.compute (track, i).timingQuarterNotes));
+            peak = std::max (peak, std::abs (g.compute (bank, track, i).timingQuarterNotes));
+
+        return peak;
+    }
+
+    float peakPitchDrift (const Groove& g, SoundBank bank, int track, int steps = 4096)
+    {
+        float peak = 0.0f;
+
+        for (int i = 0; i < steps; ++i)
+            peak = std::max (peak, std::abs (g.compute (bank, track, i).pitchCents));
 
         return peak;
     }
@@ -39,12 +48,12 @@ BUD_TEST (Groove, isFullyDeterministic)
     {
         for (int track = 0; track < kNumTracks; ++track)
         {
-            const auto x = a.compute (track, step);
-            const auto y = b.compute (track, step);
+            const auto bank = trackInfo (track).defaultBank;
+            const auto x = a.compute (bank, track, step);
+            const auto y = b.compute (bank, track, step);
 
-            CHECK_NEAR (x.timingQuarterNotes, y.timingQuarterNotes, 0.0);
-            CHECK_NEAR (x.pitchCents, y.pitchCents, 0.0);
-            CHECK_NEAR (x.levelScale, y.levelScale, 0.0);
+            CHECK_EQ (x.timingQuarterNotes, y.timingQuarterNotes);
+            CHECK_EQ (x.pitchCents, y.pitchCents);
         }
     }
 }
@@ -54,116 +63,172 @@ BUD_TEST (Groove, zeroDepthLocksEverythingToTheGrid)
     auto g = makeGroove (FeelModel::Minimal, 0.0f);
 
     for (int step = 0; step < 128; ++step)
-    {
         for (int track = 0; track < kNumTracks; ++track)
         {
-            const auto d = g.compute (track, step);
+            const auto d = g.compute (trackInfo (track).defaultBank, track, step);
             CHECK_EQ (d.timingQuarterNotes, 0.0);
             CHECK_EQ (d.pitchCents, 0.0f);
-            CHECK_EQ (d.levelScale, 1.0f);
         }
-    }
 
     CHECK_EQ (g.maxTimingDriftQuarterNotes(), 0.0);
 }
 
-BUD_TEST (Groove, seedChangesTheDrift)
+BUD_TEST (Groove, exemptBanksAreCompletelyUntouched)
 {
-    auto a = makeGroove (FeelModel::Minimal);
-    auto b = makeGroove (FeelModel::Minimal);
-    b.setSeed (0xabcd'1234u);
+    // FX and every sample bank are "not affected by Feel" (p. 61) — not merely lightly
+    // affected. Nothing at all should move.
+    for (auto model : { FeelModel::M808, FeelModel::M909, FeelModel::Minimal })
+    {
+        auto g = makeGroove (model);
 
-    bool differed = false;
-    for (int step = 0; step < 128 && ! differed; ++step)
-        if (std::abs (a.compute (4, step).timingQuarterNotes
-                      - b.compute (4, step).timingQuarterNotes) > 1.0e-9)
-            differed = true;
-
-    CHECK (differed);
+        for (auto bank : { SoundBank::FX, SoundBank::S2, SoundBank::S4, SoundBank::S8,
+                           SoundBank::BASS })
+        {
+            for (int step = 0; step < 256; ++step)
+            {
+                const auto d = g.compute (bank, 0, step);
+                CHECK_EQ (d.timingQuarterNotes, 0.0);
+                CHECK_EQ (d.pitchCents, 0.0f);
+            }
+        }
+    }
 }
 
-BUD_TEST (Groove, tracksDriftIndependently)
+BUD_TEST (Groove, pitchModulationBelongsToTheHiHatsAlone)
 {
-    // Per-voice drift, not a global swing: two voices must not move together.
-    auto g = makeGroove (FeelModel::M808);
+    // 08 and MN "randomly modulate the hi-hat pitch" (p. 54); nothing else is pitched by FEEL.
+    for (auto model : { FeelModel::M808, FeelModel::Minimal })
+    {
+        auto g = makeGroove (model);
 
-    bool differed = false;
-    for (int step = 0; step < 128 && ! differed; ++step)
-        if (std::abs (g.compute (4, step).timingQuarterNotes
-                      - g.compute (5, step).timingQuarterNotes) > 1.0e-9)
-            differed = true;
+        CHECK (peakPitchDrift (g, SoundBank::HH_CY, 4) > 0.0f);
 
-    CHECK (differed);
+        for (auto bank : { SoundBank::BD, SoundBank::SD, SoundBank::CP, SoundBank::TT,
+                           SoundBank::PC, SoundBank::ST, SoundBank::SY_BS })
+            CHECK_EQ (peakPitchDrift (g, bank, 0), 0.0f);
+    }
 }
 
-BUD_TEST (Groove, theKickStaysTighterThanTheHats)
+BUD_TEST (Groove, minimalMovesHatPitchFurtherThan808)
 {
-    // The pulse-carrying voices are deliberately more locked than the ornamental ones.
+    // MN applies "large random pitch variations to the hi-hat"; 08 merely "randomly modulates"
+    // it (p. 54).
+    auto m808 = makeGroove (FeelModel::M808);
+    auto minimal = makeGroove (FeelModel::Minimal);
+
+    CHECK (peakPitchDrift (minimal, SoundBank::HH_CY, 4)
+           > peakPitchDrift (m808, SoundBank::HH_CY, 4));
+}
+
+BUD_TEST (Groove, m909HasNoPitchModulationAtAll)
+{
+    // 09 is described purely in terms of timing (p. 54).
+    auto g = makeGroove (FeelModel::M909);
+    CHECK_EQ (peakPitchDrift (g, SoundBank::HH_CY, 4), 0.0f);
+}
+
+BUD_TEST (Groove, m808AppliesAUniformDelay)
+{
+    // "uniformly delaying the entire rhythm" — the shared component must be a delay, so the
+    // average offset across many steps is positive rather than centred on zero.
     auto g = makeGroove (FeelModel::M808);
 
-    const auto kick = peakTimingDrift (g, 0);
-    const auto hat = peakTimingDrift (g, 4);
-    const auto loop = peakTimingDrift (g, kLoopTrack);
+    double sum = 0.0;
+    const int steps = 4096;
 
-    CHECK (kick < hat);
-    CHECK (loop < hat);
+    for (int i = 0; i < steps; ++i)
+        sum += g.compute (SoundBank::BD, 0, i).timingQuarterNotes;
+
+    CHECK (sum / steps > 0.0);
+}
+
+BUD_TEST (Groove, m909IsCentredJitterRatherThanADelay)
+{
+    // "applying slight random offsets to the note timing" — no systematic delay.
+    auto g = makeGroove (FeelModel::M909);
+
+    double sum = 0.0;
+    const int steps = 8192;
+
+    for (int i = 0; i < steps; ++i)
+        sum += g.compute (SoundBank::SD, 2, i).timingQuarterNotes;
+
+    const auto mean = std::abs (sum / steps);
+    CHECK (mean < g.maxTimingDriftQuarterNotes() * 0.1);
+}
+
+BUD_TEST (Groove, uniformComponentMovesEveryVoiceTogether)
+{
+    // Under MN the shared wander is what makes the whole rhythm move as one, so two voices on
+    // the same bank must stay correlated rather than wandering independently.
+    auto minimal = makeGroove (FeelModel::Minimal);
+
+    double sharedAgreement = 0.0;
+    const int steps = 512;
+
+    for (int i = 0; i < steps; ++i)
+    {
+        const auto a = minimal.compute (SoundBank::SD, 2, i).timingQuarterNotes;
+        const auto b = minimal.compute (SoundBank::SD, 3, i).timingQuarterNotes;
+        sharedAgreement += (a > 0.0) == (b > 0.0) ? 1.0 : 0.0;
+    }
+
+    // With a dominant shared component the two agree in sign far more often than chance.
+    CHECK (sharedAgreement / steps > 0.7);
+
+    // Under 09, which has no shared component, they should not.
+    auto m909 = makeGroove (FeelModel::M909);
+    double jitterAgreement = 0.0;
+
+    for (int i = 0; i < steps; ++i)
+    {
+        const auto a = m909.compute (SoundBank::SD, 2, i).timingQuarterNotes;
+        const auto b = m909.compute (SoundBank::SD, 3, i).timingQuarterNotes;
+        jitterAgreement += (a > 0.0) == (b > 0.0) ? 1.0 : 0.0;
+    }
+
+    CHECK (jitterAgreement / steps < 0.7);
+}
+
+BUD_TEST (Groove, bankClassScalesTheExtraOffset)
+{
+    // A clap takes a "significant" extra offset where a bass drum takes an "extremely small"
+    // one (p. 61).
+    auto g = makeGroove (FeelModel::M909);
+
+    CHECK (peakTimingDrift (g, SoundBank::BD, 0) < peakTimingDrift (g, SoundBank::SD, 2));
+    CHECK (peakTimingDrift (g, SoundBank::SD, 2) < peakTimingDrift (g, SoundBank::HH_CY, 4));
+    CHECK (peakTimingDrift (g, SoundBank::HH_CY, 4) < peakTimingDrift (g, SoundBank::CP, 3));
 }
 
 BUD_TEST (Groove, driftStaysWithinTheAdvertisedBound)
 {
-    // The scheduler sizes its lookahead from maxTimingDriftQuarterNotes(); if the real drift
-    // could exceed it, triggers would be lost at block boundaries.
+    // The scheduler sizes its lookahead from this; if real drift could exceed it, triggers
+    // would be lost at block boundaries.
     for (auto model : { FeelModel::M808, FeelModel::M909, FeelModel::Minimal })
     {
         auto g = makeGroove (model);
         const auto bound = g.maxTimingDriftQuarterNotes();
 
-        for (int track = 0; track < kNumTracks; ++track)
-            CHECK (peakTimingDrift (g, track) <= bound + 1.0e-12);
+        for (int bankIndex = 0; bankIndex < kNumSoundBanks; ++bankIndex)
+        {
+            const auto bank = static_cast<SoundBank> (bankIndex);
+
+            for (int track = 0; track < kNumTracks; ++track)
+                CHECK (peakTimingDrift (g, bank, track, 512) <= bound + 1.0e-12);
+        }
     }
 }
 
-BUD_TEST (Groove, driftIsContinuousRatherThanJittery)
-{
-    // Analog instability wanders; it does not hop randomly step to step. Consecutive steps
-    // should stay close relative to the overall range.
-    auto g = makeGroove (FeelModel::Minimal);
-
-    const auto range = peakTimingDrift (g, 4);
-    CHECK (range > 0.0);
-
-    double biggestJump = 0.0;
-    for (int step = 1; step < 1024; ++step)
-    {
-        const auto delta = std::abs (g.compute (4, step).timingQuarterNotes
-                                     - g.compute (4, step - 1).timingQuarterNotes);
-        biggestJump = std::max (biggestJump, delta);
-    }
-
-    // MINIMAL evolves slowly — a single step must not traverse the whole range.
-    CHECK (biggestJump < range * 0.5);
-}
-
-BUD_TEST (Groove, modelsHaveDistinctCharacter)
+BUD_TEST (Groove, m909IsTighterThanTheOthers)
 {
     auto m808 = makeGroove (FeelModel::M808);
     auto m909 = makeGroove (FeelModel::M909);
     auto minimal = makeGroove (FeelModel::Minimal);
 
-    // 909 is the tightest of the three; MINIMAL is the widest.
-    CHECK (m909.maxTimingDriftQuarterNotes() < m808.maxTimingDriftQuarterNotes());
-    CHECK (m808.maxTimingDriftQuarterNotes() < minimal.maxTimingDriftQuarterNotes());
-
-    // 808 carries the most pitch instability.
-    const auto peakPitch = [] (Groove& g, int track)
-    {
-        float peak = 0.0f;
-        for (int i = 0; i < 4096; ++i)
-            peak = std::max (peak, std::abs (g.compute (track, i).pitchCents));
-        return peak;
-    };
-
-    CHECK (peakPitch (m808, 4) > peakPitch (m909, 4));
+    // "a tight, powerful Feel" against 08's laid-back one and MN's unstable one (p. 54).
+    CHECK (peakTimingDrift (m909, SoundBank::HH_CY, 4)
+           < peakTimingDrift (minimal, SoundBank::HH_CY, 4));
 }
 
 BUD_TEST (Groove, driftScalesWithTempo)
@@ -179,17 +244,19 @@ BUD_TEST (Groove, driftScalesWithTempo)
                 slow.maxTimingDriftQuarterNotes() * 3.0, 1.0e-9);
 }
 
-BUD_TEST (Groove, depthScalesDriftLinearly)
+BUD_TEST (Groove, seedChangesTheDrift)
 {
-    auto full = makeGroove (FeelModel::M808, 1.0f);
-    auto half = makeGroove (FeelModel::M808, 0.5f);
+    auto a = makeGroove (FeelModel::Minimal);
+    auto b = makeGroove (FeelModel::Minimal);
+    b.setSeed (0xabcd'1234u);
 
-    CHECK_NEAR (half.maxTimingDriftQuarterNotes(),
-                full.maxTimingDriftQuarterNotes() * 0.5, 1.0e-12);
+    bool differed = false;
+    for (int step = 0; step < 128 && ! differed; ++step)
+        if (std::abs (a.compute (SoundBank::HH_CY, 4, step).timingQuarterNotes
+                      - b.compute (SoundBank::HH_CY, 4, step).timingQuarterNotes) > 1.0e-9)
+            differed = true;
 
-    for (int step = 0; step < 64; ++step)
-        CHECK_NEAR (half.compute (4, step).timingQuarterNotes,
-                    full.compute (4, step).timingQuarterNotes * 0.5, 1.0e-12);
+    CHECK (differed);
 }
 
 BUD_TEST (Groove, randomUnitIsReproducibleAndBounded)
@@ -202,20 +269,5 @@ BUD_TEST (Groove, randomUnitIsReproducibleAndBounded)
         CHECK (v >= 0.0f);
         CHECK (v <= 1.0f);
         CHECK_EQ (v, g.randomUnit (3, step, 0x1234u));
-    }
-}
-
-BUD_TEST (Groove, levelDriftStaysNearUnity)
-{
-    auto g = makeGroove (FeelModel::Minimal);
-
-    for (int track = 0; track < kNumTracks; ++track)
-    {
-        for (int step = 0; step < 512; ++step)
-        {
-            const auto scale = g.compute (track, step).levelScale;
-            CHECK (scale > 0.8f);
-            CHECK (scale < 1.2f);
-        }
     }
 }

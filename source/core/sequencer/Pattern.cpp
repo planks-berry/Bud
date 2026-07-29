@@ -32,18 +32,18 @@ const TrackPattern::StepArray& TrackPattern::variation (Variation v) const noexc
     return variations[static_cast<std::size_t> (v)];
 }
 
-Step& TrackPattern::stepAt (int chainIndex, int stepIndex) noexcept
+Step& TrackPattern::stepAt (int chainIndex, int stepIndex, int stepLength) noexcept
 {
-    return const_cast<Step&> (std::as_const (*this).stepAt (chainIndex, stepIndex));
+    return const_cast<Step&> (std::as_const (*this).stepAt (chainIndex, stepIndex, stepLength));
 }
 
-const Step& TrackPattern::stepAt (int chainIndex, int stepIndex) const noexcept
+const Step& TrackPattern::stepAt (int chainIndex, int stepIndex, int stepLength) const noexcept
 {
     const auto safeChain = wrap (chainIndex, std::max (1, chainLength));
     const auto v = chain[static_cast<std::size_t> (safeChain)];
 
-    // Rotation is non-destructive: it offsets the read position within the active length.
-    const auto rotated = wrap (stepIndex - rotation, std::max (1, stepLength));
+    const auto length = std::clamp (stepLength, 1, kStepsPerVariation);
+    const auto rotated = wrap (stepIndex - rotation, length);
 
     return variation (v)[static_cast<std::size_t> (rotated)];
 }
@@ -65,7 +65,7 @@ void TrackPattern::copyVariation (Variation from, Variation to)
         variation (to) = variation (from);
 }
 
-void TrackPattern::rotateVariationInPlace (Variation v, int amount)
+void TrackPattern::rotateVariationInPlace (Variation v, int amount, int stepLength)
 {
     const auto length = std::clamp (stepLength, 1, kStepsPerVariation);
     const auto shift = wrap (amount, length);
@@ -77,7 +77,8 @@ void TrackPattern::rotateVariationInPlace (Variation v, int amount)
     StepArray rotated = steps;
 
     for (int i = 0; i < length; ++i)
-        rotated[static_cast<std::size_t> (wrap (i + shift, length))] = steps[static_cast<std::size_t> (i)];
+        rotated[static_cast<std::size_t> (wrap (i + shift, length))] =
+            steps[static_cast<std::size_t> (i)];
 
     steps = rotated;
 }
@@ -100,9 +101,7 @@ void TrackPattern::setChain (std::initializer_list<Variation> order)
 
 void Pattern::clear()
 {
-    const auto keptTempo = tempo;
     *this = Pattern {};
-    tempo = keptTempo;
 }
 
 //==============================================================================

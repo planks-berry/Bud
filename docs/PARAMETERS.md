@@ -30,12 +30,17 @@ Used by track level, pattern level and master level. The manual gives the range 
 0–127 spanning −∞ to +6 dB *(Measured, p. 27, 59)*.
 
 ```
-L(0)  = 0                      (silence)
-L(v)  = 2 · (v / 127)²         for v > 0
+L(0)        = 0                          (silence)
+L(v ≤ 100)  = (v / 100)²
+L(v > 100)  = 1 + (v − 100) / 27
 ```
 
-Giving −∞ dB at 0, **0 dB at v = 90**, and **+6 dB at 127** *(Chosen)*. The square law puts more
-resolution at the quiet end, which is where fader precision is wanted.
+Giving −∞ dB at 0, **0 dB at v = 100** and **+6 dB at 127** *(Chosen)*.
+
+Unity at 100 rather than at the top of the range matters because it is also the default: a
+track, a pattern and the master all sitting at their defaults then give exactly unity, instead
+of each stage quietly adding a couple of decibels. Below unity the square taper keeps resolution
+at the quiet end, where fader precision is wanted.
 
 ### Pan law — `P(v)`
 

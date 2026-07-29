@@ -19,9 +19,14 @@ void ParameterSet::resetToDefaults()
         for (auto& track : perTrack_)
             track[index] = info.defaultValue;
     }
+
+    // Each track starts on the bank the hardware assigns it (p. 25).
+    for (int track = 0; track < kNumTracks; ++track)
+        set (ParamKind::TrackSoundBank, track,
+             static_cast<int> (trackInfo (track).defaultBank));
 }
 
-float ParameterSet::get (ParamKind kind, int track) const noexcept
+int ParameterSet::get (ParamKind kind, int track) const noexcept
 {
     const auto index = static_cast<std::size_t> (kind);
 
@@ -31,7 +36,7 @@ float ParameterSet::get (ParamKind kind, int track) const noexcept
     return perTrack_[static_cast<std::size_t> (track)][index];
 }
 
-void ParameterSet::set (ParamKind kind, int track, float value) noexcept
+void ParameterSet::set (ParamKind kind, int track, int value) noexcept
 {
     const auto index = static_cast<std::size_t> (kind);
     const auto clamped = clampToRange (kind, value);

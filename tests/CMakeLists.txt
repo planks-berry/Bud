@@ -1,6 +1,7 @@
 add_executable(BudCoreTests
     TestFramework.cpp
     ParameterTests.cpp
+    CurveTests.cpp
     TransportTests.cpp
     SequencerTests.cpp
     GrooveTests.cpp

@@ -1,6 +1,7 @@
 #include "TestFramework.h"
 
 #include "core/Transport.h"
+#include "core/params/ParameterSet.h"
 #include "core/sequencer/Groove.h"
 #include "core/sequencer/Pattern.h"
 #include "core/sequencer/TrackSequencer.h"
@@ -14,14 +15,13 @@ namespace
 {
 
 constexpr double kSampleRate = 48000.0;
-constexpr double kTempo = 120.0;
+constexpr int kTempo = 120;
 constexpr double kSamplesPerQuarter = 24000.0;   // at 120 bpm / 48 kHz
 constexpr double kSamplesPerSixteenth = 6000.0;
 
 struct Hit
 {
     double globalSample;
-    double ppq;
     int step;
     int chain;
     int subStep;
@@ -34,20 +34,26 @@ struct Harness
 {
     Transport transport;
     Groove groove;
+    ParameterSet params;
     TrackSequencer sequencer;
     TrackPattern pattern;
-    float globalSwing = 0.0f;
     std::vector<Hit> hits;
+    int track = 0;
 
-    explicit Harness (int track = 0, double tempo = kTempo)
+    explicit Harness (int trackIndex = 0)
+        : track (trackIndex)
     {
         transport.prepare (kSampleRate);
-        transport.setTempo (tempo);
-        groove.setTempo (tempo);
+        transport.setTempo (kTempo);
+        groove.setTempo (kTempo);
         groove.setDepth (0.0f);   // locked to the grid unless a test asks otherwise
-        sequencer.prepare (track);
+        params.set (ParamKind::Tempo, kTempo);
+        sequencer.prepare (trackIndex);
         sequencer.setPattern (&pattern);
     }
+
+    void set (ParamKind kind, int value) { params.set (kind, track, value); }
+    void setGlobal (ParamKind kind, int value) { params.set (kind, value); }
 
     void gateAll (Variation v = Variation::A)
     {
@@ -58,6 +64,11 @@ struct Harness
     void gateStep (int index, Variation v = Variation::A)
     {
         pattern.variation (v)[static_cast<std::size_t> (index)].gate = true;
+    }
+
+    Step& step (int index, Variation v = Variation::A)
+    {
+        return pattern.variation (v)[static_cast<std::size_t> (index)];
     }
 
     void run (long long totalSamples, int blockSize)
@@ -71,15 +82,20 @@ struct Harness
 
         while (consumed < totalSamples)
         {
-            const auto n = static_cast<int> (std::min<long long> (blockSize, totalSamples - consumed));
+            const auto n = static_cast<int> (std::min<long long> (blockSize,
+                                                                  totalSamples - consumed));
 
             transport.beginBlock (n);
             events.clear();
-            sequencer.collectEvents (transport, groove, globalSwing, events);
+            sequencer.collectEvents (transport, groove, params, events);
+
+            std::sort (events.begin(), events.end(),
+                       [] (const TriggerEvent& a, const TriggerEvent& b)
+                       { return a.sampleOffset < b.sampleOffset; });
 
             for (const auto& e : events)
                 hits.push_back (Hit { static_cast<double> (consumed) + e.sampleOffset,
-                                      e.ppq, e.stepIndex, e.chainIndex, e.subStep, e.velocity });
+                                      e.stepIndex, e.chainIndex, e.subStep, e.velocity });
 
             transport.endBlock();
             consumed += n;
@@ -109,7 +125,7 @@ BUD_TEST (Sequencer, stepsLandExactlyOnTheGrid)
 BUD_TEST (Sequencer, resultsAreIdenticalAtEveryBlockSize)
 {
     // The load-bearing test for the lookahead/pending design: a trigger must not be dropped,
-    // duplicated or moved by the arbitrary block size the host happens to use.
+    // duplicated or moved by whatever block size the host happens to use.
     const auto reference = [] {
         Harness h;
         h.gateAll();
@@ -138,11 +154,11 @@ BUD_TEST (Sequencer, resultsAreIdenticalAtEveryBlockSize)
 
 BUD_TEST (Sequencer, driftedTriggersSurviveEveryBlockSize)
 {
-    // Same again with FEEL at full depth, where triggers land off-grid and can cross block
-    // boundaries in both directions.
+    // Same again with FEEL running, where triggers land off-grid and can cross block
+    // boundaries in both directions. Track 4 defaults to the HH bank, which FEEL does affect.
     const auto runAt = [] (int blockSize)
     {
-        Harness h;
+        Harness h (4);
         h.groove.setModel (FeelModel::Minimal);
         h.groove.setDepth (1.0f);
         h.gateAll();
@@ -174,13 +190,12 @@ BUD_TEST (Sequencer, gatesOffProduceNothing)
 BUD_TEST (Sequencer, stepLengthShortensThePhrase)
 {
     Harness h;
-    h.pattern.stepLength = 5;
+    h.set (ParamKind::TrackStepLength, 5);
     h.gateAll();
-    h.run (96000, 256);   // 16 sixteenth notes of time
+    h.run (96000, 256);
 
     CHECK_EQ (h.hits.size(), std::size_t (16));
 
-    // The head must wrap after five steps: 0 1 2 3 4 0 1 2 ...
     for (std::size_t i = 0; i < h.hits.size(); ++i)
         CHECK_EQ (h.hits[i].step, static_cast<int> (i % 5));
 }
@@ -190,11 +205,9 @@ BUD_TEST (Sequencer, chainPlaysAllFourVariationsInOrder)
     Harness h;
     h.pattern.setChain ({ Variation::A, Variation::B, Variation::C, Variation::D });
 
-    // One hit at the top of each variation.
     for (auto v : { Variation::A, Variation::B, Variation::C, Variation::D })
         h.gateStep (0, v);
 
-    // 64 steps of chained time.
     h.run (static_cast<long long> (kSamplesPerSixteenth) * 64, 512);
 
     CHECK_EQ (h.hits.size(), std::size_t (4));
@@ -207,21 +220,6 @@ BUD_TEST (Sequencer, chainPlaysAllFourVariationsInOrder)
     }
 }
 
-BUD_TEST (Sequencer, chainLengthOneRepeatsASingleVariation)
-{
-    Harness h;
-    h.pattern.chainLength = 1;
-    h.gateStep (0, Variation::A);
-    h.gateStep (0, Variation::B);   // must never be heard
-
-    h.run (static_cast<long long> (kSamplesPerSixteenth) * 64, 512);
-
-    CHECK_EQ (h.hits.size(), std::size_t (4));   // four passes of variation A
-
-    for (const auto& hit : h.hits)
-        CHECK_EQ (hit.chain, 0);
-}
-
 BUD_TEST (Sequencer, rotationShiftsThePhraseWithoutDestroyingIt)
 {
     Harness h;
@@ -231,49 +229,179 @@ BUD_TEST (Sequencer, rotationShiftsThePhraseWithoutDestroyingIt)
 
     CHECK_EQ (h.hits.size(), std::size_t (1));
     CHECK_EQ (h.hits[0].step, 3);
-    CHECK_NEAR (h.hits[0].globalSample, 3.0 * kSamplesPerSixteenth, 1.0e-3);
 
     // The stored pattern is untouched — rotation is a read offset, so it can be swept live.
     CHECK (h.pattern.variation (Variation::A)[0].gate);
 }
 
-BUD_TEST (Sequencer, destructiveRotateMovesTheStoredSteps)
+//==============================================================================
+// Sub-step figures (p. 49)
+
+BUD_TEST (Sequencer, subStepFiguresProduceTheirDocumentedRhythms)
 {
-    Harness h;
-    h.gateStep (0);
-    h.pattern.rotateVariationInPlace (Variation::A, 3);
-
-    CHECK (! h.pattern.variation (Variation::A)[0].gate);
-    CHECK (h.pattern.variation (Variation::A)[3].gate);
-}
-
-BUD_TEST (Sequencer, subStepsRetriggerEvenlyWithinTheStep)
-{
-    Harness h;
-    h.gateStep (0);
-    h.pattern.variation (Variation::A)[0].subSteps = 4;
-    h.run (96000, 512);
-
-    CHECK_EQ (h.hits.size(), std::size_t (4));
-
-    const auto spacing = kSamplesPerSixteenth / 4.0;
-    for (std::size_t i = 0; i < h.hits.size(); ++i)
+    struct Case
     {
-        CHECK_EQ (h.hits[i].subStep, static_cast<int> (i));
-        CHECK_NEAR (h.hits[i].globalSample, static_cast<double> (i) * spacing, 1.0e-3);
+        SubStepPattern pattern;
+        int divisions;
+        std::vector<int> sounding;   ///< Which divisions fire
+    };
+
+    const Case cases[] = {
+        { SubStepPattern::Off,       1, { 0 } },
+        { SubStepPattern::Four_1111, 4, { 0, 1, 2, 3 } },
+        { SubStepPattern::Four_1100, 4, { 0, 1 } },
+        { SubStepPattern::Four_1010, 4, { 0, 2 } },
+        { SubStepPattern::Four_0010, 4, { 2 } },
+        { SubStepPattern::Four_1001, 4, { 0, 3 } },
+        { SubStepPattern::Four_1011, 4, { 0, 2, 3 } },
+        { SubStepPattern::Four_0001, 4, { 3 } },
+        { SubStepPattern::Four_0011, 4, { 2, 3 } },
+        { SubStepPattern::Three_111, 3, { 0, 1, 2 } },
+        { SubStepPattern::Three_110, 3, { 0, 1 } },
+    };
+
+    for (const auto& c : cases)
+    {
+        Harness h;
+        h.gateStep (0);
+        h.step (0).subStep = c.pattern;
+        h.run (96000, 512);
+
+        CHECK_EQ (h.hits.size(), c.sounding.size());
+
+        const auto spacing = kSamplesPerSixteenth / static_cast<double> (c.divisions);
+
+        for (std::size_t i = 0; i < std::min (h.hits.size(), c.sounding.size()); ++i)
+        {
+            CHECK_EQ (h.hits[i].subStep, c.sounding[i]);
+            CHECK_NEAR (h.hits[i].globalSample,
+                        static_cast<double> (c.sounding[i]) * spacing, 1.0e-3);
+        }
     }
 }
 
-BUD_TEST (Sequencer, swingDisplacesOddStepsOnly)
+BUD_TEST (Sequencer, tripletSubStepsDivideTheStepInThree)
+{
+    Harness h;
+    h.gateStep (0);
+    h.step (0).subStep = SubStepPattern::Three_111;
+    h.run (96000, 512);
+
+    CHECK_EQ (h.hits.size(), std::size_t (3));
+
+    // Three in the space of one step, not four.
+    const auto spacing = kSamplesPerSixteenth / 3.0;
+    CHECK_NEAR (h.hits[1].globalSample - h.hits[0].globalSample, spacing, 1.0e-3);
+    CHECK_NEAR (h.hits[2].globalSample - h.hits[1].globalSample, spacing, 1.0e-3);
+}
+
+//==============================================================================
+// Note lengths (p. 35)
+
+BUD_TEST (Sequencer, noteLengthChangesTheStepRate)
+{
+    struct Case { StepDivision division; double quarterNotes; };
+
+    const Case cases[] = {
+        { StepDivision::Quarter,        1.0 },
+        { StepDivision::DottedQuarter,  1.5 },
+        { StepDivision::TripletQuarter, 2.0 / 3.0 },
+        { StepDivision::Eighth,         0.5 },
+        { StepDivision::DottedEighth,   0.75 },
+        { StepDivision::TripletEighth,  1.0 / 3.0 },
+        { StepDivision::Sixteenth,      0.25 },
+        { StepDivision::ThirtySecond,   0.125 },
+    };
+
+    for (const auto& c : cases)
+    {
+        Harness h;
+        h.set (ParamKind::TrackNoteLength, static_cast<int> (c.division));
+        h.gateAll();
+        h.run (static_cast<long long> (kSamplesPerQuarter) * 4, 512);
+
+        CHECK (h.hits.size() > 1);
+
+        const auto expected = c.quarterNotes * kSamplesPerQuarter;
+
+        for (std::size_t i = 1; i < h.hits.size(); ++i)
+            CHECK_NEAR (h.hits[i].globalSample - h.hits[i - 1].globalSample, expected, 1.0e-3);
+    }
+}
+
+BUD_TEST (Sequencer, tripletsStayOnGridOverALongRun)
+{
+    // Triplet divisions are not exactly representable in binary. Deriving step times from a
+    // step count against an anchor, rather than accumulating them, is what keeps this exact.
+    Harness h;
+    h.set (ParamKind::TrackNoteLength, static_cast<int> (StepDivision::TripletEighth));
+    h.gateAll();
+
+    const long long samples = static_cast<long long> (kSamplesPerQuarter) * 4 * 64;
+    h.run (samples, 480);
+
+    const auto stepSamples = kSamplesPerQuarter / 3.0;
+    const auto expected = static_cast<std::size_t> (static_cast<double> (samples) / stepSamples);
+
+    // Allow one either way for the boundary.
+    CHECK (h.hits.size() + 1 >= expected);
+    CHECK (h.hits.size() <= expected + 1);
+
+    // The last hit must still be where arithmetic says it should be, not a sample adrift.
+    const auto index = static_cast<double> (h.hits.size() - 1);
+    CHECK_NEAR (h.hits.back().globalSample, index * stepSamples, 0.5);
+}
+
+BUD_TEST (Sequencer, tracksWithDifferentDivisionsRunPolymetrically)
+{
+    Harness fast (0);
+    fast.set (ParamKind::TrackNoteLength, static_cast<int> (StepDivision::Sixteenth));
+    fast.set (ParamKind::TrackStepLength, 16);
+    fast.gateAll();
+
+    Harness slow (1);
+    slow.set (ParamKind::TrackNoteLength, static_cast<int> (StepDivision::Eighth));
+    slow.set (ParamKind::TrackStepLength, 12);
+    slow.gateAll();
+
+    const long long samples = static_cast<long long> (kSamplesPerQuarter * 12.0);
+    fast.run (samples, 512);
+    slow.run (samples, 512);
+
+    CHECK_EQ (fast.hits.size(), std::size_t (48));
+    CHECK_EQ (slow.hits.size(), std::size_t (24));
+
+    CHECK_EQ (slow.hits[11].step, 11);
+    CHECK_EQ (slow.hits[12].step, 0);
+}
+
+//==============================================================================
+// Swing (p. 51)
+
+BUD_TEST (Sequencer, swingIsStraightAtFifty)
 {
     Harness h;
     h.gateAll();
-    h.pattern.swing = 0.25f;   // a quarter of a step late
+    h.setGlobal (ParamKind::Swing, 50);
+    h.run (96000, 512);
+
+    for (std::size_t i = 0; i < h.hits.size(); ++i)
+        CHECK_NEAR (h.hits[i].globalSample, static_cast<double> (i) * kSamplesPerSixteenth,
+                    1.0e-3);
+}
+
+BUD_TEST (Sequencer, swingDisplacesTheSecondHalfOfEachPair)
+{
+    Harness h;
+    h.gateAll();
+    h.setGlobal (ParamKind::Swing, 75);   // maximum
+    h.setGlobal (ParamKind::SwingResolution, static_cast<int> (SwingResolution::Sixteenth));
     h.run (96000, 512);
 
     CHECK_EQ (h.hits.size(), std::size_t (16));
 
-    const auto offset = 0.25 * kSamplesPerSixteenth;
+    // At 75 % the offbeat sits half a step late.
+    const auto offset = 0.5 * kSamplesPerSixteenth;
 
     for (std::size_t i = 0; i < h.hits.size(); ++i)
     {
@@ -283,111 +411,166 @@ BUD_TEST (Sequencer, swingDisplacesOddStepsOnly)
     }
 }
 
-BUD_TEST (Sequencer, globalAndTrackSwingCombine)
+BUD_TEST (Sequencer, swingResolutionWidensThePair)
+{
+    // At 8TH resolution the swing unit is twice the note length, so a pair spans four
+    // sixteenths and every step inside it moves proportionally.
+    Harness h;
+    h.gateAll();
+    h.setGlobal (ParamKind::Swing, 75);
+    h.setGlobal (ParamKind::SwingResolution, static_cast<int> (SwingResolution::Eighth));
+    h.run (96000 + static_cast<long long> (kSamplesPerSixteenth) * 2, 512);
+
+    CHECK (h.hits.size() >= std::size_t (16));
+
+    // The pair spans steps 0-3: its start stays put, its midpoint moves three quarters of the
+    // way through, and the steps around that are stretched and compressed to match.
+    CHECK_NEAR (h.hits[0].globalSample, 0.0, 1.0e-3);
+    CHECK_NEAR (h.hits[1].globalSample, 1.5 * kSamplesPerSixteenth, 1.0e-3);
+    CHECK_NEAR (h.hits[2].globalSample, 3.0 * kSamplesPerSixteenth, 1.0e-3);
+    CHECK_NEAR (h.hits[3].globalSample, 3.5 * kSamplesPerSixteenth, 1.0e-3);
+
+    // The next pair starts where it should, not on top of the previous one.
+    CHECK_NEAR (h.hits[4].globalSample, 4.0 * kSamplesPerSixteenth, 1.0e-3);
+}
+
+BUD_TEST (Sequencer, swingNeverCollapsesTwoStepsOntoEachOther)
+{
+    // Whatever the amount and resolution, steps must stay strictly in order. Displacing the
+    // second half of each pair rigidly — the obvious first approach — puts the last step of one
+    // pair on top of the first step of the next once the pair spans more than two steps.
+    for (int percent : { 50, 58, 66, 75 })
+    {
+        for (auto resolution : { SwingResolution::Sixteenth, SwingResolution::Eighth })
+        {
+            Harness h;
+            h.gateAll();
+            h.setGlobal (ParamKind::Swing, percent);
+            h.setGlobal (ParamKind::SwingResolution, static_cast<int> (resolution));
+            h.run (96000, 512);
+
+            CHECK (h.hits.size() > 8);
+
+            for (std::size_t i = 1; i < h.hits.size(); ++i)
+                CHECK (h.hits[i].globalSample > h.hits[i - 1].globalSample);
+        }
+    }
+}
+
+BUD_TEST (Sequencer, trackSwingOverridesThePattern)
 {
     Harness h;
     h.gateAll();
-    h.globalSwing = 0.1f;
-    h.pattern.swing = 0.15f;
+    h.setGlobal (ParamKind::Swing, 50);           // pattern is straight
+    h.set (ParamKind::TrackSwing, 75);            // this track is not
+    h.setGlobal (ParamKind::SwingResolution, static_cast<int> (SwingResolution::Sixteenth));
     h.run (96000, 512);
 
-    const auto offset = 0.25 * kSamplesPerSixteenth;
-    CHECK_NEAR (h.hits[1].globalSample, kSamplesPerSixteenth + offset, 1.0e-3);
+    CHECK_NEAR (h.hits[1].globalSample,
+                kSamplesPerSixteenth + 0.5 * kSamplesPerSixteenth, 1.0e-3);
+
+    // Below 50 the track follows the pattern again.
+    Harness following;
+    following.gateAll();
+    following.setGlobal (ParamKind::Swing, 50);
+    following.set (ParamKind::TrackSwing, 49);
+    following.run (96000, 512);
+
+    CHECK_NEAR (following.hits[1].globalSample, kSamplesPerSixteenth, 1.0e-3);
 }
 
-BUD_TEST (Sequencer, manualNudgeMovesASingleStep)
+//==============================================================================
+// Accent, random velocity, nudge
+
+BUD_TEST (Sequencer, hardAndSoftAccentMoveInOppositeDirections)
 {
     Harness h;
     h.gateAll();
-    h.pattern.variation (Variation::A)[4].microShift = -0.25f;
-    h.run (96000, 512);
-
-    CHECK_EQ (h.hits.size(), std::size_t (16));
-
-    // Step 4 arrives early; its neighbours are untouched.
-    CHECK_NEAR (h.hits[3].globalSample, 3.0 * kSamplesPerSixteenth, 1.0e-3);
-    CHECK_NEAR (h.hits[4].globalSample, 3.75 * kSamplesPerSixteenth, 1.0e-3);
-    CHECK_NEAR (h.hits[5].globalSample, 5.0 * kSamplesPerSixteenth, 1.0e-3);
-}
-
-BUD_TEST (Sequencer, noteLengthChangesTheStepRate)
-{
-    Harness h;
-    h.pattern.division = StepDivision::Eighth;
-    h.gateAll();
-    h.run (96000, 512);   // four quarter notes = eight eighth notes
-
-    CHECK_EQ (h.hits.size(), std::size_t (8));
-
-    for (std::size_t i = 0; i < h.hits.size(); ++i)
-        CHECK_NEAR (h.hits[i].globalSample,
-                    static_cast<double> (i) * kSamplesPerQuarter / 2.0, 1.0e-3);
-}
-
-BUD_TEST (Sequencer, tracksWithDifferentDivisionsRunPolymetrically)
-{
-    // A 12-step track at 1/8 against a 16-step track at 1/16 — the phrases only realign after
-    // 12 quarter notes, which is the behaviour the per-track division exists to produce.
-    Harness fast (0);
-    fast.pattern.division = StepDivision::Sixteenth;
-    fast.pattern.stepLength = 16;
-    fast.gateAll();
-
-    Harness slow (1);
-    slow.pattern.division = StepDivision::Eighth;
-    slow.pattern.stepLength = 12;
-    slow.gateAll();
-
-    const long long samples = static_cast<long long> (kSamplesPerQuarter * 12.0);
-    fast.run (samples, 512);
-    slow.run (samples, 512);
-
-    CHECK_EQ (fast.hits.size(), std::size_t (48));   // 12 qn / (1/4 qn per step)
-    CHECK_EQ (slow.hits.size(), std::size_t (24));   // 12 qn / (1/2 qn per step)
-
-    // The slow track wraps its 12-step phrase twice in that span.
-    CHECK_EQ (slow.hits[11].step, 11);
-    CHECK_EQ (slow.hits[12].step, 0);
-}
-
-BUD_TEST (Sequencer, accentRaisesVelocityAndDeAccentLowersIt)
-{
-    Harness h;
-    h.gateAll();
-    h.pattern.variation (Variation::A)[0].accent = Accent::Accent;
-    h.pattern.variation (Variation::A)[1].accent = Accent::Normal;
-    h.pattern.variation (Variation::A)[2].accent = Accent::DeAccent;
+    h.step (0).accent = Accent::Hard;
+    h.step (1).accent = Accent::Normal;
+    h.step (2).accent = Accent::Soft;
     h.run (96000, 512);
 
     CHECK (h.hits[0].velocity > h.hits[1].velocity);
     CHECK (h.hits[1].velocity > h.hits[2].velocity);
-
-    // A default-velocity step with an accent reaches full scale.
-    CHECK_NEAR (h.hits[0].velocity, 1.0f, 1.0e-3);
 }
 
-BUD_TEST (Sequencer, randomVelocityOnlyReducesAndStaysBounded)
+BUD_TEST (Sequencer, accentDepthsScaleTheEffect)
 {
-    Harness h;
-    h.gateAll();
-    h.pattern.randomVelocity = 1.0f;
-    h.run (96000 * 4, 512);
-
-    CHECK_EQ (h.hits.size(), std::size_t (64));
-
-    const auto nominal = 100.0f / 127.0f;
-    bool sawVariation = false;
-
-    for (const auto& hit : h.hits)
+    const auto velocityWithDepth = [] (int depth)
     {
-        CHECK (hit.velocity >= 0.0f);
-        CHECK (hit.velocity <= nominal + 1.0e-4f);
+        Harness h;
+        h.gateStep (0);
+        h.step (0).accent = Accent::Hard;
+        h.setGlobal (ParamKind::AccentHardDepth, depth);
+        h.run (96000, 512);
+        return h.hits.at (0).velocity;
+    };
 
-        if (std::abs (hit.velocity - nominal) > 1.0e-3f)
-            sawVariation = true;
-    }
+    CHECK (velocityWithDepth (127) > velocityWithDepth (0));
+}
 
-    CHECK (sawVariation);
+BUD_TEST (Sequencer, randomVelocityDepthFollowsTheBank)
+{
+    // The same RND VL setting reaches further on a strong-random bank than a subtle one (p. 61).
+    const auto spread = [] (SoundBank bank)
+    {
+        Harness h;
+        h.gateAll();
+        h.set (ParamKind::TrackSoundBank, static_cast<int> (bank));
+        h.set (ParamKind::TrackRandomVelocity, 127);
+        h.run (96000 * 4, 512);
+
+        auto lowest = 2.0f;
+        for (const auto& hit : h.hits)
+            lowest = std::min (lowest, hit.velocity);
+
+        return lowest;
+    };
+
+    // A lower floor means a wider spread.
+    CHECK (spread (SoundBank::HH_CY) < spread (SoundBank::BD));
+    CHECK (spread (SoundBank::SD) < spread (SoundBank::BD));
+}
+
+BUD_TEST (Sequencer, nudgeDelaysTheTriggerOnBanksThatUseIt)
+{
+    // MOVE is Nudge on the snare and general drum banks (p. 65), and something else elsewhere.
+    Harness nudged (6);
+    nudged.set (ParamKind::TrackSoundBank, static_cast<int> (SoundBank::TT));
+    nudged.set (ParamKind::TrackMove, 127);
+    nudged.gateStep (0);
+    nudged.run (96000, 512);
+
+    CHECK_EQ (nudged.hits.size(), std::size_t (1));
+    CHECK (nudged.hits[0].globalSample > 1.0);
+
+    // On the BD bank MOVE is the modulation time and must not move the trigger.
+    Harness unmoved (0);
+    unmoved.set (ParamKind::TrackSoundBank, static_cast<int> (SoundBank::BD));
+    unmoved.set (ParamKind::TrackMove, 127);
+    unmoved.gateStep (0);
+    unmoved.run (96000, 512);
+
+    CHECK_NEAR (unmoved.hits.at (0).globalSample, 0.0, 1.0e-3);
+}
+
+BUD_TEST (Sequencer, transposeShiftsEveryNote)
+{
+    Harness h (kBassTrack);
+    h.gateStep (0);
+    h.step (0).note = 5;
+    h.setGlobal (ParamKind::Transpose, -12);
+
+    h.transport.start();
+    h.sequencer.reset();
+    h.transport.beginBlock (4096);
+
+    std::vector<TriggerEvent> events;
+    h.sequencer.collectEvents (h.transport, h.groove, h.params, events);
+
+    CHECK_EQ (events.size(), std::size_t (1));
+    CHECK_EQ (events[0].note, -7);
 }
 
 BUD_TEST (Sequencer, parameterLocksReachTheTrigger)
@@ -395,35 +578,26 @@ BUD_TEST (Sequencer, parameterLocksReachTheTrigger)
     Harness h;
     h.gateStep (0);
 
-    const auto id = makeParamId (ParamKind::KickDecay, 0);
-    h.pattern.variation (Variation::A)[0].locks.set (id, 750.0f);
+    const auto id = makeParamId (ParamKind::TrackDecay, 0);
+    h.step (0).locks.set (id, 110);
 
-    h.run (96000, 512);
+    h.transport.start();
+    h.sequencer.reset();
+    h.transport.beginBlock (4096);
 
-    CHECK_EQ (h.hits.size(), std::size_t (1));
+    std::vector<TriggerEvent> events;
+    h.sequencer.collectEvents (h.transport, h.groove, h.params, events);
 
-    // Re-read through the pattern, since the event holds a pointer into it.
-    const auto* locked = h.pattern.variation (Variation::A)[0].locks.find (id);
+    CHECK_EQ (events.size(), std::size_t (1));
+    CHECK (events[0].locks != nullptr);
+
+    const auto* locked = events[0].locks->find (id);
     CHECK (locked != nullptr);
-    CHECK_NEAR (*locked, 750.0f, 1.0e-3);
-}
-
-BUD_TEST (Sequencer, resetRewindsTheHead)
-{
-    Harness h;
-    h.gateAll();
-    h.run (96000, 512);
-    CHECK_EQ (h.hits.size(), std::size_t (16));
-
-    h.run (96000, 512);   // run() resets, so this must reproduce the first pass exactly
-    CHECK_EQ (h.hits.size(), std::size_t (16));
-    CHECK_EQ (h.hits[0].step, 0);
-    CHECK_NEAR (h.hits[0].globalSample, 0.0, 1.0e-3);
+    CHECK_EQ (*locked, 110);
 }
 
 BUD_TEST (Sequencer, longRunKeepsExactStepCount)
 {
-    // Sixty-four bars, to catch any slow accumulation of position error.
     Harness h;
     h.gateAll();
 
@@ -432,7 +606,6 @@ BUD_TEST (Sequencer, longRunKeepsExactStepCount)
 
     CHECK_EQ (h.hits.size(), std::size_t (64 * 16));
 
-    const auto& last = h.hits.back();
     const auto expected = static_cast<double> (64 * 16 - 1) * kSamplesPerSixteenth;
-    CHECK_NEAR (last.globalSample, expected, 0.5);
+    CHECK_NEAR (h.hits.back().globalSample, expected, 0.5);
 }

@@ -14,28 +14,23 @@ namespace bud
 
 namespace labels
 {
-    inline constexpr std::string_view feel[]        = { "808", "909", "MINIMAL" };
-    inline constexpr std::string_view noteLength[]  = { "1/1", "1/2", "1/4", "1/8", "1/16", "1/32" };
-    inline constexpr std::string_view sampleBank[]  = { "S2", "S4" };
-    inline constexpr std::string_view playMode[]    = { "LOOP", "ONESHOT" };
-    inline constexpr std::string_view bassWave[]    = { "SAW", "SQR", "TRI", "RECT", "S01" };
-    inline constexpr std::string_view subRange[]    = { "-2", "-1", "UNISON" };
-    inline constexpr std::string_view masterFx[]    = { "SWEEP", "PHASER", "DIST", "SNIP", "DUCK" };
-    inline constexpr std::string_view reverbType[]  = { "ROOM", "HALL", "PLATE" };
-    inline constexpr std::string_view delayTime[]   = { "1/32", "1/16T", "1/16", "1/8T", "1/8",
-                                                        "1/4T", "1/4", "1/2", "1/1" };
-    inline constexpr std::string_view onOff[]       = { "OFF", "ON" };
+    inline constexpr std::string_view feel[]       = { "08", "09", "MN" };
+    inline constexpr std::string_view noteLength[] = { "1", "2", "4", "4D", "4T",
+                                                       "8", "8D", "8T", "16", "32" };
+    inline constexpr std::string_view swingRes[]   = { "8TH", "16TH" };
+    inline constexpr std::string_view bank[]       = { "BD", "SD", "HH", "CP", "ST", "TT", "PC",
+                                                       "SY", "FX", "S2", "S4", "S8", "BASS" };
+    inline constexpr std::string_view loopMode[]   = { "O.OFF", "O.MLD", "O.RHY",
+                                                       ">.OFF", ">.MLD", ">.RHY" };
+    inline constexpr std::string_view snappy[]     = { "N88", "N99", "NT1", "NT2", "NT3", "NT4" };
+    inline constexpr std::string_view masterFx[]   = { "S.FLT", "PHSR", "DIST", "SN.LP", "DUCK" };
+    inline constexpr std::string_view reverbType[] = { "ROOM", "HALL", "PLAT" };
+    inline constexpr std::string_view onOff[]      = { "OFF", "ON" };
 }
 
 //==============================================================================
-// The parameter table.
-//
-// Ranges marked [P] are provisional: the device's exact ranges are not published, so these are
-// musically sensible defaults to be corrected against docs/reference/MINIMAL_manual_en.pdf.
-// Correcting one is a single-row edit here; everything downstream follows.
 
 using S = ParamScope;
-using C = ParamCurve;
 using U = ParamUnit;
 
 namespace
@@ -49,88 +44,79 @@ namespace
     }
 }
 
+// The parameter table. Values are in the hardware's raw domain; what a raw value *means* is
+// params/Curves.h, and docs/PARAMETERS.md tabulates every mapping.
+//
+// The `plockable` column follows p. 44 exactly: accent, isolator, MFX, reverb, delay, swing and
+// master are excluded.
+//
 // clang-format off
 static const std::array<ParamDescriptor, kNumParamKinds> kParamTable { {
-    //  kind                            id                       name        scope      min     max     def    curve  unit             plock  labels
-    { ParamKind::Tempo,                 "tempo",                 "TEMPO",    S::Global, 20.f,   300.f,  128.f, C::Linear,      U::Bpm,          false, noLabels },
-    { ParamKind::GlobalSwing,           "swing",                 "SWING",    S::Global, -50.f,  50.f,   0.f,   C::Linear,      U::Percent,      false, noLabels },
-    { ParamKind::MasterVolume,          "master_vol",            "VOLUME",   S::Global, 0.f,    1.f,    0.8f,  C::Linear,      U::Percent,      false, noLabels },
-    { ParamKind::Feel,                  "feel",                  "FEEL",     S::Global, 0.f,    2.f,    2.f,   C::Stepped,     U::Enum,         false, lab (labels::feel) },
-    { ParamKind::FeelDepth,             "feel_depth",            "DEPTH",    S::Global, 0.f,    1.f,    0.5f,  C::Linear,      U::Percent,      true,  noLabels },
+    //  kind                           id                name       scope      min   max  def  unit             plock  labels
+    { ParamKind::Tempo,                "tempo",          "TEMPO",   S::Global,  20,  300, 128, U::Bpm,          false, noLabels },
+    { ParamKind::Swing,                "swing",          "SWING",   S::Global,  50,   75,  50, U::SwingPercent, false, noLabels },
+    { ParamKind::SwingResolution,      "swing_res",      "SW.RES",  S::Global,   0,    1,   1, U::Enum,         false, lab (labels::swingRes) },
+    { ParamKind::Transpose,            "transpose",      "TRANS",   S::Global, -12,   12,   0, U::Semitones,    false, noLabels },
+    { ParamKind::MasterVolume,         "master_vol",     "MASTER",  S::Global,   0,  127, 100, U::Raw,          false, noLabels },
+    { ParamKind::PatternLevel,         "pattern_level",  "PTN.LVL", S::Global,   0,  127, 100, U::Raw,          false, noLabels },
+    { ParamKind::Feel,                 "feel",           "FEEL",    S::Global,   0,    2,   2, U::Enum,         false, lab (labels::feel) },
+    { ParamKind::AccentHardDepth,      "accent_hard",    "AC.H",    S::Global,   0,  127,  90, U::Raw,          false, noLabels },
+    { ParamKind::AccentSoftDepth,      "accent_soft",    "AC.S",    S::Global,   0,  127,  64, U::Raw,          false, noLabels },
 
-    { ParamKind::TrackLevel,            "level",                 "LEVEL",    S::Track,  0.f,    1.f,    0.8f,  C::Linear,      U::Percent,      true,  noLabels },
-    // Defaults to the top of its range so an untouched track is tonally neutral.
-    { ParamKind::TrackEqFreq,           "eq_freq",               "FREQ",     S::Track,  20.f,   20000.f,20000.f,C::Exponential,U::Hertz,        true,  noLabels },
-    { ParamKind::TrackEqRes,            "eq_res",                "RES",      S::Track,  0.f,    1.f,    0.f,   C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::TrackReverbSend,       "rev_send",              "REV",      S::Track,  0.f,    1.f,    0.f,   C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::TrackDelaySend,        "dly_send",              "DLY",      S::Track,  0.f,    1.f,    0.f,   C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::TrackMute,             "mute",                  "MUTE",     S::Track,  0.f,    1.f,    0.f,   C::Stepped,     U::Bool,         false, lab (labels::onOff) },
-    { ParamKind::TrackStepLength,       "step_length",           "LENGTH",   S::Track,  1.f,    16.f,   16.f,  C::Stepped,     U::Steps,        false, noLabels },
-    { ParamKind::TrackNoteLength,       "note_length",           "NOTE",     S::Track,  0.f,    5.f,    4.f,   C::Stepped,     U::Enum,         false, lab (labels::noteLength) },
-    { ParamKind::TrackRotation,         "rotation",              "ROTATE",   S::Track,  -15.f,  15.f,   0.f,   C::Stepped,     U::Steps,        false, noLabels },
-    { ParamKind::TrackSwing,            "track_swing",           "SWING",    S::Track,  -50.f,  50.f,   0.f,   C::Linear,      U::Percent,      false, noLabels },
-    { ParamKind::TrackRandomVelocity,   "rand_vel",              "RANDOM",   S::Track,  0.f,    1.f,    0.f,   C::Linear,      U::Percent,      false, noLabels },
+    { ParamKind::IsolatorLow,          "iso_low",        "LOW",     S::Global, -50,   50,   0, U::IsoBand,      false, noLabels },
+    { ParamKind::IsolatorMid,          "iso_mid",        "MID",     S::Global, -50,   50,   0, U::IsoBand,      false, noLabels },
+    { ParamKind::IsolatorHigh,         "iso_high",       "HI",      S::Global, -50,   50,   0, U::IsoBand,      false, noLabels },
+    { ParamKind::IsolatorOnLoop,       "iso_on_loop",    "ISO+LP",  S::Global,   0,    1,   0, U::Bool,         false, lab (labels::onOff) },
 
-    { ParamKind::KickTune,              "kick_tune",             "TUNE",     S::Track,  -24.f,  24.f,   0.f,   C::Linear,      U::Semitones,    true,  noLabels },
-    { ParamKind::KickDecay,             "kick_decay",            "DECAY",    S::Track,  10.f,   2000.f, 400.f, C::Exponential, U::Milliseconds, true,  noLabels },
-    { ParamKind::KickPunch,             "kick_punch",            "PUNCH",    S::Track,  0.f,    1.f,    0.4f,  C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::KickSweepDepth,        "kick_sweep_depth",      "SWEEP",    S::Track,  0.f,    1.f,    0.6f,  C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::KickSweepTime,         "kick_sweep_time",       "SWPTIME",  S::Track,  1.f,    200.f,  30.f,  C::Exponential, U::Milliseconds, true,  noLabels },
-    { ParamKind::KickDrive,             "kick_drive",            "DRIVE",    S::Track,  0.f,    1.f,    0.f,   C::Linear,      U::Percent,      true,  noLabels },
+    { ParamKind::MasterFxEnabled,      "mfx_on",         "MFX",     S::Global,   0,    1,   0, U::Bool,         false, lab (labels::onOff) },
+    { ParamKind::MasterFxType,         "mfx_type",       "FX",      S::Global,   0,    4,   0, U::Enum,         false, lab (labels::masterFx) },
+    { ParamKind::MasterFxAmount,       "mfx_amount",     "AMOUNT",  S::Global,   0,  127,  64, U::Raw,          false, noLabels },
 
-    { ParamKind::SnareTune,             "snare_tune",            "TUNE",     S::Track,  -24.f,  24.f,   0.f,   C::Linear,      U::Semitones,    true,  noLabels },
-    { ParamKind::SnareDecay,            "snare_decay",           "DECAY",    S::Track,  10.f,   1500.f, 200.f, C::Exponential, U::Milliseconds, true,  noLabels },
-    { ParamKind::SnareSnap,             "snare_snap",            "SNAP",     S::Track,  0.f,    1.f,    0.5f,  C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::SnareNoiseDecay,       "snare_noise_decay",     "NDECAY",   S::Track,  10.f,   1500.f, 250.f, C::Exponential, U::Milliseconds, true,  noLabels },
-    { ParamKind::SnareDrive,            "snare_drive",           "DRIVE",    S::Track,  0.f,    1.f,    0.f,   C::Linear,      U::Percent,      true,  noLabels },
+    { ParamKind::ReverbType,           "rev_type",       "RV",      S::Global,   0,    2,   0, U::Enum,         false, lab (labels::reverbType) },
+    { ParamKind::ReverbMix,            "rev_mix",        "REVERB",  S::Global,   0,  127,   0, U::Raw,          false, noLabels },
+    { ParamKind::DelayMix,             "dly_mix",        "DELAY",   S::Global,   0,  127,   0, U::Raw,          false, noLabels },
+    { ParamKind::DelayTime,            "dly_time",       "TIME",    S::Global,   0,  127,  64, U::Raw,          false, noLabels },
+    { ParamKind::DelayFeedback,        "dly_feedback",   "F.BACK",  S::Global,   0,  127,  50, U::Raw,          false, noLabels },
+    { ParamKind::DelayToReverb,        "dly_to_rev",     "D>R",     S::Global,   0,  127,   0, U::Raw,          false, noLabels },
+    { ParamKind::DelayPingPong,        "dly_pingpong",   "D.PP",    S::Global,   0,    1,   0, U::Bool,         false, lab (labels::onOff) },
+    { ParamKind::DelaySync,            "dly_sync",       "D.SY",    S::Global,   0,    1,   1, U::Bool,         false, lab (labels::onOff) },
 
-    { ParamKind::HatTune,               "hat_tune",              "TUNE",     S::Track,  -24.f,  24.f,   0.f,   C::Linear,      U::Semitones,    true,  noLabels },
-    { ParamKind::HatDecay,              "hat_decay",             "DECAY",    S::Track,  5.f,    1500.f, 80.f,  C::Exponential, U::Milliseconds, true,  noLabels },
-    { ParamKind::HatTone,               "hat_tone",              "TONE",     S::Track,  0.f,    1.f,    0.5f,  C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::HatCharacter,          "hat_character",         "CHAR",     S::Track,  0.f,    1.f,    0.5f,  C::Linear,      U::Percent,      true,  noLabels },
+    { ParamKind::ExtInGain,            "ext_gain",       "IN.GAIN", S::Global,   0,  127,  64, U::Raw,          false, noLabels },
+    { ParamKind::ExtInReverbSend,      "ext_rvb",        "IN.RVB",  S::Global,   0,  127,   0, U::Raw,          false, noLabels },
+    { ParamKind::ExtInDelaySend,       "ext_dly",        "IN.DLY",  S::Global,   0,  127,   0, U::Raw,          false, noLabels },
 
-    { ParamKind::SampleBank,            "smp_bank",              "BANK",     S::Track,  0.f,    1.f,    0.f,   C::Stepped,     U::Enum,         false, lab (labels::sampleBank) },
-    { ParamKind::SampleSlot,            "smp_slot",              "SLOT",     S::Track,  0.f,    31.f,   0.f,   C::Stepped,     U::None,         true,  noLabels },
-    { ParamKind::SampleTune,            "smp_tune",              "TUNE",     S::Track,  -24.f,  24.f,   0.f,   C::Linear,      U::Semitones,    true,  noLabels },
-    { ParamKind::SampleStart,           "smp_start",             "START",    S::Track,  0.f,    1.f,    0.f,   C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::SampleDecay,           "smp_decay",             "DECAY",    S::Track,  5.f,    2000.f, 2000.f,C::Exponential, U::Milliseconds, true,  noLabels },
-    { ParamKind::SampleRepitchToTempo,  "smp_repitch",           "RETUNE",   S::Track,  0.f,    1.f,    0.f,   C::Stepped,     U::Bool,         false, lab (labels::onOff) },
+    { ParamKind::TrackSoundBank,       "bank",           "BANK",    S::Track,    0,   12,   0, U::Enum,         false, lab (labels::bank) },
+    { ParamKind::TrackSound,           "sound",          "SOUND",   S::Track,    0,  127,   0, U::Raw,          true,  noLabels },
+    { ParamKind::TrackTune,            "tune",           "TUNE",    S::Track,    0,  127,  64, U::Bipolar,      true,  noLabels },
+    { ParamKind::TrackTone,            "tone",           "TONE",    S::Track,    0,  127,  64, U::Tone,         true,  noLabels },
+    { ParamKind::TrackMove,            "move",           "MOVE",    S::Track,    0,  127,  64, U::Bipolar,      true,  noLabels },
+    { ParamKind::TrackAttack,          "attack",         "ATTACK",  S::Track,    0,  127,   0, U::Raw,          true,  noLabels },
+    { ParamKind::TrackDecay,           "decay",          "DECAY",   S::Track,    0,  127,  90, U::Raw,          true,  noLabels },
+    { ParamKind::TrackReverbSend,      "rvb_send",       "→RVB",    S::Track,    0,  127,   0, U::Raw,          true,  noLabels },
+    { ParamKind::TrackDelaySend,       "dly_send",       "→DLY",    S::Track,    0,  127,   0, U::Raw,          true,  noLabels },
+    { ParamKind::TrackPan,             "pan",            "PAN",     S::Track,    0,  127,  64, U::Pan,          true,  noLabels },
+    { ParamKind::TrackLevel,           "level",          "LEVEL",   S::Track,    0,  127, 100, U::Raw,          true,  noLabels },
+    { ParamKind::TrackRandomVelocity,  "rnd_vel",        "RND VL",  S::Track,    0,  127,   0, U::Raw,          true,  noLabels },
 
-    { ParamKind::LoopSlot,              "loop_slot",             "SLOT",     S::Track,  0.f,    11.f,   0.f,   C::Stepped,     U::None,         true,  noLabels },
-    { ParamKind::LoopPitch,             "loop_pitch",            "PITCH",    S::Track,  -24.f,  24.f,   0.f,   C::Linear,      U::Semitones,    true,  noLabels },
-    { ParamKind::LoopPlayMode,          "loop_mode",             "MODE",     S::Track,  0.f,    1.f,    0.f,   C::Stepped,     U::Enum,         false, lab (labels::playMode) },
-    { ParamKind::LoopCrossfade,         "loop_xfade",            "XFADE",    S::Track,  0.f,    500.f,  10.f,  C::Exponential, U::Milliseconds, false, noLabels },
-    { ParamKind::LoopStretch,           "loop_stretch",          "STRETCH",  S::Track,  0.f,    1.f,    1.f,   C::Stepped,     U::Bool,         false, lab (labels::onOff) },
-    { ParamKind::LoopStart,             "loop_start",            "START",    S::Track,  0.f,    1.f,    0.f,   C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::LoopLength,            "loop_length",           "LEN",      S::Track,  0.f,    1.f,    1.f,   C::Linear,      U::Percent,      true,  noLabels },
+    { ParamKind::TrackNoteLength,      "note_length",    "NOTE",    S::Track,    0,    9,   8, U::Enum,         false, lab (labels::noteLength) },
+    { ParamKind::TrackStepLength,      "step_length",    "LEN",     S::Track,    1,   16,  16, U::Steps,        false, noLabels },
+    // 49 displays as PTN and means "follow the pattern swing"; 50-75 overrides it (p. 51).
+    { ParamKind::TrackSwing,           "track_swing",    "SWING",   S::Track,   49,   75,  49, U::SwingPercent, false, noLabels },
+    { ParamKind::TrackMute,            "mute",           "MUTE",    S::Track,    0,    1,   0, U::Bool,         false, lab (labels::onOff) },
+    { ParamKind::TrackChoke,           "choke",          "CHK",     S::Track,    0,    1,   0, U::Bool,         false, lab (labels::onOff) },
+    { ParamKind::TrackRepitch,         "repitch",        "RPT",     S::Track,    0,    1,   0, U::Bool,         false, lab (labels::onOff) },
+    { ParamKind::TrackLoopMode,        "loop_mode",      "LP",      S::Track,    0,    5,   0, U::Enum,         false, lab (labels::loopMode) },
+    { ParamKind::TrackSnappyType,      "snappy_type",    "SNAPPY",  S::Track,    0,    5,   0, U::Enum,         false, lab (labels::snappy) },
 
-    { ParamKind::BassWave,              "bass_wave",             "WAVE",     S::Track,  0.f,    4.f,    0.f,   C::Stepped,     U::Enum,         true,  lab (labels::bassWave) },
-    { ParamKind::BassWaveBlend,         "bass_blend",            "BLEND",    S::Track,  0.f,    1.f,    0.f,   C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::BassSubRange,          "bass_sub_range",        "SUBOCT",   S::Track,  0.f,    2.f,    1.f,   C::Stepped,     U::Enum,         false, lab (labels::subRange) },
-    { ParamKind::BassSubLevel,          "bass_sub_level",        "SUBLVL",   S::Track,  0.f,    1.f,    0.f,   C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::BassSubBypass,         "bass_sub_bypass",       "SUBBYP",   S::Track,  0.f,    1.f,    0.f,   C::Stepped,     U::Bool,         false, lab (labels::onOff) },
-    { ParamKind::BassTune,              "bass_tune",             "TUNE",     S::Track,  -24.f,  24.f,   0.f,   C::Linear,      U::Semitones,    true,  noLabels },
-    { ParamKind::BassCutoff,            "bass_cutoff",           "CUTOFF",   S::Track,  20.f,   16000.f,800.f, C::Exponential, U::Hertz,        true,  noLabels },
-    { ParamKind::BassResonance,         "bass_res",              "RESO",     S::Track,  0.f,    1.f,    0.6f,  C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::BassEnvMod,            "bass_env_mod",          "ENVMOD",   S::Track,  0.f,    1.f,    0.5f,  C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::BassDecay,             "bass_decay",            "DECAY",    S::Track,  20.f,   3000.f, 300.f, C::Exponential, U::Milliseconds, true,  noLabels },
-    { ParamKind::BassDecayCurve,        "bass_decay_curve",      "DCURVE",   S::Track,  0.f,    1.f,    0.5f,  C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::BassAccentAmount,      "bass_accent",           "ACCENT",   S::Track,  0.f,    1.f,    0.5f,  C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::BassGlideTime,         "bass_glide_time",       "GLIDE",    S::Track,  1.f,    500.f,  60.f,  C::Exponential, U::Milliseconds, true,  noLabels },
-    { ParamKind::BassGlideCurve,        "bass_glide_curve",      "GCURVE",   S::Track,  0.f,    1.f,    0.5f,  C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::BassGateTime,          "bass_gate_time",        "GATE",     S::Track,  0.05f,  1.f,    0.5f,  C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::BassOverdrive,         "bass_overdrive",        "DRIVE",    S::Track,  0.f,    1.f,    0.f,   C::Linear,      U::Percent,      true,  noLabels },
-
-    { ParamKind::MasterFxType,          "mfx_type",              "FX",       S::Global, 0.f,    4.f,    0.f,   C::Stepped,     U::Enum,         false, lab (labels::masterFx) },
-    { ParamKind::MasterFxAmount,        "mfx_amount",            "AMOUNT",   S::Global, 0.f,    1.f,    0.f,   C::Linear,      U::Percent,      true,  noLabels },
-
-    { ParamKind::ReverbType,            "rev_type",              "TYPE",     S::Global, 0.f,    2.f,    0.f,   C::Stepped,     U::Enum,         false, lab (labels::reverbType) },
-    { ParamKind::ReverbTime,            "rev_time",              "TIME",     S::Global, 0.1f,   10.f,   1.8f,  C::Exponential, U::Milliseconds, true,  noLabels },
-    { ParamKind::ReverbLevel,           "rev_level",             "LEVEL",    S::Global, 0.f,    1.f,    0.5f,  C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::DelayTime,             "dly_time",              "TIME",     S::Global, 0.f,    8.f,    4.f,   C::Stepped,     U::Enum,         true,  lab (labels::delayTime) },
-    { ParamKind::DelayFeedback,         "dly_feedback",          "FDBK",     S::Global, 0.f,    1.f,    0.4f,  C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::DelayLevel,            "dly_level",             "LEVEL",    S::Global, 0.f,    1.f,    0.5f,  C::Linear,      U::Percent,      true,  noLabels },
-    { ParamKind::DelayPingPong,         "dly_pingpong",          "PINGPNG",  S::Global, 0.f,    1.f,    0.f,   C::Stepped,     U::Bool,         false, lab (labels::onOff) },
+    { ParamKind::BassCutoff,           "bass_cutoff",    "CUTOFF",  S::Track,    0,  127,  60, U::Raw,          true,  noLabels },
+    { ParamKind::BassResonance,        "bass_reso",      "RESO",    S::Track,    0,  127,  80, U::Raw,          true,  noLabels },
+    { ParamKind::BassEnvDepth,         "bass_env",       "ENV",     S::Track,    0,  127,  70, U::Raw,          true,  noLabels },
+    { ParamKind::BassEnvDecay,         "bass_env_dec",   "DECAY",   S::Track,    0,  127,  60, U::Raw,          true,  noLabels },
+    { ParamKind::BassAccent,           "bass_accent",    "ACCENT",  S::Track,    0,  127,  64, U::Raw,          true,  noLabels },
+    { ParamKind::BassDrive,            "bass_drive",     "DRIVE",   S::Track,    0,  127,   0, U::Raw,          true,  noLabels },
+    { ParamKind::BassDriveEnabled,     "bass_drive_on",  "BS.DRV",  S::Track,    0,    1,   0, U::Bool,         false, lab (labels::onOff) },
+    { ParamKind::BassLevel,            "bass_level",     "LEVEL",   S::Track,    0,  127, 100, U::Raw,          true,  noLabels },
+    { ParamKind::BassGlideCurve,       "bass_glide_crv", "GL.C",    S::Track,    0,  127,  64, U::Raw,          true,  noLabels },
 } };
 // clang-format on
 
@@ -145,7 +131,7 @@ const ParamDescriptor& paramInfo (ParamKind kind) noexcept
 {
     const auto index = static_cast<std::size_t> (kind);
     assert (index < kParamTable.size());
-    assert (kParamTable[index].kind == kind && "kParamTable row order must match ParamKind");
+    assert (kParamTable[index].kind == kind && "table row order must match ParamKind");
     return kParamTable[index];
 }
 
@@ -164,46 +150,34 @@ std::string paramIdString (ParamId id) noexcept
 
 //==============================================================================
 
-float clampToRange (ParamKind kind, float value) noexcept
+int clampToRange (ParamKind kind, int value) noexcept
 {
     const auto& info = paramInfo (kind);
-    auto v = std::clamp (value, info.minValue, info.maxValue);
-
-    if (info.curve == ParamCurve::Stepped)
-        v = std::round (v);
-
-    return v;
+    return std::clamp (value, info.minValue, info.maxValue);
 }
 
-float normalise (ParamKind kind, float value) noexcept
+float normalise (ParamKind kind, int value) noexcept
 {
     const auto& info = paramInfo (kind);
-    const auto v = std::clamp (value, info.minValue, info.maxValue);
-    const auto range = info.maxValue - info.minValue;
+    const auto span = info.maxValue - info.minValue;
 
-    if (range <= 0.f)
-        return 0.f;
+    if (span <= 0)
+        return 0.0f;
 
-    if (info.curve == ParamCurve::Exponential && info.minValue > 0.f)
-        return static_cast<float> (std::log (v / info.minValue)
-                                   / std::log (info.maxValue / info.minValue));
-
-    return (v - info.minValue) / range;
+    return static_cast<float> (clampToRange (kind, value) - info.minValue)
+         / static_cast<float> (span);
 }
 
-float denormalise (ParamKind kind, float normalised) noexcept
+int denormalise (ParamKind kind, float normalised) noexcept
 {
     const auto& info = paramInfo (kind);
-    const auto n = std::clamp (normalised, 0.f, 1.f);
+    const auto n = std::clamp (normalised, 0.0f, 1.0f);
+    const auto span = static_cast<float> (info.maxValue - info.minValue);
 
-    if (info.curve == ParamCurve::Exponential && info.minValue > 0.f)
-        return clampToRange (kind,
-                             info.minValue * std::pow (info.maxValue / info.minValue, n));
-
-    return clampToRange (kind, info.minValue + n * (info.maxValue - info.minValue));
+    return clampToRange (kind, info.minValue + static_cast<int> (std::lround (n * span)));
 }
 
-std::string formatValue (ParamKind kind, float value) noexcept
+std::string formatValue (ParamKind kind, int value) noexcept
 {
     const auto& info = paramInfo (kind);
     const auto v = clampToRange (kind, value);
@@ -214,50 +188,58 @@ std::string formatValue (ParamKind kind, float value) noexcept
         case ParamUnit::Enum:
         case ParamUnit::Bool:
         {
-            const auto index = static_cast<std::size_t> (std::max (0.f, v));
+            const auto index = static_cast<std::size_t> (std::max (0, v));
             if (index < info.labels.size())
                 return std::string (info.labels[index]);
-            std::snprintf (buffer, sizeof (buffer), "%d", static_cast<int> (v));
+            std::snprintf (buffer, sizeof (buffer), "%d", v);
             break;
         }
 
-        case ParamUnit::Percent:
-            std::snprintf (buffer, sizeof (buffer), "%d%%", static_cast<int> (std::round (v * 100.f)));
-            break;
-
-        case ParamUnit::Hertz:
-            if (v >= 1000.f)
-                std::snprintf (buffer, sizeof (buffer), "%.1fk", static_cast<double> (v) / 1000.0);
+        case ParamUnit::Pan:
+            if (v == kRawCentre)
+                return "C";
+            if (v < kRawCentre)
+                std::snprintf (buffer, sizeof (buffer), "L%d", kRawCentre - v);
             else
-                std::snprintf (buffer, sizeof (buffer), "%dHz", static_cast<int> (std::round (v)));
+                std::snprintf (buffer, sizeof (buffer), "R%d", v - kRawCentre);
             break;
 
-        case ParamUnit::Milliseconds:
-            if (v >= 1000.f)
-                std::snprintf (buffer, sizeof (buffer), "%.2fs", static_cast<double> (v) / 1000.0);
+        case ParamUnit::Tone:
+            // LPF50 - FLT OFF - HPF50 (p. 65)
+            if (v == kRawCentre)
+                return "FLT OFF";
+            if (v < kRawCentre)
+                std::snprintf (buffer, sizeof (buffer), "LPF%d",
+                               (kRawCentre - v) * 50 / kRawCentre);
             else
-                std::snprintf (buffer, sizeof (buffer), "%dms", static_cast<int> (std::round (v)));
+                std::snprintf (buffer, sizeof (buffer), "HPF%d",
+                               (v - kRawCentre) * 50 / (kRawMax - kRawCentre));
             break;
 
+        case ParamUnit::Bipolar:
+            std::snprintf (buffer, sizeof (buffer), "%+d", v - kRawCentre);
+            break;
+
+        case ParamUnit::IsoBand:
         case ParamUnit::Semitones:
-            std::snprintf (buffer, sizeof (buffer), "%+d", static_cast<int> (std::round (v)));
+            std::snprintf (buffer, sizeof (buffer), "%+d", v);
             break;
 
-        case ParamUnit::Decibels:
-            std::snprintf (buffer, sizeof (buffer), "%+.1fdB", static_cast<double> (v));
+        case ParamUnit::SwingPercent:
+            // The track swing control shows PTN below 50 (p. 51).
+            if (kind == ParamKind::TrackSwing && v < 50)
+                return "PTN";
+            std::snprintf (buffer, sizeof (buffer), "%d%%", v);
             break;
 
         case ParamUnit::Bpm:
-            std::snprintf (buffer, sizeof (buffer), "%.1f", static_cast<double> (v));
+            std::snprintf (buffer, sizeof (buffer), "%d", v);
             break;
 
         case ParamUnit::Steps:
-            std::snprintf (buffer, sizeof (buffer), "%d", static_cast<int> (std::round (v)));
-            break;
-
-        case ParamUnit::None:
+        case ParamUnit::Raw:
         default:
-            std::snprintf (buffer, sizeof (buffer), "%d", static_cast<int> (std::round (v)));
+            std::snprintf (buffer, sizeof (buffer), "%d", v);
             break;
     }
 
@@ -268,88 +250,149 @@ std::string formatValue (ParamKind kind, float value) noexcept
 
 namespace
 {
-    constexpr ParamKind kCommonTrack[] = {
-        ParamKind::TrackLevel,
-        ParamKind::TrackEqFreq,
-        ParamKind::TrackEqRes,
+    /// The eleven micro knobs, in the order of the parts list (p. 10).
+    constexpr ParamKind kTrackKnobs[] = {
+        ParamKind::TrackSound,
+        ParamKind::TrackTune,
+        ParamKind::TrackTone,
+        ParamKind::TrackMove,
+        ParamKind::TrackAttack,
+        ParamKind::TrackDecay,
+        ParamKind::TrackPan,
         ParamKind::TrackReverbSend,
         ParamKind::TrackDelaySend,
-        ParamKind::TrackMute,
-        ParamKind::TrackStepLength,
-        ParamKind::TrackNoteLength,
-        ParamKind::TrackRotation,
-        ParamKind::TrackSwing,
+        ParamKind::TrackLevel,
         ParamKind::TrackRandomVelocity,
     };
 
-    constexpr ParamKind kKick[] = {
-        ParamKind::KickTune, ParamKind::KickDecay, ParamKind::KickPunch,
-        ParamKind::KickSweepDepth, ParamKind::KickSweepTime, ParamKind::KickDrive,
-    };
-
-    constexpr ParamKind kSnare[] = {
-        ParamKind::SnareTune, ParamKind::SnareDecay, ParamKind::SnareSnap,
-        ParamKind::SnareNoiseDecay, ParamKind::SnareDrive,
-    };
-
-    constexpr ParamKind kHat[] = {
-        ParamKind::HatTune, ParamKind::HatDecay, ParamKind::HatTone, ParamKind::HatCharacter,
-    };
-
-    constexpr ParamKind kSample[] = {
-        ParamKind::SampleBank, ParamKind::SampleSlot, ParamKind::SampleTune,
-        ParamKind::SampleStart, ParamKind::SampleDecay, ParamKind::SampleRepitchToTempo,
-    };
-
-    constexpr ParamKind kLoop[] = {
-        ParamKind::LoopSlot, ParamKind::LoopPitch, ParamKind::LoopPlayMode,
-        ParamKind::LoopCrossfade, ParamKind::LoopStretch, ParamKind::LoopStart,
-        ParamKind::LoopLength,
+    constexpr ParamKind kTrackSequencer[] = {
+        ParamKind::TrackNoteLength,
+        ParamKind::TrackStepLength,
+        ParamKind::TrackSwing,
+        ParamKind::TrackMute,
     };
 
     constexpr ParamKind kBass[] = {
-        ParamKind::BassWave, ParamKind::BassWaveBlend, ParamKind::BassSubRange,
-        ParamKind::BassSubLevel, ParamKind::BassSubBypass, ParamKind::BassTune,
-        ParamKind::BassCutoff, ParamKind::BassResonance, ParamKind::BassEnvMod,
-        ParamKind::BassDecay, ParamKind::BassDecayCurve, ParamKind::BassAccentAmount,
-        ParamKind::BassGlideTime, ParamKind::BassGlideCurve, ParamKind::BassGateTime,
-        ParamKind::BassOverdrive,
+        ParamKind::BassCutoff,
+        ParamKind::BassResonance,
+        ParamKind::BassEnvDepth,
+        ParamKind::BassEnvDecay,
+        ParamKind::BassAccent,
+        ParamKind::BassDrive,
+        ParamKind::BassDriveEnabled,
+        ParamKind::BassLevel,
+        ParamKind::BassGlideCurve,
     };
 }
 
-std::span<const ParamKind> commonTrackParams() noexcept
+std::span<const ParamKind> trackKnobParams() noexcept
 {
-    return { kCommonTrack, std::size (kCommonTrack) };
+    return { kTrackKnobs, std::size (kTrackKnobs) };
 }
 
-std::span<const ParamKind> voiceParams (VoiceKind voice) noexcept
+std::span<const ParamKind> trackSequencerParams() noexcept
 {
-    switch (voice)
-    {
-        case VoiceKind::KickSynth:  return { kKick,   std::size (kKick) };
-        case VoiceKind::SnareSynth: return { kSnare,  std::size (kSnare) };
-        case VoiceKind::HiHat:      return { kHat,    std::size (kHat) };
-        case VoiceKind::Sample:     return { kSample, std::size (kSample) };
-        case VoiceKind::Loop:       return { kLoop,   std::size (kLoop) };
-        case VoiceKind::BassSynth:  return { kBass,   std::size (kBass) };
-    }
-    return {};
+    return { kTrackSequencer, std::size (kTrackSequencer) };
+}
+
+std::span<const ParamKind> bassParams() noexcept
+{
+    return { kBass, std::size (kBass) };
 }
 
 std::vector<ParamId> trackParamIds (int track)
 {
     std::vector<ParamId> ids;
-    const auto voice = trackInfo (track).voice;
+    ids.reserve (32);
 
-    ids.reserve (commonTrackParams().size() + voiceParams (voice).size());
+    ids.push_back (makeParamId (ParamKind::TrackSoundBank, track));
 
-    for (auto kind : commonTrackParams())
+    for (auto kind : trackKnobParams())
         ids.push_back (makeParamId (kind, track));
 
-    for (auto kind : voiceParams (voice))
+    for (auto kind : trackSequencerParams())
         ids.push_back (makeParamId (kind, track));
+
+    // Conditional parameters exist only where the hardware offers them.
+    if (trackSupportsChoke (track))
+        ids.push_back (makeParamId (ParamKind::TrackChoke, track));
+
+    if (track >= 6 && track <= 8)
+        ids.push_back (makeParamId (ParamKind::TrackRepitch, track));
+
+    if (track == kLoopTrack)
+        ids.push_back (makeParamId (ParamKind::TrackLoopMode, track));
+
+    if (track == 2)
+        ids.push_back (makeParamId (ParamKind::TrackSnappyType, track));
+
+    if (track == kBassTrack)
+        for (auto kind : bassParams())
+            ids.push_back (makeParamId (kind, track));
 
     return ids;
+}
+
+std::string_view knobNameForBank (ParamKind kind, SoundBank bank) noexcept
+{
+    // The knob-meaning matrix from p. 62. Only the labels that differ from the panel silkscreen
+    // are listed; everything else falls through to the descriptor name.
+    switch (kind)
+    {
+        case ParamKind::TrackTone:
+            switch (bank)
+            {
+                case SoundBank::BD:   return "TONE";
+                case SoundBank::SD:   return "SNAPPY";
+                case SoundBank::BASS: return "SUBOCT";
+                default:              return "LPF/HPF";
+            }
+
+        case ParamKind::TrackMove:
+            switch (bank)
+            {
+                case SoundBank::BD:    return "MODTIME";
+                case SoundBank::SY_BS:
+                case SoundBank::FX:    return "D.CURVE";
+                case SoundBank::S2:
+                case SoundBank::S4:    return "SLOPE";
+                case SoundBank::S8:    return "XFADE";
+                case SoundBank::BASS:  return "D.CURVE";
+                default:               return "NUDGE";
+            }
+
+        case ParamKind::TrackAttack:
+            switch (bank)
+            {
+                case SoundBank::SD:   return "OVERTON";
+                case SoundBank::S2:
+                case SoundBank::S4:
+                case SoundBank::S8:   return "START";
+                case SoundBank::BASS: return "GLIDE";
+                default:              return "ATTACK";
+            }
+
+        case ParamKind::TrackDecay:
+            switch (bank)
+            {
+                case SoundBank::S2:
+                case SoundBank::S4:
+                case SoundBank::S8:   return "LENGTH";
+                case SoundBank::BASS: return "GATE";
+                default:              return "DECAY";
+            }
+
+        case ParamKind::TrackLevel:
+            return bank == SoundBank::BASS ? "SUB LVL" : "LEVEL";
+
+        case ParamKind::TrackSound:
+            return bank == SoundBank::BASS ? "OSC" : "SOUND";
+
+        default:
+            break;
+    }
+
+    return paramInfo (kind).name;
 }
 
 } // namespace bud

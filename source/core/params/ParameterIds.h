@@ -14,105 +14,91 @@ namespace bud
 //==============================================================================
 /** Every distinct parameter in the instrument.
 
-    This enum, together with @ref kParamTable, is the single source of truth for parameters.
-    The APVTS layout, the parameter-lock target list, the MIDI CC map, display formatting and
-    the micro-knob assignments are all derived from it. Adding a parameter means adding one
-    enum entry and one table row — never editing five parallel lists.
+    This enum, together with @ref paramTable, is the single source of truth for parameters. The
+    APVTS layout, the parameter-lock target list, the MIDI CC map, display formatting and the
+    micro-knob assignments are all derived from it. Adding a parameter means adding one enum
+    entry and one table row — never editing five parallel lists.
 
-    Order is significant only in that it defines the table; ids are stabilised by the string
-    id in the descriptor, so entries may be reordered but string ids must never change once
-    a project file has been saved with them.
+    Values are stored in the hardware's own domain: an integer 0-127 for nearly everything, with
+    a few bipolar and enumerated exceptions. Mapping raw values to real quantities is the job of
+    params/Curves.h.
+
+    The string id in each descriptor is what appears in saved state, so entries may be reordered
+    but ids must never change once a project has been written with them.
 */
 enum class ParamKind : std::uint16_t
 {
     // ---- Global -------------------------------------------------------------
     Tempo = 0,
-    GlobalSwing,
+    Swing,               ///< 50-75 %
+    SwingResolution,     ///< 8TH / 16TH
+    Transpose,           ///< -12 to +12 semitones
     MasterVolume,
-    Feel,
-    FeelDepth,
+    PatternLevel,
+    Feel,                ///< 08 / 09 / MN
+    AccentHardDepth,     ///< AC.h
+    AccentSoftDepth,     ///< AC.s
 
-    // ---- Per track, common --------------------------------------------------
-    TrackLevel,          ///< Control knob D
-    TrackEqFreq,         ///< Control knob A
-    TrackEqRes,          ///< Control knob B
-    TrackReverbSend,     ///< Control knob C (reverb bus)
-    TrackDelaySend,      ///< Control knob C (delay bus)
-    TrackMute,
-    TrackStepLength,     ///< 1-16
-    TrackNoteLength,     ///< StepDivision, 1/1 to 1/32
-    TrackRotation,       ///< Phrase rotation, in steps
-    TrackSwing,          ///< Per-track swing
-    TrackRandomVelocity, ///< Per-track random velocity amount
-
-    // ---- Kick synthesis (track 1) -------------------------------------------
-    KickTune,
-    KickDecay,
-    KickPunch,
-    KickSweepDepth,
-    KickSweepTime,
-    KickDrive,
-
-    // ---- Snare synthesis (track 3) ------------------------------------------
-    SnareTune,
-    SnareDecay,
-    SnareSnap,           ///< Tone/noise balance
-    SnareNoiseDecay,
-    SnareDrive,
-
-    // ---- Hi-hat model -------------------------------------------------------
-    HatTune,
-    HatDecay,
-    HatTone,
-    HatCharacter,        ///< Analog tonal variation
-
-    // ---- Sample voice (tracks 2, 4, 7-9) ------------------------------------
-    SampleBank,          ///< S2 or S4
-    SampleSlot,
-    SampleTune,
-    SampleStart,
-    SampleDecay,
-    SampleRepitchToTempo,
-
-    // ---- Loop voice (track 10) ----------------------------------------------
-    LoopSlot,
-    LoopPitch,
-    LoopPlayMode,        ///< Loop or one-shot
-    LoopCrossfade,
-    LoopStretch,         ///< Time-stretch to tempo
-    LoopStart,
-    LoopLength,
-
-    // ---- Bass synth (track 11) ----------------------------------------------
-    BassWave,
-    BassWaveBlend,       ///< S01 mode: continuous SAW <-> SQUARE blend
-    BassSubRange,        ///< -2, -1, UNISON
-    BassSubLevel,
-    BassSubBypass,       ///< Sub bypasses filter and sends
-    BassTune,
-    BassCutoff,
-    BassResonance,
-    BassEnvMod,
-    BassDecay,
-    BassDecayCurve,
-    BassAccentAmount,    ///< Filter-linked accent
-    BassGlideTime,
-    BassGlideCurve,
-    BassGateTime,
-    BassOverdrive,
+    // ---- Isolator, on the drum bus -----------------------------------------
+    IsolatorLow,         ///< -50 to +50
+    IsolatorMid,
+    IsolatorHigh,
+    IsolatorOnLoop,      ///< ISO+LP
 
     // ---- Master effect ------------------------------------------------------
-    MasterFxType,        ///< Sweep filter, phaser, distortion, snip loop, ducking comp
+    MasterFxEnabled,     ///< Not saved with the pattern
+    MasterFxType,
     MasterFxAmount,      ///< The single performance macro
 
     // ---- Send effects -------------------------------------------------------
-    ReverbType,          ///< Room, Hall, Plate
-    ReverbTime,
-    ReverbLevel,
+    ReverbType,
+    ReverbMix,
+    DelayMix,
     DelayTime,
     DelayFeedback,
-    DelayLevel,
-    DelayPingPong,
+    DelayToReverb,       ///< D>R
+    DelayPingPong,       ///< D.PP
+    DelaySync,           ///< D.SY
+
+    // ---- External input -----------------------------------------------------
+    ExtInGain,
+    ExtInReverbSend,
+    ExtInDelaySend,
+
+    // ---- Per track, the eleven micro knobs ----------------------------------
+    TrackSoundBank,
+    TrackSound,          ///< Index within the bank
+    TrackTune,
+    TrackTone,           ///< Meaning depends on the bank
+    TrackMove,           ///< Meaning depends on the bank
+    TrackAttack,         ///< Meaning depends on the bank
+    TrackDecay,          ///< Meaning depends on the bank
+    TrackReverbSend,
+    TrackDelaySend,
+    TrackPan,
+    TrackLevel,
+    TrackRandomVelocity,
+
+    // ---- Per track, sequencer settings --------------------------------------
+    TrackNoteLength,
+    TrackStepLength,     ///< 1-16
+    TrackSwing,          ///< 49 means "follow the pattern"; 50-75 overrides it
+    TrackMute,
+    TrackChoke,          ///< Tracks 5-6 only
+    TrackRepitch,        ///< Tracks 7-9 only
+    TrackLoopMode,       ///< Track 10 only
+    TrackSnappyType,     ///< SD bank only
+
+    // ---- Bass synth, its own knob section -----------------------------------
+    BassCutoff,
+    BassResonance,
+    BassEnvDepth,
+    BassEnvDecay,
+    BassAccent,
+    BassDrive,
+    BassDriveEnabled,    ///< BS DRV; DRIVE does nothing while this is off
+    BassLevel,
+    BassGlideCurve,
 
     Count
 };
@@ -129,14 +115,17 @@ enum class ParamScope : std::uint8_t
 
 enum class ParamUnit : std::uint8_t
 {
-    None, Percent, Hertz, Decibels, Milliseconds, Semitones, Steps, Bpm, Enum, Bool
-};
-
-enum class ParamCurve : std::uint8_t
-{
-    Linear,       ///< Uniform
-    Exponential,  ///< Skewed towards the low end; for times and frequencies
-    Stepped       ///< Discrete integer values
+    Raw,         ///< 0-127, shown as a number
+    Bipolar,     ///< 0-127 with a detent at 64, shown as -63 to +63
+    Pan,         ///< 0-127 with a detent at 64, shown as L63 / C / R63
+    Tone,        ///< 0-127 with a detent at 64, shown as LPF50 / FLT OFF / HPF50
+    IsoBand,     ///< -50 to +50
+    Semitones,
+    SwingPercent,
+    Bpm,
+    Steps,
+    Enum,
+    Bool
 };
 
 struct ParamDescriptor
@@ -145,19 +134,17 @@ struct ParamDescriptor
     std::string_view id;       ///< Stable string id, used in serialised state. Never change.
     std::string_view name;     ///< Display name, sized for the character display
     ParamScope scope;
-    float minValue;
-    float maxValue;
-    float defaultValue;
-    ParamCurve curve;
+    int minValue;
+    int maxValue;
+    int defaultValue;
     ParamUnit unit;
-    bool plockable;            ///< May be recorded as a per-step parameter lock
+    bool plockable;            ///< May be recorded as a per-step parameter lock (p. 44)
     std::span<const std::string_view> labels;  ///< Enum value labels, empty otherwise
 };
 
-/// The parameter table. Indexed by ParamKind; `kParamTable[i].kind == ParamKind(i)` holds.
+/// The parameter table. Indexed by ParamKind; `paramTable()[i].kind == ParamKind(i)` holds.
 std::span<const ParamDescriptor> paramTable() noexcept;
 
-/// Descriptor lookup.
 const ParamDescriptor& paramInfo (ParamKind) noexcept;
 
 //==============================================================================
@@ -189,34 +176,41 @@ constexpr int trackOf (ParamId id) noexcept
     return static_cast<int> (id & kTrackMask) - 1;
 }
 
-/// The string id used in serialised state, e.g. "t03.kick_decay" or "tempo".
+/// The string id used in serialised state, e.g. "t03.decay" or "tempo".
 std::string paramIdString (ParamId) noexcept;
 
 //==============================================================================
-// Value helpers.
+// Value helpers. Raw values are integers; only tempo is continuous.
 
-/// Clamp to the descriptor's range, snapping to integers for stepped parameters.
-float clampToRange (ParamKind, float value) noexcept;
+int clampToRange (ParamKind, int value) noexcept;
 
-/// Map a real value to 0..1 using the descriptor's curve.
-float normalise (ParamKind, float value) noexcept;
+/// Map a raw value to 0..1 for a host parameter.
+float normalise (ParamKind, int value) noexcept;
 
-/// Map 0..1 back to a real value using the descriptor's curve.
-float denormalise (ParamKind, float normalised) noexcept;
+/// Map 0..1 back to a raw value.
+int denormalise (ParamKind, float normalised) noexcept;
 
-/// Format for the character display, e.g. "  62%", "1/16", "PLATE".
-std::string formatValue (ParamKind, float value) noexcept;
+/// Format for the character display, e.g. "64", "L21", "LPF32", "1/16", "PLAT".
+std::string formatValue (ParamKind, int value) noexcept;
 
 //==============================================================================
-// Which parameters a voice exposes. Drives micro-knob assignment and the edit pages.
+// Which parameters apply where.
 
-/// The parameters common to every track (level, EQ, sends, sequencer settings).
-std::span<const ParamKind> commonTrackParams() noexcept;
+/// The eleven micro knobs, in panel order.
+std::span<const ParamKind> trackKnobParams() noexcept;
 
-/// The parameters specific to a voice engine, in panel order.
-std::span<const ParamKind> voiceParams (VoiceKind) noexcept;
+/// Per-track sequencer settings.
+std::span<const ParamKind> trackSequencerParams() noexcept;
 
-/// Every parameter instance that exists for a given track, common then voice-specific.
+/// The bass synth's own knob section.
+std::span<const ParamKind> bassParams() noexcept;
+
+/// Every parameter instance that exists for a given track, including the bass section on
+/// track 11 and only those conditional parameters the track actually supports.
 std::vector<ParamId> trackParamIds (int track);
+
+/// Display name for a knob on a given bank — TONE on a BD track is "TONE", on a bass track
+/// "SUBOCT" (p. 62). Falls back to the descriptor's name.
+std::string_view knobNameForBank (ParamKind, SoundBank) noexcept;
 
 } // namespace bud

@@ -1,5 +1,6 @@
 #include "Engine.h"
 
+#include "factory/FactoryContent.h"
 #include "voices/BassVoice.h"
 #include "voices/DrumVoices.h"
 #include "voices/SampleVoices.h"
@@ -12,30 +13,59 @@ namespace bud
 
 Engine::Engine()
 {
+    buildVoices();
+
     for (int track = 0; track < kNumTracks; ++track)
-    {
-        voices_[static_cast<std::size_t> (track)] = makeVoice (trackInfo (track).voice);
         sequencers_[static_cast<std::size_t> (track)].prepare (track);
-    }
 
     rebindSequencers();
 }
 
 Engine::~Engine() = default;
 
-std::unique_ptr<Voice> Engine::makeVoice (VoiceKind kind) const
+void Engine::buildVoices()
 {
-    switch (kind)
+    for (int track = 0; track < kNumTracks; ++track)
     {
-        case VoiceKind::KickSynth:  return std::make_unique<KickVoice>();
-        case VoiceKind::SnareSynth: return std::make_unique<SnareVoice>();
-        case VoiceKind::HiHat:      return std::make_unique<HiHatVoice>();
-        case VoiceKind::Sample:     return std::make_unique<SampleVoice>();
-        case VoiceKind::Loop:       return std::make_unique<LoopVoice>();
-        case VoiceKind::BassSynth:  return std::make_unique<BassVoice>();
-    }
+        auto& slot = voices_[static_cast<std::size_t> (track)];
 
-    return nullptr;
+        if (track == kBassTrack)
+            slot.sampler = std::make_unique<BassVoice>();
+        else if (track == kLoopTrack)
+            slot.sampler = std::make_unique<LoopVoice>();
+        else
+            slot.sampler = std::make_unique<DrumSampleVoice>();
+
+        // Only BD on track 1 and SD on track 3 are synthesised (p. 60). Those tracks carry
+        // both engines and dispatch on the bank in use.
+        if (track == 0)
+            slot.synth = std::make_unique<KickVoice>();
+        else if (track == 2)
+            slot.synth = std::make_unique<SnareVoice>();
+    }
+}
+
+Voice* Engine::voiceFor (int track, SoundBank bank) noexcept
+{
+    auto& slot = voices_[static_cast<std::size_t> (track)];
+
+    if (slot.synth != nullptr && bankHasSynthEngine (bank, track))
+        return slot.synth.get();
+
+    return slot.sampler.get();
+}
+
+int Engine::chokePartner (int track) const noexcept
+{
+    if (! trackSupportsChoke (track))
+        return -1;
+
+    const auto partner = track == 4 ? 5 : 4;
+
+    // Both sides have to have choke enabled for it to apply.
+    return (parameters_.get (ParamKind::TrackChoke, track) != 0
+            && parameters_.get (ParamKind::TrackChoke, partner) != 0)
+         ? partner : -1;
 }
 
 //==============================================================================
@@ -46,6 +76,10 @@ void Engine::prepare (double sampleRate, int maxBlockSize)
     maxBlockSize_ = std::max (1, maxBlockSize);
 
     transport_.prepare (sampleRate_);
+
+    // The factory set is generated rather than shipped, and it is generated at the engine's
+    // sample rate so nothing has to be resampled on playback.
+    factory::generate (sounds_, sampleRate_);
 
     for (int track = 0; track < kNumTracks; ++track)
     {
@@ -58,14 +92,14 @@ void Engine::prepare (double sampleRate, int maxBlockSize)
         filterLeft_[t].prepare (sampleRate_);
         filterRight_[t].prepare (sampleRate_);
 
-        if (voices_[t] != nullptr)
-            voices_[t]->prepare (sampleRate_);
+        for (auto* voice : { voices_[t].sampler.get(), voices_[t].synth.get() })
+        {
+            if (voice == nullptr)
+                continue;
 
-        if (auto* sampler = dynamic_cast<SampleVoice*> (voices_[t].get()))
-            sampler->setLibrary (&samples_);
-
-        if (auto* loop = dynamic_cast<LoopVoice*> (voices_[t].get()))
-            loop->setLibrary (&samples_);
+            voice->prepare (sampleRate_);
+            voice->setLibrary (&sounds_);
+        }
     }
 
     reset();
@@ -82,8 +116,9 @@ void Engine::reset()
         sequencers_[t].reset();
         activeLocks_[t] = nullptr;
 
-        if (voices_[t] != nullptr)
-            voices_[t]->reset();
+        for (auto* voice : { voices_[t].sampler.get(), voices_[t].synth.get() })
+            if (voice != nullptr)
+                voice->reset();
 
         filterLeft_[t].reset();
         filterRight_[t].reset();
@@ -101,8 +136,9 @@ void Engine::start()
         sequencers_[t].reset();
         activeLocks_[t] = nullptr;
 
-        if (voices_[t] != nullptr)
-            voices_[t]->reset();
+        for (auto* voice : { voices_[t].sampler.get(), voices_[t].synth.get() })
+            if (voice != nullptr)
+                voice->reset();
 
         filterLeft_[t].reset();
         filterRight_[t].reset();
@@ -146,20 +182,16 @@ void Engine::syncFromParameters()
     transport_.setTempo (tempo);
     groove_.setTempo (tempo);
     groove_.setModel (static_cast<FeelModel> (
-        std::clamp (static_cast<int> (parameters_.get (ParamKind::Feel) + 0.5f),
-                    0, kNumFeelModels - 1)));
-    groove_.setDepth (parameters_.get (ParamKind::FeelDepth));
+        std::clamp (parameters_.get (ParamKind::Feel), 0, kNumFeelModels - 1)));
 
-    const auto tempoForVoices = tempo;
+    // FEEL has no depth control on the hardware — the model itself carries the amount — so the
+    // engine runs it at full depth and leaves depth as an internal scaling hook.
+    groove_.setDepth (1.0f);
 
-    for (auto& voice : voices_)
-    {
-        if (auto* sampler = dynamic_cast<SampleVoice*> (voice.get()))
-            sampler->setTempo (tempoForVoices);
-
-        if (auto* loop = dynamic_cast<LoopVoice*> (voice.get()))
-            loop->setTempo (tempoForVoices);
-    }
+    for (auto& slot : voices_)
+        for (auto* voice : { slot.sampler.get(), slot.synth.get() })
+            if (voice != nullptr)
+                voice->setTempo (tempo);
 }
 
 bool Engine::trackAudible (int track) const noexcept
@@ -167,10 +199,7 @@ bool Engine::trackAudible (int track) const noexcept
     if (solo_ >= 0)
         return track == solo_;
 
-    if (parameters_.get (ParamKind::TrackMute, track) >= 0.5f)
-        return false;
-
-    return ! patterns_.pattern (patternIndex_).track (track).muted;
+    return parameters_.get (ParamKind::TrackMute, track) == 0;
 }
 
 //==============================================================================
@@ -185,67 +214,80 @@ void Engine::renderTrack (int track, int numSamples)
     std::fill_n (left, numSamples, 0.0f);
     std::fill_n (right, numSamples, 0.0f);
 
-    auto& voice = voices_[t];
-
-    if (voice == nullptr)
-        return;
-
+    auto& slot = voices_[t];
     auto& events = trackEvents_[t];
-    events.clear();
 
-    const auto globalSwing = parameters_.get (ParamKind::GlobalSwing) * 0.01f;
-    sequencers_[t].collectEvents (transport_, groove_, globalSwing, events);
+    // Choke points from the partner track, merged into this track's timeline so the hat that
+    // was triggered last wins (p. 66).
+    const auto partner = chokePartner (track);
 
-    // Drift can reorder triggers relative to the order their steps were consumed in.
-    std::sort (events.begin(), events.end(),
-               [] (const TriggerEvent& a, const TriggerEvent& b)
-               { return a.sampleOffset < b.sampleOffset; });
+    struct Action { double offset; const TriggerEvent* event; };
+    std::vector<Action> actions;
+    actions.reserve (events.size() + 4);
+
+    for (const auto& event : events)
+        actions.push_back ({ event.sampleOffset, &event });
+
+    if (partner >= 0)
+        for (const auto& event : trackEvents_[static_cast<std::size_t> (partner)])
+            actions.push_back ({ event.sampleOffset, nullptr });
+
+    std::sort (actions.begin(), actions.end(),
+               [] (const Action& a, const Action& b) { return a.offset < b.offset; });
 
     int cursor = 0;
 
-    for (const auto& event : events)
+    const auto renderTo = [&] (int target)
     {
-        // Start on the next whole sample and tell the voice how much of the step had already
-        // elapsed by then, so the onset is placed inside the sample rather than snapped to it.
-        //
-        // `start` is allowed to reach numSamples. A trigger landing in the final fractional
-        // sample of a block then produces its first output at the top of the *next* block,
-        // with the elapsed time carried across — which is what makes the rendered audio
-        // identical no matter what block size the host chooses. Clamping to numSamples - 1
-        // instead would pull those triggers a fraction of a sample earlier, and only for
-        // some block sizes.
-        // Snap to a whole sample first. The offset is computed as a difference of musical
-        // positions scaled by samples-per-quarter, so a trigger meant to land exactly on a
-        // sample can come out a few ulps above it — and bare ceil() would then push it a
-        // whole sample late, but only for the block sizes where the arithmetic rounds that
-        // way. That showed up as the same pattern rendering differently per block size.
+        if (target <= cursor)
+            return;
+
+        for (auto* voice : { slot.sampler.get(), slot.synth.get() })
+            if (voice != nullptr)
+                voice->render (left + cursor, right + cursor, target - cursor);
+
+        cursor = target;
+    };
+
+    for (const auto& action : actions)
+    {
+        // Snap to a whole sample first. The offset is a difference of musical positions scaled
+        // by samples-per-quarter, so a trigger meant to land exactly on a sample can come out a
+        // few ulps above it — and bare ceil() would then push it a whole sample late, but only
+        // for the block sizes where the arithmetic rounds that way.
         constexpr double kSampleEpsilon = 1.0e-6;
 
-        const auto nearest = std::round (event.sampleOffset);
-        const auto offset = std::abs (event.sampleOffset - nearest) < kSampleEpsilon
-                          ? nearest
-                          : event.sampleOffset;
+        const auto nearest = std::round (action.offset);
+        const auto offset = std::abs (action.offset - nearest) < kSampleEpsilon
+                          ? nearest : action.offset;
 
         auto start = static_cast<int> (std::ceil (offset));
         start = std::clamp (start, 0, numSamples);
 
+        renderTo (start);
+
+        if (action.event == nullptr)
+        {
+            // A partner trigger: choke whatever this track is playing.
+            for (auto* voice : { slot.sampler.get(), slot.synth.get() })
+                if (voice != nullptr)
+                    voice->choke();
+
+            continue;
+        }
+
         const auto elapsed = std::clamp (
             static_cast<float> (static_cast<double> (start) - offset), 0.0f, 1.0f);
 
-        if (start > cursor)
-        {
-            voice->render (left + cursor, right + cursor, start - cursor);
-            cursor = start;
-        }
+        const ParamView view { &parameters_, track, action.event->locks };
 
-        const ParamView view { &parameters_, track, event.locks };
-        voice->trigger (event, view, elapsed);
+        if (auto* voice = voiceFor (track, action.event->bank))
+            voice->trigger (*action.event, view, elapsed);
 
-        activeLocks_[t] = event.locks;
+        activeLocks_[t] = action.event->locks;
     }
 
-    if (cursor < numSamples)
-        voice->render (left + cursor, right + cursor, numSamples - cursor);
+    renderTo (numSamples);
 }
 
 void Engine::mixTrack (int track, float* left, float* right, int numSamples)
@@ -255,26 +297,55 @@ void Engine::mixTrack (int track, float* left, float* right, int numSamples)
     if (! trackAudible (track))
         return;
 
-    // Continuous parameters read through the current step's locks, so a locked filter or
-    // level holds for the whole step.
+    // Continuous parameters read through the current step's locks, so a locked level, pan or
+    // filter holds for the whole step.
     const ParamView view { &parameters_, track, activeLocks_[t] };
 
-    const auto cutoff = view (ParamKind::TrackEqFreq);
-    const auto resonance = view (ParamKind::TrackEqRes);
-    const auto level = view (ParamKind::TrackLevel);
+    const auto bank = view.enumValue<SoundBank> (ParamKind::TrackSoundBank);
 
-    filterLeft_[t].setCutoff (cutoff);
-    filterLeft_[t].setResonance (resonance);
-    filterRight_[t].setCutoff (cutoff);
-    filterRight_[t].setResonance (resonance);
+    // TONE is the track filter only on the banks where it is not something else (p. 62).
+    const auto tone = toneIsFilter (bank)
+                    ? curves::toneFilter (view (ParamKind::TrackTone))
+                    : curves::ToneFilter { curves::ToneFilterMode::Bypassed, 0.0f };
+
+    const auto filtering = tone.mode != curves::ToneFilterMode::Bypassed;
+
+    if (filtering)
+    {
+        const auto mode = tone.mode == curves::ToneFilterMode::LowPass
+                        ? dsp::StateVariableFilter::Mode::LowPass
+                        : dsp::StateVariableFilter::Mode::HighPass;
+
+        for (auto* filter : { &filterLeft_[t], &filterRight_[t] })
+        {
+            filter->setMode (mode);
+            filter->setCutoff (tone.cutoffHz);
+            filter->setResonance (0.0f);
+        }
+    }
+
+    // The bass track has its own level knob; every other track uses the shared one.
+    const auto level = track == kBassTrack ? 1.0f
+                                           : curves::levelGain (view (ParamKind::TrackLevel));
+
+    const auto pan = curves::panGains (view (ParamKind::TrackPan));
 
     const auto* sourceLeft = trackLeft_[t].data();
     const auto* sourceRight = trackRight_[t].data();
 
     for (int i = 0; i < numSamples; ++i)
     {
-        left[i] += filterLeft_[t].process (sourceLeft[i]) * level;
-        right[i] += filterRight_[t].process (sourceRight[i]) * level;
+        auto l = sourceLeft[i];
+        auto r = sourceRight[i];
+
+        if (filtering)
+        {
+            l = filterLeft_[t].process (l);
+            r = filterRight_[t].process (r);
+        }
+
+        left[i] += l * level * pan.left;
+        right[i] += r * level * pan.right;
     }
 }
 
@@ -300,6 +371,22 @@ void Engine::process (float* left, float* right, int numSamples)
     syncFromParameters();
     transport_.beginBlock (numSamples);
 
+    // Collect every track's triggers before rendering any of them, so choke can see a partner
+    // track's hits that land later in the same block.
+    for (int track = 0; track < kNumTracks; ++track)
+    {
+        auto& events = trackEvents_[static_cast<std::size_t> (track)];
+        events.clear();
+
+        sequencers_[static_cast<std::size_t> (track)]
+            .collectEvents (transport_, groove_, parameters_, events);
+
+        // Drift can reorder triggers relative to the order their steps were consumed in.
+        std::sort (events.begin(), events.end(),
+                   [] (const TriggerEvent& a, const TriggerEvent& b)
+                   { return a.sampleOffset < b.sampleOffset; });
+    }
+
     for (int track = 0; track < kNumTracks; ++track)
     {
         renderTrack (track, numSamples);
@@ -308,12 +395,14 @@ void Engine::process (float* left, float* right, int numSamples)
 
     transport_.endBlock();
 
-    const auto masterVolume = parameters_.get (ParamKind::MasterVolume);
+    const auto patternLevel = curves::levelGain (parameters_.get (ParamKind::PatternLevel));
+    const auto masterLevel = curves::levelGain (parameters_.get (ParamKind::MasterVolume));
+    const auto gain = patternLevel * masterLevel;
 
     for (int i = 0; i < numSamples; ++i)
     {
-        left[i] *= masterVolume;
-        right[i] *= masterVolume;
+        left[i] *= gain;
+        right[i] *= gain;
     }
 }
 

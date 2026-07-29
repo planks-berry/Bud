@@ -18,14 +18,17 @@ namespace bud
 
 /** The instrument.
 
-    Owns the transport, the groove model, eleven track sequencers and their voices, the
-    pattern bank, the sample library and the parameter set — everything except the effects,
-    which arrive with the next milestone.
+    Owns the transport, the groove model, eleven track sequencers and their voices, the pattern
+    store, the sound library and the parameter set.
 
-    Rendering is per track. Each track collects its own triggers, then renders in segments
-    between them so a voice starts on the exact sample it was scheduled for rather than at the
-    next block boundary. The remaining sub-sample fraction is handed to the voice, which
-    positions its envelope inside that sample.
+    Each track carries two voices: a sampler, and — on tracks 1 and 3 — a dedicated synthesis
+    engine. Which one a trigger reaches depends on the track's current sound bank, since BD on
+    track 1 and SD on track 3 are synthesised while every other bank plays samples (p. 60). Both
+    render every block; the idle one contributes nothing.
+
+    The per-track chain follows the architecture diagram on p. 112:
+    `OSC -> EG -> FILTER -> PAN -> track level -> mute`, then the sends. The filter is the TONE
+    knob, and it is bypassed on the banks where TONE means something else.
 */
 class Engine
 {
@@ -38,8 +41,8 @@ public:
 
     /** Start playback from the top of the pattern.
 
-        Use this rather than transport().start(): starting the transport alone rewinds the
-        clock but leaves every track sequencer where it was, so the pattern would resume from
+        Use this rather than transport().start(): starting the transport alone rewinds the clock
+        but leaves the track sequencers where they were, so the pattern would resume from
         wherever it had reached rather than from step one.
     */
     void start();
@@ -57,8 +60,8 @@ public:
     ParameterSet& parameters() noexcept { return parameters_; }
     const ParameterSet& parameters() const noexcept { return parameters_; }
 
-    SampleLibrary& samples() noexcept { return samples_; }
-    const SampleLibrary& samples() const noexcept { return samples_; }
+    SoundLibrary& sounds() noexcept { return sounds_; }
+    const SoundLibrary& sounds() const noexcept { return sounds_; }
 
     PatternBank& patterns() noexcept { return patterns_; }
     const PatternBank& patterns() const noexcept { return patterns_; }
@@ -68,38 +71,49 @@ public:
 
     /// Switching pattern takes effect at the next block, not mid-step.
     void selectPattern (int index);
+    void selectPattern (int bank, int slot) { selectPattern (PatternBank::flatIndex (bank, slot)); }
     int patternIndex() const noexcept { return patternIndex_; }
 
     /// -1 clears solo. While a track is soloed, mutes on other tracks are ignored.
     void setSolo (int track) noexcept { solo_ = track; }
     int solo() const noexcept { return solo_; }
 
-    /// Playhead position of a track, for the step display.
     int playheadStep (int track) const noexcept;
 
     double sampleRate() const noexcept { return sampleRate_; }
 
 private:
+    struct TrackVoices
+    {
+        std::unique_ptr<Voice> sampler;   ///< Sample playback, or the loop / bass voice
+        std::unique_ptr<Voice> synth;     ///< BD on track 1, SD on track 3; null elsewhere
+    };
+
+    void buildVoices();
     void rebindSequencers();
     void syncFromParameters();
     void renderTrack (int track, int numSamples);
     void mixTrack (int track, float* left, float* right, int numSamples);
     bool trackAudible (int track) const noexcept;
 
-    std::unique_ptr<Voice> makeVoice (VoiceKind) const;
+    /// The voice a trigger on this bank should reach.
+    Voice* voiceFor (int track, SoundBank) noexcept;
+
+    /// The track whose triggers choke this one, or -1. Tracks 5 and 6 choke each other (p. 66).
+    int chokePartner (int track) const noexcept;
 
     Transport transport_;
     Groove groove_;
     ParameterSet parameters_;
-    SampleLibrary samples_;
+    SoundLibrary sounds_;
     PatternBank patterns_;
 
     std::array<TrackSequencer, kNumTracks> sequencers_;
-    std::array<std::unique_ptr<Voice>, kNumTracks> voices_;
+    std::array<TrackVoices, kNumTracks> voices_;
 
     /// Locks belonging to the step each track is currently playing. Continuous parameters —
-    /// level, filter, sends — are read through these so a lock holds for the whole step
-    /// rather than only at the instant of the trigger.
+    /// level, pan, filter, sends — read through these so a lock holds for the whole step rather
+    /// than only at the instant of the trigger.
     std::array<const PlockMap*, kNumTracks> activeLocks_ {};
 
     std::array<std::vector<float>, kNumTracks> trackLeft_;

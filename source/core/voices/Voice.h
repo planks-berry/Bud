@@ -1,16 +1,22 @@
 #pragma once
 
+#include "../params/Curves.h"
 #include "../params/ParameterSet.h"
+#include "../sampler/SampleBank.h"
 #include "../sequencer/TrackSequencer.h"
 
 namespace bud
 {
 
-/** Base class for the six voice engines.
+/** Base class for the voice engines.
 
-    Voices render additively into a stereo pair so the engine can trigger one mid-buffer
-    without splitting the block: it renders up to the trigger sample, calls trigger(), then
-    renders the remainder into the same buffer.
+    Voices render additively into a stereo pair so the engine can trigger one mid-buffer without
+    splitting the block: it renders up to the trigger sample, calls trigger(), then renders the
+    remainder into the same buffer.
+
+    A voice must contribute *exactly nothing* once it reports itself inactive. Any recursive
+    filter it owns has to be settled at that point, or the tail it emits depends on where the
+    block boundary fell — which makes the same pattern render differently between hosts.
 */
 class Voice
 {
@@ -35,21 +41,14 @@ public:
 
     virtual bool isActive() const = 0;
 
-    /// Voices that hold a note until released (currently only the bass synth).
-    virtual void release() {}
+    /// Cut the voice short. Used by choke on tracks 5-6 (p. 66).
+    virtual void choke() { reset(); }
 
-protected:
-    /// Semitones to a frequency ratio.
-    static float semitonesToRatio (float semitones) noexcept
-    {
-        return std::pow (2.0f, semitones * (1.0f / 12.0f));
-    }
+    /// Voices that read sample content. Ignored by the synthesis voices.
+    virtual void setLibrary (const SoundLibrary*) {}
 
-    /// Cents to a frequency ratio, for FEEL pitch drift.
-    static float centsToRatio (float cents) noexcept
-    {
-        return std::pow (2.0f, cents * (1.0f / 1200.0f));
-    }
+    /// Voices that follow tempo — repitch- and stretch-to-tempo.
+    virtual void setTempo (double) {}
 };
 
 } // namespace bud

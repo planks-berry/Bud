@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../dsp/Envelope.h"
-#include "../sampler/SampleBank.h"
 #include "Voice.h"
 
 namespace bud
@@ -13,49 +12,62 @@ float interpolateSample (const SampleData&, int channel, double position) noexce
 
 //==============================================================================
 
-/** One-shot sample playback (tracks 2, 4 and 7-9).
+/** The general drum voice: sample playback with an AD envelope.
 
-    Reads the S2 or S4 bank. Tracks 7-9 additionally offer repitch-to-tempo, which speeds the
-    sample up or down to follow the pattern tempo and lets the pitch move with it — the
-    cheaper, more characterful of the two tempo-matching options the device provides.
+    This is what most of the instrument is. The drum engine is sample-based for every bank
+    except BD on track 1 and SD on track 3 (p. 60), so this one voice covers HH/CY, CP, ST, TT,
+    PC, SY/BS and FX, as well as the user S2 and S4 banks on tracks 7-9.
+
+    Knob mapping differs between the factory banks and the user sample banks (p. 62, 65, 67):
+    on a factory bank ATTACK and DECAY are envelope times, while on S2/S4 they become the start
+    position and playback length, with MOVE providing the envelope slope instead. TONE is the
+    track filter and applied downstream, not here.
 */
-class SampleVoice : public Voice
+class DrumSampleVoice : public Voice
 {
 public:
-    void setLibrary (const SampleLibrary* library) noexcept { library_ = library; }
-    void setTempo (double bpm) noexcept { tempo_ = bpm; }
+    void setLibrary (const SoundLibrary* library) noexcept override { library_ = library; }
+    void setTempo (double bpm) noexcept override { tempo_ = bpm; }
 
     void prepare (double sampleRate) override;
     void reset() override;
     void trigger (const TriggerEvent&, const ParamView&, float elapsedFraction) override;
     void render (float* left, float* right, int numSamples) override;
-    bool isActive() const override { return playing_ && amplitude_.isActive(); }
+    bool isActive() const override { return playing_; }
 
 private:
-    const SampleLibrary* library_ = nullptr;
+    const SoundLibrary* library_ = nullptr;
     const SampleData* sample_ = nullptr;
 
-    dsp::DecayEnvelope amplitude_;
+    dsp::DecayEnvelope decay_;
     double sampleRate_ = 48000.0;
     double tempo_ = 128.0;
     double position_ = 0.0;
+    double endPosition_ = 0.0;
     double increment_ = 1.0;
+
+    /// Attack ramp in samples, from the ATTACK knob or a slope setting.
+    double attackSamples_ = 0.0;
+    double attackProgress_ = 0.0;
+
+    float level_ = 1.0f;
+    bool envelopeBypassed_ = false;
     bool playing_ = false;
 };
 
 //==============================================================================
 
-/** Stereo loop playback (track 10).
+/** The stereo loop voice — track 10, S8 bank (p. 69-70).
 
-    Plays a region of an S8 slot, either looping with an equal-power crossfade at the seam or
-    as a one-shot. Time-stretch arrives with the sampler milestone; until then the loop
-    follows tempo by repitching, and the STRETCH flag selects which behaviour is requested.
+    Six playback modes combine looping or one-shot with three tempo behaviours: no stretch,
+    melodic (holds length when pitch changes) and rhythmic (holds pitch when tempo changes).
+    Loop playback crossfades the seam with a curved response.
 */
 class LoopVoice : public Voice
 {
 public:
-    void setLibrary (const SampleLibrary* library) noexcept { library_ = library; }
-    void setTempo (double bpm) noexcept { tempo_ = bpm; }
+    void setLibrary (const SoundLibrary* library) noexcept override { library_ = library; }
+    void setTempo (double bpm) noexcept override { tempo_ = bpm; }
 
     void prepare (double sampleRate) override;
     void reset() override;
@@ -67,7 +79,7 @@ private:
     /// Gain applied near the loop seam so the wrap does not click.
     float crossfadeGain (double position) const noexcept;
 
-    const SampleLibrary* library_ = nullptr;
+    const SoundLibrary* library_ = nullptr;
     const SampleData* sample_ = nullptr;
 
     double sampleRate_ = 48000.0;

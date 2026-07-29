@@ -1,5 +1,7 @@
 #include "TrackSequencer.h"
 
+#include "../params/Curves.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -8,23 +10,17 @@ namespace bud
 
 namespace
 {
-    constexpr std::uint32_t kVelocitySalt = 0x3c6e'f372u;
-
-    /// Accent scaling. The default step velocity of 100 with an accent reaches full scale,
-    /// which keeps accented hits at unity and everything else below it.
-    constexpr float accentScale (Accent a) noexcept
-    {
-        switch (a)
-        {
-            case Accent::DeAccent: return 0.65f;
-            case Accent::Normal:   return 1.00f;
-            case Accent::Accent:   return 1.27f;
-        }
-        return 1.0f;
-    }
+    constexpr std::uint32_t kVelocitySalt = 0x2545'f491u;
 
     /// Safety valve: a pathological division and block size combination must not spin.
     constexpr int kMaxStepsPerBlock = 4096;
+
+    /// Steps spanned by one swing unit. At 8TH resolution the unit is twice the note length
+    /// (p. 51), so the pair to swing against is twice as wide.
+    constexpr int swingUnitSteps (SwingResolution r) noexcept
+    {
+        return r == SwingResolution::Eighth ? 2 : 1;
+    }
 }
 
 //==============================================================================
@@ -56,9 +52,9 @@ void TrackSequencer::reanchor (double previousStepQuarterNotes, StepDivision new
     anchorDivision_ = newDivision;
 }
 
-void TrackSequencer::advanceHead() noexcept
+void TrackSequencer::advanceHead (int stepLength) noexcept
 {
-    const auto length = std::clamp (pattern_->stepLength, 1, kStepsPerVariation);
+    const auto length = std::clamp (stepLength, 1, kStepsPerVariation);
     const auto chainLength = std::clamp (pattern_->chainLength, 1, kNumVariations);
 
     ++absoluteStep_;
@@ -74,58 +70,107 @@ void TrackSequencer::advanceHead() noexcept
 
 //==============================================================================
 
-void TrackSequencer::consumeStep (const Groove& groove, double stepQuarterNotes,
-                                  float globalSwing, double samplesPerQuarterNote)
+void TrackSequencer::consumeStep (const Groove& groove, const ParameterSet& parameters,
+                                  double stepQuarterNotes, double samplesPerQuarterNote,
+                                  double tempo)
 {
-    const auto& step = pattern_->stepAt (chainIndex_, stepIndex_);
-    const auto drift = groove.compute (track_, absoluteStep_);
+    const auto stepLength = parameters.get (ParamKind::TrackStepLength, track_);
+    const auto& step = pattern_->stepAt (chainIndex_, stepIndex_, stepLength);
 
-    // Swing displaces every other step against the time grid. Combining the global and
-    // per-track amounts lets a single track sit against the rest of the kit.
-    const auto swingAmount = std::clamp (globalSwing + pattern_->swing, -0.5f, 0.5f);
-    const auto swung = (absoluteStep_ % 2 != 0)
-                     ? static_cast<double> (swingAmount) * stepQuarterNotes
-                     : 0.0;
+    // Read this step's parameters through its locks, so a locked nudge or sound moves with the
+    // step exactly as an unlocked one would.
+    const ParamView view { &parameters, track_, &step.locks };
 
-    const auto nudge = static_cast<double> (std::clamp (step.microShift, -0.5f, 0.5f))
-                     * stepQuarterNotes;
+    const auto bank = view.enumValue<SoundBank> (ParamKind::TrackSoundBank);
+    const auto drift = groove.compute (bank, track_, absoluteStep_);
 
-    const auto actualPpq = nextStepPpq (stepQuarterNotes) + swung + nudge
+    // ---- swing ---------------------------------------------------------------
+    // A track either follows the pattern swing or overrides it (p. 51); the control shows PTN
+    // below 50.
+    const auto trackSwing = parameters.get (ParamKind::TrackSwing, track_);
+    const auto swingPercent = trackSwing >= 50 ? trackSwing
+                                               : parameters.get (ParamKind::Swing);
+
+    const auto resolution = static_cast<SwingResolution> (
+        parameters.get (ParamKind::SwingResolution));
+    const auto unitSteps = swingUnitSteps (resolution);
+    const auto pairSteps = unitSteps * 2;
+
+    // Swing warps position within the pair rather than displacing its second half rigidly, so
+    // every step inside a swung unit moves proportionally and none collides with the next.
+    const auto positionInPair = static_cast<float> (absoluteStep_ % pairSteps)
+                              / static_cast<float> (pairSteps);
+
+    const auto warped = curves::swingWarp (positionInPair, curves::swingFraction (swingPercent));
+    const auto pairQuarterNotes = static_cast<double> (pairSteps) * stepQuarterNotes;
+    const auto swung = static_cast<double> (warped - positionInPair) * pairQuarterNotes;
+
+    // ---- nudge ---------------------------------------------------------------
+    // MOVE acts as Nudge on the snare and the general drum banks, delaying the trigger slightly
+    // (p. 65). Being a timing offset it belongs here rather than in the voice.
+    auto nudgeQn = 0.0;
+
+    if (moveIsNudge (bank))
+        nudgeQn = static_cast<double> (curves::nudgeMs (view (ParamKind::TrackMove)))
+                * tempo / 60000.0;
+
+    const auto actualPpq = nextStepPpq (stepQuarterNotes) + swung + nudgeQn
                          + drift.timingQuarterNotes;
 
     if (step.gate)
     {
-        const auto subSteps = std::clamp<int> (step.subSteps, 1, kMaxSubSteps);
-        const auto subSpacing = stepQuarterNotes / static_cast<double> (subSteps);
+        const auto& figure = subStepInfo (step.subStep);
+        const auto divisions = std::max<int> (1, figure.divisions);
+        const auto spacing = stepQuarterNotes / static_cast<double> (divisions);
 
+        // ---- velocity --------------------------------------------------------
         auto velocity = static_cast<float> (step.velocity) * (1.0f / 127.0f);
-        velocity *= accentScale (step.accent);
 
-        if (pattern_->randomVelocity > 0.0f)
+        switch (step.accent)
         {
-            const auto r = groove.randomUnit (track_, absoluteStep_, kVelocitySalt);
-            velocity *= 1.0f - std::clamp (pattern_->randomVelocity, 0.0f, 1.0f) * r;
+            case Accent::Hard:
+                velocity *= curves::hardAccentScale (parameters.get (ParamKind::AccentHardDepth));
+                break;
+            case Accent::Soft:
+                velocity *= curves::softAccentScale (parameters.get (ParamKind::AccentSoftDepth));
+                break;
+            case Accent::Normal:
+                break;
         }
 
-        velocity *= drift.levelScale;
+        // Random velocity is scaled by the bank's depth class (p. 61).
+        const auto randomAmount = curves::unit (view (ParamKind::TrackRandomVelocity))
+                                * curves::randomVelocityCeiling (bankInfo (bank).random);
+
+        if (randomAmount > 0.0f)
+            velocity *= 1.0f - randomAmount
+                             * groove.randomUnit (track_, absoluteStep_, kVelocitySalt);
+
         velocity = std::clamp (velocity, 0.0f, 1.0f);
 
-        for (int sub = 0; sub < subSteps; ++sub)
+        const auto transpose = parameters.get (ParamKind::Transpose);
+
+        for (int index = 0; index < divisions; ++index)
         {
+            if ((figure.mask & (1u << index)) == 0)
+                continue;
+
             TriggerEvent e;
             e.track = track_;
-            e.ppq = actualPpq + static_cast<double> (sub) * subSpacing;
+            e.bank = bank;
+            e.ppq = actualPpq + static_cast<double> (index) * spacing;
             e.velocity = velocity;
             e.accent = step.accent;
-            e.note = step.note;
+            e.note = step.note + transpose;
             e.pitchCents = drift.pitchCents;
-            e.slide = step.slide;
+            e.glide = step.glide;
             e.tie = step.tie;
+            e.retrigger = step.retrigger;
             e.stepIndex = stepIndex_;
             e.chainIndex = chainIndex_;
             e.variation = pattern_->chain[static_cast<std::size_t> (chainIndex_)];
-            e.subStep = sub;
-            e.numSubSteps = subSteps;
+            e.subStep = index;
+            e.numSubSteps = divisions;
             e.stepDurationSamples = stepQuarterNotes * samplesPerQuarterNote;
             e.locks = &step.locks;
 
@@ -134,13 +179,14 @@ void TrackSequencer::consumeStep (const Groove& groove, double stepQuarterNotes,
     }
 
     ++stepsSinceOrigin_;
-    advanceHead();
+    advanceHead (stepLength);
 }
 
 //==============================================================================
 
 void TrackSequencer::collectEvents (const Transport& transport, const Groove& groove,
-                                    float globalSwing, std::vector<TriggerEvent>& out)
+                                    const ParameterSet& parameters,
+                                    std::vector<TriggerEvent>& out)
 {
     if (pattern_ == nullptr || ! transport.isPlaying())
         return;
@@ -151,7 +197,9 @@ void TrackSequencer::collectEvents (const Transport& transport, const Groove& gr
     if (blockEnd <= blockStart)
         return;
 
-    const auto division = pattern_->division;
+    const auto division = static_cast<StepDivision> (
+        std::clamp (parameters.get (ParamKind::TrackNoteLength, track_), 0, kNumStepDivisions - 1));
+
     const auto stepQn = quarterNotesPerStep (division);
 
     if (stepQn <= 0.0)
@@ -169,24 +217,24 @@ void TrackSequencer::collectEvents (const Transport& transport, const Groove& gr
         reanchor (quarterNotesPerStep (anchorDivision_), division);
     }
 
-    // Look far enough ahead that any step whose drift could pull it back into this block has
-    // already been turned into a pending event. Manual nudge reaches half a step either way.
-    const auto lookahead = groove.maxTimingDriftQuarterNotes() + 0.5 * stepQn;
+    // Look far enough ahead that any step whose drift or swing could pull it into this block has
+    // already become a pending event.
+    const auto lookahead = groove.maxTimingDriftQuarterNotes() + stepQn;
 
     for (int guard = 0; nextStepPpq (stepQn) < blockEnd + lookahead; ++guard)
     {
         if (guard >= kMaxStepsPerBlock)
             break;
 
-        consumeStep (groove, stepQn, globalSwing, transport.samplesPerQuarterNote());
+        consumeStep (groove, parameters, stepQn, transport.samplesPerQuarterNote(),
+                     transport.tempo());
     }
 
     // Emit everything that landed inside the block, keeping the rest for later blocks.
     //
     // The offset is a position in a half-open window, so it belongs to [0, blockSize) — the
     // upper bound is the largest double below blockSize, not blockSize - 1. Clamping to
-    // blockSize - 1 would throw away the fractional part, and the fractional part is exactly
-    // where the FEEL drift lives; at a block size of one it would erase the effect entirely.
+    // blockSize - 1 would discard the fractional part, which is exactly where the drift lives.
     const auto maxOffset = std::nextafter (static_cast<double> (transport.blockSize()), 0.0);
 
     auto it = pending_.begin();
@@ -201,8 +249,7 @@ void TrackSequencer::collectEvents (const Transport& transport, const Groove& gr
         auto e = *it;
 
         // A trigger that drifted back past the block boundary is clamped to the block start
-        // rather than dropped. The error is bounded by the drift itself — well under a
-        // millisecond — and preserves the hit.
+        // rather than dropped. The error is bounded by the drift itself and preserves the hit.
         const auto offset = transport.sampleOffsetFor (std::max (e.ppq, blockStart));
         e.sampleOffset = std::clamp (offset, 0.0, maxOffset);
 

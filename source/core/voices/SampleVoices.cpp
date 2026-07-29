@@ -37,92 +37,166 @@ namespace
             return 1.0;
 
         const auto sourceTempo = sample.sourceBeats * 60.0 / seconds;
+        return sourceTempo > 0.0 ? tempo / sourceTempo : 1.0;
+    }
 
-        if (sourceTempo <= 0.0)
-            return 1.0;
-
-        return tempo / sourceTempo;
+    /// A user sample bank keeps its own slot indexing; a factory bank wraps.
+    bool bankIsUserSamples (SoundBank bank) noexcept
+    {
+        return bank == SoundBank::S2 || bank == SoundBank::S4 || bank == SoundBank::S8;
     }
 }
 
 //==============================================================================
-// One-shot sample voice
+// General drum sample voice
 
-void SampleVoice::prepare (double sampleRate)
+void DrumSampleVoice::prepare (double sampleRate)
 {
     sampleRate_ = std::max (1.0, sampleRate);
-    amplitude_.prepare (sampleRate_);
-    amplitude_.setCurve (0.35f);
+    decay_.prepare (sampleRate_);
     reset();
 }
 
-void SampleVoice::reset()
+void DrumSampleVoice::reset()
 {
-    amplitude_.reset();
+    decay_.reset();
     sample_ = nullptr;
     position_ = 0.0;
+    attackProgress_ = 0.0;
     playing_ = false;
 }
 
-void SampleVoice::trigger (const TriggerEvent& event, const ParamView& params,
-                           float elapsedFraction)
+void DrumSampleVoice::trigger (const TriggerEvent& event, const ParamView& params,
+                               float elapsedFraction)
 {
     if (library_ == nullptr)
         return;
 
-    const auto bankId = params.index (ParamKind::SampleBank) == 0 ? BankId::S2 : BankId::S4;
-    const auto& bank = library_->bank (bankId);
-    const auto& slot = bank.slot (params.index (ParamKind::SampleSlot));
+    const auto bank = params.enumValue<SoundBank> (ParamKind::TrackSoundBank);
+    const auto* slot = library_->find (bank, params (ParamKind::TrackSound));
 
-    if (slot.empty())
+    if (slot == nullptr)
     {
         playing_ = false;
         return;
     }
 
-    sample_ = &slot;
+    sample_ = slot;
+    level_ = event.velocity;
 
-    const auto tune = params (ParamKind::SampleTune) + static_cast<float> (event.note);
-    auto ratio = static_cast<double> (semitonesToRatio (tune)
-                                      * centsToRatio (event.pitchCents));
+    const auto isUser = bankIsUserSamples (bank);
+    const auto length = static_cast<double> (slot->length());
 
-    if (params.flag (ParamKind::SampleRepitchToTempo))
-        ratio *= tempoRatio (slot, tempo_);
+    // ---- pitch ---------------------------------------------------------------
+    auto ratio = 1.0;
 
-    // Rate also corrects for a sample recorded at a different rate than the engine runs at.
-    increment_ = ratio * slot.sampleRate / sampleRate_;
+    if (isUser && params.flag (ParamKind::TrackRepitch))
+    {
+        // With repitch on, the sample follows tempo and TUNE no longer applies (p. 68).
+        ratio = tempoRatio (*slot, tempo_);
+    }
+    else
+    {
+        const auto tune = curves::tuneSemitones (params (ParamKind::TrackTune))
+                        + static_cast<float> (event.note);
+        ratio = static_cast<double> (curves::semitonesToRatio (tune)
+                                     * curves::centsToRatio (event.pitchCents));
+    }
 
-    const auto start = std::clamp (params (ParamKind::SampleStart), 0.0f, 1.0f);
-    position_ = static_cast<double> (start) * static_cast<double> (slot.length());
+    increment_ = ratio * slot->sampleRate / sampleRate_;
 
-    // Advancing by the elapsed fraction keeps the sample start aligned to the true onset
-    // rather than the sample grid.
+    // ---- region and envelope -------------------------------------------------
+    if (isUser)
+    {
+        // On the user banks ATTACK and DECAY set the region rather than envelope times, and
+        // MOVE supplies the slope (p. 67, 69).
+        const auto start = params.unit (ParamKind::TrackAttack);
+        const auto span = params.unit (ParamKind::TrackDecay);
+
+        position_ = static_cast<double> (start) * length;
+        endPosition_ = std::min (length, position_ + static_cast<double> (span) * length);
+
+        const auto slope = params.bipolar (ParamKind::TrackMove);
+
+        if (slope > 0.02f)
+        {
+            // A-side: an attack ramp.
+            attackSamples_ = static_cast<double> (slope) * (endPosition_ - position_);
+            envelopeBypassed_ = true;
+        }
+        else if (slope < -0.02f)
+        {
+            attackSamples_ = 0.0;
+            envelopeBypassed_ = false;
+            decay_.setCurve (0.3f);
+            decay_.setDecayMs (static_cast<float> ((endPosition_ - position_)
+                                                   / sampleRate_ * 1000.0)
+                               * (1.0f + slope));
+        }
+        else
+        {
+            // OFF: plain one-shot.
+            attackSamples_ = 0.0;
+            envelopeBypassed_ = true;
+        }
+    }
+    else
+    {
+        position_ = 0.0;
+        endPosition_ = length;
+
+        const auto attackRaw = params (ParamKind::TrackAttack);
+        const auto decayRaw = params (ParamKind::TrackDecay);
+
+        // ATTACK at 0 with DECAY at 127 turns the envelope off entirely (p. 65).
+        envelopeBypassed_ = attackRaw == kRawMin && decayRaw == kRawMax;
+
+        attackSamples_ = static_cast<double> (curves::timeMs (attackRaw, 0.0f, 400.0f))
+                       * 0.001 * sampleRate_;
+
+        decay_.setCurve (0.35f);
+        decay_.setDecayMs (curves::timeMs (decayRaw, 10.0f, 2000.0f));
+    }
+
     position_ += increment_ * static_cast<double> (elapsedFraction);
+    attackProgress_ = 0.0;
 
-    amplitude_.setDecayMs (params (ParamKind::SampleDecay));
-    amplitude_.trigger (event.velocity);
-    amplitude_.advanceFraction (elapsedFraction);
+    if (! envelopeBypassed_)
+    {
+        decay_.trigger (1.0f);
+        decay_.advanceFraction (elapsedFraction);
+    }
 
     playing_ = true;
 }
 
-void SampleVoice::render (float* left, float* right, int numSamples)
+void DrumSampleVoice::render (float* left, float* right, int numSamples)
 {
     if (! playing_ || sample_ == nullptr)
         return;
 
-    const auto length = static_cast<double> (sample_->length());
     const auto stereo = sample_->isStereo();
 
     for (int i = 0; i < numSamples; ++i)
     {
-        if (position_ >= length || ! amplitude_.isActive())
+        if (position_ >= endPosition_ || (! envelopeBypassed_ && ! decay_.isActive()))
         {
             playing_ = false;
-            break;
+            return;
         }
 
-        const auto gain = amplitude_.next();
+        auto gain = level_;
+
+        if (! envelopeBypassed_)
+            gain *= decay_.next();
+
+        // The attack ramp is a simple linear fade-in over its length.
+        if (attackSamples_ > 0.0 && attackProgress_ < attackSamples_)
+        {
+            gain *= static_cast<float> (attackProgress_ / attackSamples_);
+            attackProgress_ += 1.0;
+        }
+
         const auto l = interpolateSample (*sample_, 0, position_) * gain;
         const auto r = stereo ? interpolateSample (*sample_, 1, position_) * gain : l;
 
@@ -134,7 +208,7 @@ void SampleVoice::render (float* left, float* right, int numSamples)
 }
 
 //==============================================================================
-// Loop voice
+// Loop voice — track 10
 
 void LoopVoice::prepare (double sampleRate)
 {
@@ -157,19 +231,22 @@ void LoopVoice::trigger (const TriggerEvent& event, const ParamView& params,
     if (library_ == nullptr)
         return;
 
-    const auto& slot = library_->bank (BankId::S8).slot (params.index (ParamKind::LoopSlot));
+    const auto* slot = library_->find (SoundBank::S8, params (ParamKind::TrackSound));
 
-    if (slot.empty())
+    if (slot == nullptr)
     {
         playing_ = false;
         return;
     }
 
-    sample_ = &slot;
+    // A retrigger step restarts from the region start without re-reading the settings (p. 69).
+    const auto wasPlaying = playing_ && sample_ == slot;
 
-    const auto length = static_cast<double> (slot.length());
-    const auto start = std::clamp (params (ParamKind::LoopStart), 0.0f, 1.0f);
-    const auto span = std::clamp (params (ParamKind::LoopLength), 0.0f, 1.0f);
+    sample_ = slot;
+
+    const auto length = static_cast<double> (slot->length());
+    const auto start = params.unit (ParamKind::TrackAttack);
+    const auto span = params.unit (ParamKind::TrackDecay);
 
     regionStart_ = static_cast<double> (start) * length;
     regionEnd_ = std::min (length, regionStart_ + static_cast<double> (span) * length);
@@ -177,25 +254,54 @@ void LoopVoice::trigger (const TriggerEvent& event, const ParamView& params,
     if (regionEnd_ - regionStart_ < 4.0)
         regionEnd_ = std::min (length, regionStart_ + 4.0);
 
-    const auto pitch = params (ParamKind::LoopPitch) + static_cast<float> (event.note);
-    auto ratio = static_cast<double> (semitonesToRatio (pitch)
-                                      * centsToRatio (event.pitchCents));
+    const auto mode = params.enumValue<LoopMode> (ParamKind::TrackLoopMode);
+    looping_ = loopModeLoops (mode);
 
-    // Time-stretch (tempo without pitch) lands with the sampler milestone; until then STRETCH
-    // requests tempo following by repitching, which at least keeps the loop in time.
-    if (params.flag (ParamKind::LoopStretch))
-        ratio *= tempoRatio (slot, tempo_);
+    // ---- pitch and stretch ---------------------------------------------------
+    const auto tune = curves::tuneSemitones (params (ParamKind::TrackTune))
+                    + static_cast<float> (event.note);
 
-    increment_ = ratio * slot.sampleRate / sampleRate_;
+    auto ratio = static_cast<double> (curves::semitonesToRatio (tune)
+                                      * curves::centsToRatio (event.pitchCents));
 
-    const auto crossfadeMs = params (ParamKind::LoopCrossfade);
-    crossfadeSamples_ = std::min (static_cast<double> (crossfadeMs) * 0.001 * sampleRate_,
-                                  (regionEnd_ - regionStart_) * 0.5);
+    switch (mode)
+    {
+        case LoopMode::LoopRhythmic:
+        case LoopMode::OneShotRhythmic:
+            // Rhythmic: hold pitch while following tempo. Proper time-stretch lands with the
+            // sampler milestone; repitching at least keeps the loop in time until then.
+            ratio *= tempoRatio (*slot, tempo_);
+            break;
 
-    looping_ = params.index (ParamKind::LoopPlayMode) == 0;
+        case LoopMode::LoopMelodic:
+        case LoopMode::OneShotMelodic:
+            // Melodic: hold length while the pitch moves. Also awaiting the stretch engine.
+            break;
+
+        default:
+            break;
+    }
+
+    increment_ = ratio * slot->sampleRate / sampleRate_;
+
+    // MOVE is the crossfade in loop mode and the slope in one-shot mode (p. 69). Crossfade
+    // spans up to four seconds, and cannot exceed half the region.
+    if (looping_)
+    {
+        const auto xfade = params.unit (ParamKind::TrackMove);
+        crossfadeSamples_ = std::min (static_cast<double> (xfade) * 4.0 * sampleRate_,
+                                      (regionEnd_ - regionStart_) * 0.5);
+    }
+    else
+    {
+        crossfadeSamples_ = 0.0;
+    }
+
     level_ = event.velocity;
 
-    position_ = regionStart_ + increment_ * static_cast<double> (elapsedFraction);
+    if (! wasPlaying || event.retrigger || ! looping_)
+        position_ = regionStart_ + increment_ * static_cast<double> (elapsedFraction);
+
     playing_ = true;
 }
 
@@ -204,10 +310,7 @@ float LoopVoice::crossfadeGain (double position) const noexcept
     if (crossfadeSamples_ <= 0.0)
         return 1.0f;
 
-    const auto fromStart = position - regionStart_;
-    const auto toEnd = regionEnd_ - position;
-
-    const auto edge = std::min (fromStart, toEnd);
+    const auto edge = std::min (position - regionStart_, regionEnd_ - position);
 
     if (edge >= crossfadeSamples_)
         return 1.0f;
@@ -231,7 +334,7 @@ void LoopVoice::render (float* left, float* right, int numSamples)
             if (! looping_)
             {
                 playing_ = false;
-                break;
+                return;
             }
 
             position_ -= (regionEnd_ - regionStart_);
@@ -239,9 +342,11 @@ void LoopVoice::render (float* left, float* right, int numSamples)
 
         const auto gain = level_ * crossfadeGain (position_);
 
-        left[i] += interpolateSample (*sample_, 0, position_) * gain;
-        right[i] += (stereo ? interpolateSample (*sample_, 1, position_) :
-                              interpolateSample (*sample_, 0, position_)) * gain;
+        const auto l = interpolateSample (*sample_, 0, position_);
+        const auto r = stereo ? interpolateSample (*sample_, 1, position_) : l;
+
+        left[i] += l * gain;
+        right[i] += r * gain;
 
         position_ += increment_;
     }

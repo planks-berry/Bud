@@ -6,22 +6,25 @@ namespace bud
 {
 
 //==============================================================================
-// Kick
+// Kick — BD bank, track 1
 
 void KickVoice::prepare (double sampleRate)
 {
     body_.prepare (sampleRate);
     amplitude_.prepare (sampleRate);
     pitchSweep_.prepare (sampleRate);
-    click_.prepare (sampleRate);
-    clickFilter_.prepare (sampleRate);
-    clickFilter_.setCutoff (1200.0f);
+    pulse_.prepare (sampleRate);
+    pulseFilter_.prepare (sampleRate);
+    pulseFilter_.setCutoff (1200.0f);
+    toneFilter_.prepare (sampleRate);
+    toneFilter_.setMode (dsp::StateVariableFilter::Mode::LowPass);
+    toneFilter_.setResonance (0.1f);
     dcBlocker_.prepare (sampleRate);
 
-    // A fast, strongly convex sweep — the pitch must arrive at the body tone quickly or the
-    // kick reads as a tom.
+    // A fast, strongly convex sweep — the pitch has to reach the body tone quickly or the kick
+    // reads as a tom.
     pitchSweep_.setCurve (0.05f);
-    click_.setCurve (0.0f);
+    pulse_.setCurve (0.0f);
     amplitude_.setCurve (0.22f);
 
     reset();
@@ -32,41 +35,43 @@ void KickVoice::reset()
     body_.reset();
     amplitude_.reset();
     pitchSweep_.reset();
-    click_.reset();
-    clickFilter_.reset();
+    pulse_.reset();
+    settle();
+}
+
+void KickVoice::settle()
+{
+    pulseFilter_.reset();
+    toneFilter_.reset();
     dcBlocker_.reset();
 }
 
 void KickVoice::trigger (const TriggerEvent& event, const ParamView& params,
                          float elapsedFraction)
 {
-    const auto tune = params (ParamKind::KickTune);
-    const auto pitchRatio = semitonesToRatio (tune) * centsToRatio (event.pitchCents);
+    const auto tune = curves::tuneSemitones (params (ParamKind::TrackTune))
+                    + static_cast<float> (event.note);
 
-    baseFrequency_ = 50.0f * pitchRatio;
-    sweepDepth_ = params (ParamKind::KickSweepDepth);
-    punch_ = params (ParamKind::KickPunch);
+    baseFrequency_ = 50.0f * curves::semitonesToRatio (tune)
+                           * curves::centsToRatio (event.pitchCents);
 
-    amplitude_.setDecayMs (params (ParamKind::KickDecay));
-    pitchSweep_.setDecayMs (params (ParamKind::KickSweepTime));
-    click_.setDecayMs (3.0f);
+    // TONE opens a low-pass across the body: higher values give a brighter, harder kick.
+    toneFilter_.setCutoff (curves::timeMs (params (ParamKind::TrackTone), 400.0f, 16000.0f));
 
-    drive_.setDrive (params (ParamKind::KickDrive));
+    pulseMix_ = params.unit (ParamKind::TrackAttack);
+
+    amplitude_.setDecayMs (params.timeMs (ParamKind::TrackDecay, 40.0f, 1800.0f));
+    pitchSweep_.setDecayMs (params.timeMs (ParamKind::TrackMove, 2.0f, 220.0f));
+    pulse_.setDecayMs (3.0f);
 
     body_.reset (0.0);
     amplitude_.trigger (event.velocity);
     pitchSweep_.trigger (1.0f);
-    click_.trigger (event.velocity * punch_);
+    pulse_.trigger (event.velocity * pulseMix_);
 
     amplitude_.advanceFraction (elapsedFraction);
     pitchSweep_.advanceFraction (elapsedFraction);
-    click_.advanceFraction (elapsedFraction);
-}
-
-void KickVoice::settle()
-{
-    clickFilter_.reset();
-    dcBlocker_.reset();
+    pulse_.advanceFraction (elapsedFraction);
 }
 
 void KickVoice::render (float* left, float* right, int numSamples)
@@ -79,18 +84,17 @@ void KickVoice::render (float* left, float* right, int numSamples)
             return;
         }
 
-        // Sweep spans up to three octaves above the body tone at full depth.
+        // The sweep spans up to three octaves above the body tone.
         const auto sweep = pitchSweep_.next();
-        const auto frequency = baseFrequency_ * (1.0f + sweepDepth_ * 7.0f * sweep);
-        body_.setFrequency (frequency);
+        body_.setFrequency (baseFrequency_ * (1.0f + 7.0f * sweep));
 
-        auto sample = body_.next() * amplitude_.next();
+        auto sample = toneFilter_.process (body_.next()) * amplitude_.next();
 
-        const auto clickLevel = click_.next();
-        if (clickLevel > 0.0f)
-            sample += clickFilter_.process (noise_.next()) * clickLevel * 0.6f;
+        const auto pulseLevel = pulse_.next();
+        if (pulseLevel > 0.0f)
+            sample += pulseFilter_.process (noise_.next()) * pulseLevel * 0.6f;
 
-        sample = dcBlocker_.process (drive_.process (sample));
+        sample = dcBlocker_.process (sample);
 
         left[i] += sample;
         right[i] += sample;
@@ -98,7 +102,7 @@ void KickVoice::render (float* left, float* right, int numSamples)
 }
 
 //==============================================================================
-// Snare
+// Snare — SD bank, track 3
 
 void SnareVoice::prepare (double sampleRate)
 {
@@ -111,8 +115,6 @@ void SnareVoice::prepare (double sampleRate)
     dcBlocker_.prepare (sampleRate);
 
     noiseBand_.setMode (dsp::StateVariableFilter::Mode::BandPass);
-    noiseBand_.setCutoff (3200.0f);
-    noiseBand_.setResonance (0.25f);
     noiseHighPass_.setCutoff (400.0f);
 
     toneEnv_.setCurve (0.18f);
@@ -127,35 +129,7 @@ void SnareVoice::reset()
     tone2_.reset();
     toneEnv_.reset();
     noiseEnv_.reset();
-    noiseBand_.reset();
-    noiseHighPass_.reset();
-    dcBlocker_.reset();
-}
-
-void SnareVoice::trigger (const TriggerEvent& event, const ParamView& params,
-                          float elapsedFraction)
-{
-    const auto tune = params (ParamKind::SnareTune);
-    const auto ratio = semitonesToRatio (tune) * centsToRatio (event.pitchCents);
-
-    // The two shell modes sit roughly a major sixth apart, which is what gives the snare its
-    // characteristic hollow ring rather than a pitched tom thump.
-    tone1_.setFrequency (185.0f * ratio);
-    tone2_.setFrequency (330.0f * ratio);
-    tone1_.reset (0.0);
-    tone2_.reset (0.0);
-
-    snap_ = params (ParamKind::SnareSnap);
-
-    toneEnv_.setDecayMs (params (ParamKind::SnareDecay));
-    noiseEnv_.setDecayMs (params (ParamKind::SnareNoiseDecay));
-    drive_.setDrive (params (ParamKind::SnareDrive));
-
-    toneEnv_.trigger (event.velocity);
-    noiseEnv_.trigger (event.velocity);
-
-    toneEnv_.advanceFraction (elapsedFraction);
-    noiseEnv_.advanceFraction (elapsedFraction);
+    settle();
 }
 
 void SnareVoice::settle()
@@ -165,11 +139,58 @@ void SnareVoice::settle()
     dcBlocker_.reset();
 }
 
+void SnareVoice::applySnappyType (SnappyType type)
+{
+    // The six snappy types are different noise characters (p. 65). Centre frequency and
+    // resonance of the band-pass carry most of the difference.
+    switch (type)
+    {
+        case SnappyType::N88:   noiseBand_.setCutoff (2600.0f); noiseResonance_ = 0.20f; break;
+        case SnappyType::N99:   noiseBand_.setCutoff (3400.0f); noiseResonance_ = 0.28f; break;
+        case SnappyType::NT1:   noiseBand_.setCutoff (5200.0f); noiseResonance_ = 0.08f; break;
+        case SnappyType::NT2:   noiseBand_.setCutoff (2100.0f); noiseResonance_ = 0.70f; break;
+        case SnappyType::NT3:   noiseBand_.setCutoff (4000.0f); noiseResonance_ = 0.15f; break;
+        case SnappyType::NT4:   noiseBand_.setCutoff (1500.0f); noiseResonance_ = 0.55f; break;
+    }
+
+    noiseBand_.setResonance (noiseResonance_);
+}
+
+void SnareVoice::trigger (const TriggerEvent& event, const ParamView& params,
+                          float elapsedFraction)
+{
+    const auto tune = curves::tuneSemitones (params (ParamKind::TrackTune))
+                    + static_cast<float> (event.note);
+    const auto ratio = curves::semitonesToRatio (tune)
+                     * curves::centsToRatio (event.pitchCents);
+
+    // The two shell modes sit roughly a major sixth apart, which gives the snare its hollow
+    // ring rather than a pitched thump.
+    tone1_.setFrequency (185.0f * ratio);
+    tone2_.setFrequency (330.0f * ratio);
+    tone1_.reset (0.0);
+    tone2_.reset (0.0);
+
+    applySnappyType (params.enumValue<SnappyType> (ParamKind::TrackSnappyType));
+
+    snappyVolume_ = params.unit (ParamKind::TrackTone);
+    overtoneMix_ = params.unit (ParamKind::TrackAttack);
+
+    const auto snappyDecay = params.timeMs (ParamKind::TrackDecay, 20.0f, 1200.0f);
+    noiseEnv_.setDecayMs (snappyDecay);
+
+    // The shell rings a little shorter than the wires.
+    toneEnv_.setDecayMs (snappyDecay * 0.75f);
+
+    toneEnv_.trigger (event.velocity);
+    noiseEnv_.trigger (event.velocity);
+
+    toneEnv_.advanceFraction (elapsedFraction);
+    noiseEnv_.advanceFraction (elapsedFraction);
+}
+
 void SnareVoice::render (float* left, float* right, int numSamples)
 {
-    const auto toneGain = (1.0f - snap_) * 0.9f;
-    const auto noiseGain = snap_ * 0.9f;
-
     for (int i = 0; i < numSamples; ++i)
     {
         if (! isActive())
@@ -178,93 +199,15 @@ void SnareVoice::render (float* left, float* right, int numSamples)
             return;
         }
 
-        const auto tone = (tone1_.next() * 0.7f + tone2_.next() * 0.3f) * toneEnv_.next();
+        const auto shell = (tone1_.next() * (1.0f - overtoneMix_ * 0.5f)
+                            + tone2_.next() * (0.25f + overtoneMix_ * 0.6f))
+                         * toneEnv_.next();
 
-        const auto filtered = noiseHighPass_.process (noiseBand_.process (noise_.next()));
-        const auto wires = filtered * noiseEnv_.next();
+        const auto wires = noiseHighPass_.process (noiseBand_.process (noise_.next()))
+                         * noiseEnv_.next();
 
-        auto sample = tone * toneGain + wires * noiseGain;
-        sample = dcBlocker_.process (drive_.process (sample));
-
-        left[i] += sample;
-        right[i] += sample;
-    }
-}
-
-//==============================================================================
-// Hi-hat
-
-void HiHatVoice::prepare (double sampleRate)
-{
-    cluster_.prepare (sampleRate);
-    amplitude_.prepare (sampleRate);
-    highPass_.prepare (sampleRate);
-    body_.prepare (sampleRate);
-    dcBlocker_.prepare (sampleRate);
-
-    body_.setMode (dsp::StateVariableFilter::Mode::BandPass);
-    body_.setResonance (0.15f);
-
-    // Hats decay almost linearly at the start then fall away — a pure exponential sounds too
-    // soft at the leading edge.
-    amplitude_.setCurve (0.12f);
-
-    reset();
-}
-
-void HiHatVoice::reset()
-{
-    cluster_.reset();
-    amplitude_.reset();
-    highPass_.reset();
-    body_.reset();
-    dcBlocker_.reset();
-}
-
-void HiHatVoice::trigger (const TriggerEvent& event, const ParamView& params,
-                          float elapsedFraction)
-{
-    const auto tune = params (ParamKind::HatTune);
-    const auto ratio = semitonesToRatio (tune) * centsToRatio (event.pitchCents);
-    const auto character = params (ParamKind::HatCharacter);
-    const auto tone = params (ParamKind::HatTone);
-
-    cluster_.setFrequencies (317.0f * ratio, character);
-
-    // Tone opens the high-pass from a full-bodied hat up to a thin tick.
-    highPass_.setCutoff (2000.0f + tone * 7000.0f);
-    body_.setCutoff (std::clamp (6000.0f + tone * 4000.0f, 200.0f, 16000.0f));
-
-    noiseMix_ = 0.1f + character * 0.25f;
-
-    amplitude_.setDecayMs (params (ParamKind::HatDecay));
-    amplitude_.trigger (event.velocity);
-    amplitude_.advanceFraction (elapsedFraction);
-}
-
-void HiHatVoice::settle()
-{
-    highPass_.reset();
-    body_.reset();
-    dcBlocker_.reset();
-}
-
-void HiHatVoice::render (float* left, float* right, int numSamples)
-{
-    for (int i = 0; i < numSamples; ++i)
-    {
-        if (! amplitude_.isActive())
-        {
-            settle();
-            return;
-        }
-
-        auto source = cluster_.next() * (1.0f - noiseMix_) + noise_.next() * noiseMix_;
-
-        source = highPass_.process (source);
-        source = source * 0.7f + body_.process (source) * 0.3f;
-
-        const auto sample = dcBlocker_.process (source * amplitude_.next() * 0.8f);
+        auto sample = shell * 0.7f + wires * snappyVolume_ * 1.1f;
+        sample = dcBlocker_.process (sample);
 
         left[i] += sample;
         right[i] += sample;
