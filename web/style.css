@@ -16,9 +16,18 @@
 
 * { box-sizing: border-box; }
 
+/* The panel owns its own ground rather than inheriting the page's. It is a dark instrument on
+   purpose — a single, committed look — so it must not sit on a pale band when it is embedded in
+   a host whose own page is light. */
+html {
+    background: var(--bg);
+    min-height: 100%;
+}
+
 body {
     margin: 0;
     background: var(--bg);
+    min-height: 100vh;
     color: var(--text);
     font: 13px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     -webkit-text-size-adjust: 100%;

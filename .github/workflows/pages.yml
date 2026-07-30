@@ -61,19 +61,32 @@ jobs:
           source ~/emsdk/emsdk_env.sh
           ./web/build.sh
 
+      - name: Fold it into a single file
+        run: node web/bundle.mjs
+
       # The same browser test that runs locally. Publishing a page that loads but produces
       # silence would be worse than not publishing at all, and only a real browser catches that.
+      #
+      # The bundle gets the same 22 checks rather than a smoke test, because it rewrites how the
+      # worklet is loaded — and a worklet that fails to load looks exactly like a working page
+      # until you listen. Once more under a restrictive CSP, which is what proves there is no
+      # network dependency left in it.
       - name: Test in a real browser
         working-directory: web
         run: |
           npm install --no-audit --no-fund playwright
           npx playwright install --with-deps chromium
           node test.mjs
+          node test.mjs --bundle
+          node test.mjs --bundle --csp
 
       - name: Assemble the site
         run: |
           mkdir -p _site
           cp web/index.html web/app.js web/worklet.js web/style.css web/bud.js _site/
+          # The single file rides along, so the run is also somewhere to grab a copy that can be
+          # opened from disk with no server at all.
+          cp web/bud-standalone.html _site/
           # Pages serves from a subdirectory, and everything here is loaded relatively, so no
           # rewriting is needed. A .nojekyll stops Pages ignoring files it thinks are partials.
           touch _site/.nojekyll
@@ -82,6 +95,13 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+
+      # Downloadable on its own, so a run is useful even where Pages is not available: one file,
+      # opened from disk, no server and no build.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bud-standalone-html
+          path: web/bud-standalone.html
 
   deploy:
     name: Deploy to Pages

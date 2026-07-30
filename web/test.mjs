@@ -5,7 +5,13 @@
 // itself from the parameter table the engine sent, and — the one that matters — that audio comes
 // out and stops when it should.
 //
-//   node web/test.mjs
+//   node web/test.mjs                 the multi-file build in this directory
+//   node web/test.mjs --bundle        the single file produced by bundle.mjs
+//   node web/test.mjs --bundle --csp  the same, under a restrictive Content-Security-Policy
+//
+// The bundle is worth running the *same* checks against rather than a lighter smoke test: it
+// rewrites how the worklet is loaded, and a worklet that fails to load is invisible except as
+// silence. `--csp` covers the case of a host that serves it under a policy of its own.
 //
 // Audio is measured by tapping the live graph through an AnalyserNode, so what the test observes
 // is what the page is really producing rather than a separate render.
@@ -27,6 +33,18 @@ const TYPES = {
     '.wasm': 'application/wasm',
 };
 
+const BUNDLE = process.argv.includes('--bundle');
+const ENTRY = BUNDLE ? '/bud-standalone.html' : '/index.html';
+
+// What the page actually needs, and nothing else. Starting from `default-src 'none'` and adding
+// only what the bundle asks for is the point: it proves there is no network dependency hiding in
+// here — no CDN, no font, no fetch of the wasm — which is the property that lets this be handed
+// to someone as a file. The `data:` image is the placeholder favicon in the page head.
+const CSP = process.argv.includes('--csp')
+    ? "default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval' blob:; "
+      + "style-src 'unsafe-inline'; img-src data:; worker-src blob:"
+    : null;
+
 let failures = 0;
 
 function check(label, condition, detail = '') {
@@ -36,11 +54,14 @@ function check(label, condition, detail = '') {
 }
 
 const server = createServer(async (request, response) => {
-    const path = request.url === '/' ? '/index.html' : request.url.split('?')[0];
+    const path = request.url === '/' ? ENTRY : request.url.split('?')[0];
 
     try {
         const body = await readFile(join(here, path));
-        response.writeHead(200, { 'Content-Type': TYPES[extname(path)] ?? 'application/octet-stream' });
+        const headers = { 'Content-Type': TYPES[extname(path)] ?? 'application/octet-stream' };
+        if (CSP) headers['Content-Security-Policy'] = CSP;
+
+        response.writeHead(200, headers);
         response.end(body);
     } catch {
         response.writeHead(404).end('not found');
@@ -70,7 +91,7 @@ page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text());
 });
 
-console.log('\nBud — web build\n');
+console.log(`\nBud — ${BUNDLE ? 'single-file bundle' : 'web build'}${CSP ? ', under CSP' : ''}\n`);
 
 await page.goto(url);
 

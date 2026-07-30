@@ -77,10 +77,32 @@ procedurally at startup rather than shipped as audio.
 
 ---
 
+## One file
+
+```bash
+node web/bundle.mjs             # -> web/bud-standalone.html
+```
+
+Folds the page, the interface, the worklet and the engine into a single ~580 KB HTML file with
+no external reference of any kind. Open it from disk, mail it, or drop it on a host that will
+not serve a directory.
+
+Two things have to be rewritten on the way in, both consequences of the AudioWorklet: the
+worklet's `import` of the engine becomes a concatenation, because a worklet loaded from a blob
+URL has no directory to resolve a relative import against; and `addModule('worklet.js')` becomes
+a blob URL built from a string. Both rewrites are anchored on exact text and throw if the anchor
+moves, so the bundler cannot quietly emit a file whose worklet is dead — which a browser would
+otherwise report only as silence.
+
+`--fragment` emits the same thing without `<html>`, `<head>` and `<body>`, for a host that
+supplies its own.
+
 ## Testing
 
 ```bash
-node web/test.mjs
+node web/test.mjs                    # the multi-file build
+node web/test.mjs --bundle           # the single file
+node web/test.mjs --bundle --csp     # the single file, under a restrictive policy
 ```
 
 Drives a real Chromium through Playwright and checks the things a compiler cannot: that the
@@ -133,17 +155,26 @@ catches that.
 The URL then appears on the workflow run, and under Settings → Pages. It is of the form
 `https://<owner>.github.io/<repo>/`.
 
+Until that setting is made, the deploy job fails with
+
+```
+Failed to create deployment (status: 404) ... Ensure GitHub Pages has been enabled
+```
+
+while the build job — wasm, browser test, artifacts — passes. That is the intended split: the
+build proves the instrument works, and only the last step needs the repository's permission.
+
 ### If the repository is private
 
-GitHub Pages on a **private** repository requires a paid plan (Pro, Team or Enterprise). On a
-free account the deploy step fails with a permissions error. Three ways round it:
+GitHub Pages on a **private** repository requires a paid plan (Pro, Team or Enterprise). Three
+ways round it:
 
 - Make the repository public — the engine is clean-room and carries no Sonicware material, so
   there is nothing here that has to stay closed.
 - Upgrade the plan.
-- Skip Pages and take the artifact: the build job uploads the site, so it can be downloaded from
-  the run summary, unzipped, and served locally with `python3 -m http.server`. That works but
-  does not give you a link to open on a tablet, which is the whole point.
+- Take the single file. Every run uploads `bud-standalone.html` as its own artifact: download it
+  from the run summary and open it. No server, no unzipping a site, no build. It is also the
+  thing to send someone who just wants to hear it.
 
 ### On a tablet
 

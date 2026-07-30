@@ -31,3 +31,7 @@ web/package.json
 web/package-lock.json
 web/bud.js
 web/*.png
+
+# The single-file bundles, folded from the sources above by web/bundle.mjs.
+web/bud-standalone.html
+web/bud-fragment.html
