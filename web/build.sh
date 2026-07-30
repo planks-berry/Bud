@@ -16,14 +16,23 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(dirname "$here")"
 cd "$here"
 
-if [[ ! -x node_modules/.bin/empp ]]; then
-    echo "Fetching emscripten (first run only)..."
-    npm install --no-audit --no-fund emsdk
+# Prefer a real emscripten if one is on the path — an SDK installed properly brings a binaryen
+# that matches the machine. The npm package is a convenience for a bare desktop, and its
+# prebuilt `wasm-opt` does not run everywhere (it fails on a GitHub runner).
+if command -v em++ >/dev/null 2>&1; then
+    EMPP="em++"
+else
+    if [[ ! -x node_modules/.bin/empp ]]; then
+        echo "No emscripten on the path; fetching one through npm..."
+        npm install --no-audit --no-fund emsdk
+    fi
+
+    EMPP="node_modules/.bin/empp"
 fi
 
-echo "Compiling the engine to WebAssembly..."
+echo "Compiling the engine to WebAssembly with $EMPP..."
 
-node_modules/.bin/empp \
+"$EMPP" \
     -std=c++20 -O3 \
     -I "$root/source" \
     bridge.cpp \

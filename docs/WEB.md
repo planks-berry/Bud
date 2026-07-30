@@ -12,13 +12,25 @@ it.
 ## Running it
 
 ```bash
-./web/build.sh                    # first run fetches emscripten via npm
+./web/build.sh                    # uses em++ if you have one; otherwise fetches it via npm
 cd web && python3 -m http.server  # any static server; a file:// URL will not work
 ```
 
 Then open `http://localhost:8000`.
 
 A static server is required because an `AudioWorklet` module cannot be loaded from `file://`.
+
+`build.sh` prefers an emscripten already on your `PATH`, and falls back to the npm `emsdk`
+package so a bare machine still works. Prefer a real SDK where you can:
+
+```bash
+git clone https://github.com/emscripten-core/emsdk.git ~/emsdk
+~/emsdk/emsdk install 6.0.5 && ~/emsdk/emsdk activate 6.0.5
+source ~/emsdk/emsdk_env.sh
+```
+
+The npm package's prebuilt `wasm-opt` does not run everywhere — it fails on a GitHub runner the
+moment `-O3` asks for it, which is why CI installs the SDK proper.
 
 ### What you get
 
