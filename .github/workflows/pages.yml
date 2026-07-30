@@ -83,11 +83,20 @@ jobs:
       - name: Assemble the site
         run: |
           mkdir -p _site
-          cp web/index.html web/app.js web/worklet.js web/style.css web/bud.js _site/
-          # The single file rides along, so the run is also somewhere to grab a copy that can be
-          # opened from disk with no server at all.
-          cp web/bud-standalone.html _site/
-          # Pages serves from a subdirectory, and everything here is loaded relatively, so no
+
+          # The published page is the *bundle*, not the multi-file build. The difference that
+          # matters is the worklet: the multi-file version reaches the engine with a static
+          # `import`, and AudioWorklet support for module syntax is not universal — where it is
+          # missing, addModule rejects and the page loads perfectly and does nothing. The bundle
+          # concatenates instead, so there is no module syntax in the worklet to depend on.
+          cp web/bud-standalone.html _site/index.html
+
+          # The readable sources are served alongside, unreferenced by the page, so what is
+          # deployed can be inspected without cloning.
+          cp web/app.js web/worklet.js web/style.css web/bud.js _site/
+          cp web/index.html _site/multi-file.html
+
+          # Pages serves from a subdirectory, and everything is loaded relatively, so no
           # rewriting is needed. A .nojekyll stops Pages ignoring files it thinks are partials.
           touch _site/.nojekyll
           ls -la _site

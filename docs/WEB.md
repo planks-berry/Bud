@@ -147,6 +147,16 @@ GitHub Pages on every push. The test runs *before* the deploy on purpose: publis
 loads but produces silence would be worse than not publishing at all, and only a real browser
 catches that.
 
+**The published page is the bundle**, not the multi-file build, and the reason is the worklet.
+The multi-file version reaches the engine with a static `import`, and AudioWorklet support for
+module syntax is not universal; where it is missing, `addModule` rejects, and the result is a
+page that loads perfectly and does nothing at all. The bundle concatenates instead and asserts
+that no module syntax survives, so there is nothing there to depend on. The multi-file sources
+are still served alongside it, unreferenced, as `multi-file.html` and friends.
+
+Only `main` can deploy — the `github-pages` environment restricts it to the default branch — so
+a push to a feature branch builds and tests without publishing.
+
 Published at **https://planks-berry.github.io/Bud/**, which is also shown on the workflow run and
 under Settings → Pages.
 

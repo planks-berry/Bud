@@ -41,6 +41,13 @@ async function ensureAudio() {
     const context = new AudioContext();
     state.context = context;
 
+    // Safari routes Web Audio through the "ambient" session by default, which the hardware mute
+    // switch silences — the instrument then looks like it is playing and makes no sound. Asking
+    // for the playback session is the supported way to say this is the point of the page.
+    try {
+        if (navigator.audioSession) navigator.audioSession.type = 'playback';
+    } catch { /* not supported here; the default session is what we get */ }
+
     await context.audioWorklet.addModule('worklet.js');
 
     const node = new AudioWorkletNode(context, 'bud-processor', {
@@ -379,13 +386,43 @@ function selectTrack(index) {
 // Transport
 
 $('play').addEventListener('click', async () => {
-    await ensureAudio();
-    if (state.context.state === 'suspended') await state.context.resume();
+    // Resume before anything is awaited. A browser only counts this as user-initiated while the
+    // click handler still holds the stack, and `await` gives that up — so awaiting first is what
+    // leaves the context suspended, which stops the audio *and* the sequencer, since the
+    // playhead is advanced inside the worklet's process().
+    const resuming = state.context ? state.context.resume() : null;
+
+    try {
+        await ensureAudio();
+    } catch (error) {
+        // The engine failed to load. Report it here, on the click, because that is when someone
+        // is actually looking at the page.
+        $('display').textContent = 'ERROR';
+        $('status').textContent = `Could not start the engine: ${error.message}`;
+        return;
+    }
+
+    if (resuming) await resuming.catch(() => {});
+
+    // If the context was built after that first attempt, or the attempt was refused, try again
+    // now that there is definitely one to resume.
+    if (state.context.state !== 'running') {
+        try {
+            await state.context.resume();
+        } catch { /* reported below */ }
+    }
 
     state.playing = true;
     $('play').setAttribute('aria-pressed', 'true');
     $('display').textContent = 'PLAYING';
     send({ type: 'transport', playing: true });
+
+    // Say so rather than appearing to work. A suspended context is silent and still, and without
+    // this the page looks identical to one that is playing correctly.
+    if (state.context.state !== 'running')
+        $('status').textContent =
+            `Audio is ${state.context.state}: the browser did not let it start. `
+            + 'Tap PLAY again, and check the device is not on silent.';
 });
 
 $('stop').addEventListener('click', () => {
@@ -412,6 +449,7 @@ $('clear').addEventListener('click', async () => {
 // Load the engine as soon as the page is up, so the interface can draw itself before the first
 // click. Audio stays suspended until then, which is what browsers require.
 ensureAudio().catch((error) => {
+    $('display').textContent = 'ERROR';
     $('status').textContent = `Could not start the engine: ${error.message}`;
 });
 

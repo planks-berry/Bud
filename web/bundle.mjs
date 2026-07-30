@@ -7,15 +7,18 @@
 // instrument can be *handed over* — opened from a file, mailed, or dropped on a host that will
 // not serve a directory. One file, no network, no build on the far side.
 //
-// Two things have to be rewritten on the way in, and both are consequences of the AudioWorklet:
+// Three things have to be rewritten on the way in, all consequences of the AudioWorklet:
 //
 //   1. `worklet.js` does `import createBud from './bud.js'`. A worklet loaded from a blob URL has
 //      no directory to resolve that against, so the engine is concatenated into the worklet
 //      source instead and the import removed.
 //   2. `app.js` does `addModule('worklet.js')`. There is no such file any more, so the worklet
 //      source is carried as a string and turned into a blob URL at run time.
+//   3. Any remaining module syntax is removed, and the result asserted clean. AudioWorklet
+//      support for `import` and `import.meta` is not universal — this is exactly why the bundle
+//      is the version that gets published rather than the multi-file build.
 //
-// Both rewrites are anchored on exact text and throw if the anchor has moved, so this cannot
+// The rewrites are anchored on exact text and throw if an anchor has moved, so this cannot
 // quietly emit a bundle with a dead worklet — the failure a browser would otherwise show only as
 // silence.
 
@@ -64,6 +67,16 @@ const workletSource = replaceOnce(
     "the worklet's import of the engine",
 );
 
+// Nothing that looks like a module may survive into the worklet. `import.meta.url` is emitted by
+// emscripten's ES6 output to locate the wasm alongside the script — dead code here, because
+// -sSINGLE_FILE inlines it, and meaningless anyway for a script loaded from a blob URL. Worklet
+// support for module syntax varies between engines, and a worklet that fails to parse takes the
+// whole instrument with it, so the safe amount of it to ship is none.
+const withoutModuleSyntax = workletSource.replaceAll('import.meta.url', '"bud.js"');
+
+if (/\bimport\s*\.\s*meta\b|^\s*(import|export)\s/m.test(withoutModuleSyntax))
+    throw new Error('bundle: module syntax still present in the worklet source');
+
 // 2. The worklet, carried as a string and mounted as a blob URL.
 const appSource = replaceOnce(
     app,
@@ -82,7 +95,7 @@ const appSource = replaceOnce(
     "the worklet's module URL",
 );
 
-const script = `const BUD_WORKLET_SOURCE = ${literal(workletSource)};\n\n${appSource}`;
+const script = `const BUD_WORKLET_SOURCE = ${literal(withoutModuleSyntax)};\n\n${appSource}`;
 
 // 3. The page, with its two external references replaced by their contents.
 let page = replaceOnce(

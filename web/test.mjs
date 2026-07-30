@@ -78,10 +78,14 @@ const CONTAINER_CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const executablePath = process.env.BUD_CHROME
     || (existsSync(CONTAINER_CHROME) ? CONTAINER_CHROME : undefined);
 
-const browser = await chromium.launch({
-    executablePath,
-    args: ['--autoplay-policy=no-user-gesture-required'],
-});
+// By default the browser's real autoplay policy is left in place, so the click on PLAY has to
+// unlock audio the same way a person's does. BUD_AUTOPLAY=1 lifts it, which is only useful for
+// isolating whether a failure is about the gesture or about the engine.
+const args = process.env.BUD_AUTOPLAY === '1'
+    ? ['--autoplay-policy=no-user-gesture-required']
+    : [];
+
+const browser = await chromium.launch({ executablePath, args });
 
 const page = await browser.newPage();
 
@@ -92,6 +96,18 @@ page.on('console', (message) => {
 });
 
 console.log(`\nBud — ${BUNDLE ? 'single-file bundle' : 'web build'}${CSP ? ', under CSP' : ''}\n`);
+
+// The bundle is what gets published, and the reason it is publishable rather than the multi-file
+// build is that its worklet carries no module syntax: AudioWorklet support for `import` is not
+// universal, and where it is missing addModule rejects and the page loads and does nothing.
+// Checked against the file, because by the time a browser is involved it is too late to tell.
+if (BUNDLE) {
+    const source = await readFile(join(here, 'bud-standalone.html'), 'utf8');
+    const offenders = ['import.meta', "from './bud.js'", 'export default']
+        .filter((needle) => source.includes(needle));
+
+    check('no module syntax in the published bundle', offenders.length === 0, offenders.join(', '));
+}
 
 await page.goto(url);
 
@@ -161,6 +177,12 @@ await page.waitForTimeout(400);
 
 const playing = await measure();
 check('audio when playing', playing > 0.02, `peak ${playing.toFixed(4)}`);
+
+// A suspended context is the failure that looks like nothing at all: silent, and the playhead
+// frozen too, because it is advanced inside the worklet's process(). Assert the state directly
+// rather than inferring it from the peak.
+const contextState = await page.evaluate(() => window.bud.context.state);
+check('the audio context actually started', contextState === 'running', contextState);
 
 const head = await page.evaluate(() => window.bud.heads[0]);
 check('the playhead advances', typeof head === 'number');
