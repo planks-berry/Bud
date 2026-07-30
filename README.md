@@ -54,7 +54,7 @@ docs/          device spec, parameter reference, reference material
 
 The same engine runs three ways today: the offline renderer, the test suite, and
 **[a browser build](docs/WEB.md)** — WebAssembly in an AudioWorklet, playable on a Mac or an iPad
-with no toolchain at all.
+with no toolchain at all, at **https://planks-berry.github.io/Bud/**.
 
 Rendered audio is **bit-identical at any host buffer size**, and identical between a gcc and a
 clang build of the same commit. That property is what most of the suite defends, and

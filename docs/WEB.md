@@ -147,8 +147,8 @@ GitHub Pages on every push. The test runs *before* the deploy on purpose: publis
 loads but produces silence would be worse than not publishing at all, and only a real browser
 catches that.
 
-The published URL appears on the workflow run and under Settings → Pages, in the form
-`https://<owner>.github.io/<repo>/`.
+Published at **https://planks-berry.github.io/Bud/**, which is also shown on the workflow run and
+under Settings → Pages.
 
 **One-time setup, in the repository settings** — done for this repository, and recorded because
 a fork or a fresh clone needs it again:
