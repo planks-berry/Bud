@@ -23,3 +23,11 @@ resources/factory/generated/
 
 # Test scratch output
 tests/output/
+
+# Web build. `web/build.sh` fetches emscripten into node_modules and emits bud.js with the wasm
+# inlined; both are generated, so neither belongs in the repository.
+web/node_modules/
+web/package.json
+web/package-lock.json
+web/bud.js
+web/*.png

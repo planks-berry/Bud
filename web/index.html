@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bud</title>
+<!-- Inline, so the browser does not request one and log a 404. -->
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="panel-head">
+    <div class="brand">
+        <span class="mark">BUD</span>
+        <span class="sub">deconstruct engine &mdash; WebAssembly</span>
+    </div>
+
+    <div class="transport">
+        <button id="play" class="key key-play" aria-pressed="false">PLAY</button>
+        <button id="stop" class="key">STOP</button>
+    </div>
+
+    <div class="readout">
+        <div class="display" id="display">READY</div>
+    </div>
+
+    <div class="globals">
+        <div class="group" id="globalMain"></div>
+        <div class="group iso"><span class="group-label">ISOLATOR</span><div id="globalIso"></div></div>
+    </div>
+
+    <div class="patternOps">
+        <button id="demo" class="key small">DEMO</button>
+        <button id="clear" class="key small">CLR PTN</button>
+    </div>
+</header>
+
+<main>
+    <section class="grid-wrap">
+        <div class="step-ruler" id="ruler"></div>
+        <div class="tracks" id="tracks"></div>
+    </section>
+
+    <aside class="editor">
+        <div class="editor-head">
+            <span id="editorTrack">BD1</span>
+            <span class="hint">shift-click a step for accent</span>
+        </div>
+        <div class="knobs" id="knobs"></div>
+
+        <h3>Sequencer</h3>
+        <div class="knobs" id="seqKnobs"></div>
+
+        <h3 id="extraTitle" hidden>Bass</h3>
+        <div class="knobs" id="extraKnobs"></div>
+    </aside>
+</main>
+
+<footer>
+    <span id="status">Click PLAY to start audio.</span>
+</footer>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

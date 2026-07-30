@@ -28,6 +28,7 @@ specification and [`docs/PARAMETERS.md`](docs/PARAMETERS.md) for the parameter r
 | M8 | Project save/load to disk | pending |
 | M9 | macOS packaging | pending |
 | M10 | iPad AUv3 | pending |
+| — | [Browser build](docs/WEB.md) (wasm + AudioWorklet) | playable |
 
 ## Architecture
 
@@ -47,8 +48,13 @@ source/
   standalone/  macOS audio device and file access
 tools/         offline renderer and factory-content generator
 tests/         engine and DSP tests (run anywhere)
+web/           the engine as WebAssembly, with a panel that builds itself
 docs/          device spec, parameter reference, reference material
 ```
+
+The same engine runs three ways today: the offline renderer, the test suite, and
+**[a browser build](docs/WEB.md)** — WebAssembly in an AudioWorklet, playable on a Mac or an iPad
+with no toolchain at all.
 
 Rendered audio is **bit-identical at any host buffer size**, and identical between a gcc and a
 clang build of the same commit. That property is what most of the suite defends, and

@@ -1,0 +1,269 @@
+/* The panel.
+   Dark, matte, with the step keys as the loudest thing on the page — the grid is what you look
+   at while playing, so everything else is deliberately quiet. */
+
+:root {
+    --bg: #14161a;
+    --panel: #1d2026;
+    --panel-2: #24282f;
+    --edge: #33383f;
+    --text: #e8eaed;
+    --dim: #8b939e;
+    --accent: #ffb000;
+    --play: #35d07f;
+    color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-text-size-adjust: 100%;
+}
+
+/* ---- header ---------------------------------------------------------- */
+
+.panel-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 18px;
+    padding: 14px 18px;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border-bottom: 1px solid var(--edge);
+}
+
+.brand { display: flex; flex-direction: column; }
+.mark { font-weight: 700; font-size: 20px; letter-spacing: 0.18em; }
+.sub { color: var(--dim); font-size: 11px; }
+
+.transport, .patternOps { display: flex; gap: 8px; }
+
+.key {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    padding: 9px 16px;
+    font: inherit;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    min-height: 40px;
+}
+
+.key:hover { border-color: var(--dim); }
+.key.small { padding: 7px 11px; font-size: 11px; }
+.key-play[aria-pressed="true"] { background: var(--play); color: #06301c; border-color: var(--play); }
+
+.display {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    background: #0b0d10;
+    border: 1px solid var(--edge);
+    border-radius: 5px;
+    padding: 9px 14px;
+    min-width: 150px;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+}
+
+.globals { display: flex; flex-wrap: wrap; gap: 14px; margin-left: auto; align-items: flex-start; }
+
+.group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+.group.iso {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 6px 10px;
+    border: 1px solid var(--edge);
+    border-radius: 7px;
+}
+
+.group.iso > div { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.group-label {
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    color: var(--dim);
+}
+
+/* ---- layout ---------------------------------------------------------- */
+
+main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 18px;
+    padding: 18px;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    main { grid-template-columns: minmax(0, 1fr); }
+    .globals { margin-left: 0; }
+}
+
+.grid-wrap { min-width: 0; overflow-x: auto; }
+
+.step-ruler, .steps {
+    display: grid;
+    grid-template-columns: repeat(16, minmax(26px, 1fr));
+    gap: 5px;
+}
+
+.step-ruler { margin-left: 78px; margin-bottom: 6px; }
+
+.ruler-cell {
+    text-align: center;
+    font-size: 10px;
+    color: var(--dim);
+    font-variant-numeric: tabular-nums;
+}
+
+.ruler-cell.downbeat { color: var(--text); font-weight: 700; }
+
+.track-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 2px 4px;
+    border-radius: 7px;
+}
+
+.track-row.selected { background: rgba(255, 176, 0, 0.07); }
+
+.track-label {
+    width: 68px;
+    flex: 0 0 68px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: none;
+    border: 0;
+    color: var(--text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 0;
+}
+
+.led {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--led, #666);
+    box-shadow: 0 0 7px var(--led, #666);
+    flex: 0 0 auto;
+}
+
+.tname { font-size: 11px; letter-spacing: 0.06em; }
+.steps { flex: 1 1 auto; min-width: 0; }
+
+.step {
+    /* A fixed height rather than a square: eleven tracks have to fit on a laptop screen without
+       scrolling, and the grid is the thing you look at while playing. */
+    height: 34px;
+    border-radius: 5px;
+    border: 1px solid var(--edge);
+    background: var(--panel);
+    cursor: pointer;
+    padding: 0;
+    transition: background 90ms, box-shadow 90ms;
+}
+
+/* Every fourth step sits slightly brighter, so the bar reads at a glance. */
+.step:nth-child(4n + 1) { background: var(--panel-2); }
+
+.step.on {
+    background: var(--led, var(--accent));
+    border-color: transparent;
+}
+
+.step.on.hard { box-shadow: inset 0 0 0 2px #fff; }
+.step.on.soft { opacity: 0.55; }
+.step.playing { box-shadow: 0 0 0 2px var(--accent); }
+
+/* ---- editor ---------------------------------------------------------- */
+
+.editor {
+    background: var(--panel);
+    border: 1px solid var(--edge);
+    border-radius: 9px;
+    padding: 14px;
+}
+
+.editor-head {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--edge);
+    font-weight: 600;
+}
+
+.hint { color: var(--dim); font-weight: 400; font-size: 11px; }
+
+.editor h3 {
+    margin: 16px 0 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--dim);
+}
+
+.knobs { display: flex; flex-direction: column; gap: 9px; }
+
+.control {
+    display: grid;
+    grid-template-columns: 74px 1fr 38px;
+    align-items: center;
+    gap: 9px;
+}
+
+.control.compact { grid-template-columns: 58px 96px 34px; gap: 7px; }
+
+.control label {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.control .value {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    text-align: right;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+
+input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    min-height: 22px;
+}
+
+select {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--edge);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font: inherit;
+    font-size: 11px;
+    width: 100%;
+}
+
+/* ---- footer ---------------------------------------------------------- */
+
+footer {
+    padding: 12px 18px 22px;
+    color: var(--dim);
+    font-size: 11px;
+    border-top: 1px solid var(--edge);
+}
