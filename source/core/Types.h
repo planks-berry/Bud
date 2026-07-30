@@ -163,6 +163,16 @@ enum class StepDivision : std::uint8_t
 
 inline constexpr int kNumStepDivisions = 10;
 
+/// MUTE.MD (p. 103). SOUND silences the track; SEQ silences only its sequenced notes, leaving it
+/// playable from the keyboard or incoming MIDI.
+enum class MuteMode
+{
+    Sound = 0,
+    Sequencer
+};
+
+inline constexpr int kNumMuteModes = 2;
+
 /// Length of one step in quarter notes.
 constexpr double quarterNotesPerStep (StepDivision d) noexcept
 {
@@ -329,6 +339,12 @@ constexpr bool trackIsSampleable (int track) noexcept
 }
 
 /// Tracks 5 and 6 support choke, so the closed and open hats do not overlap (p. 66).
+/// Tied notes are entered on the loop and bass tracks only (p. 39).
+constexpr bool trackSupportsTies (int track) noexcept
+{
+    return track == kLoopTrack || track == kBassTrack;
+}
+
 constexpr bool trackSupportsChoke (int track) noexcept
 {
     return track == 4 || track == 5;

@@ -11,6 +11,8 @@ add_executable(BudCoreTests
     FxTests.cpp
     SamplerTests.cpp
     KitTests.cpp
+    PatternOpsTests.cpp
+    NoteInputTests.cpp
     DemoPatternTests.cpp
 )
 

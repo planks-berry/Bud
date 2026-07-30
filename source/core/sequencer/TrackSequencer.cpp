@@ -84,6 +84,24 @@ void TrackSequencer::consumeStep (const Groove& groove, const ParameterSet& para
     const auto bank = view.enumValue<SoundBank> (ParamKind::TrackSoundBank);
     const auto drift = groove.compute (bank, track_, absoluteStep_);
 
+    // Loop input (p. 42). On the stereo loop track a run of gated steps plays the sample
+    // through without retriggering, and a retrigger happens either where one is entered "or
+    // when there is no note on the step immediately preceding a note". So a note that starts a
+    // run has to retrigger whether or not the flag is set — otherwise the second phrase of a
+    // pattern would carry on from wherever the first left off.
+    auto derivedRetrigger = false;
+
+    if (track_ == kLoopTrack && step.gate)
+    {
+        const auto previousIndex = stepIndex_ > 0 ? stepIndex_ - 1
+                                                  : std::max (0, stepLength - 1);
+
+        // The wrap looks at the same variation, which is where a loop's phrase lives.
+        const auto& previous = pattern_->stepAt (chainIndex_, previousIndex, stepLength);
+
+        derivedRetrigger = ! previous.gate;
+    }
+
     // ---- swing ---------------------------------------------------------------
     // A track either follows the pattern swing or overrides it (p. 51); the control shows PTN
     // below 50.
@@ -165,7 +183,7 @@ void TrackSequencer::consumeStep (const Groove& groove, const ParameterSet& para
             e.pitchCents = drift.pitchCents;
             e.glide = step.glide;
             e.tie = step.tie;
-            e.retrigger = step.retrigger;
+            e.retrigger = step.retrigger || derivedRetrigger;
             e.stepIndex = stepIndex_;
             e.chainIndex = chainIndex_;
             e.variation = pattern_->chain[static_cast<std::size_t> (chainIndex_)];

@@ -1,9 +1,11 @@
 #pragma once
 
 #include "../Types.h"
+#include "../params/ParameterSet.h"
 #include "Step.h"
 
 #include <array>
+#include <span>
 #include <string>
 
 namespace bud
@@ -16,8 +18,9 @@ namespace bud
     velocity, sound, level — lives in ParameterSet, so there is exactly one source of truth for
     a parameter value.
 
-    Saving a pattern (a later milestone) snapshots the relevant parameters alongside this data,
-    which is how the hardware behaves: selecting a pattern reloads its sound settings.
+    Saving a pattern snapshots the relevant parameters alongside this data, which is how the
+    hardware behaves: selecting a pattern reloads its sound settings. `PatternSettings` below is
+    where that snapshot lives.
 */
 struct TrackPattern
 {
@@ -57,10 +60,53 @@ struct TrackPattern
 
 //==============================================================================
 
-/** A pattern: all eleven tracks' sequences, plus its name. */
+/** Which parameters a pattern carries.
+
+    A pattern is more than its steps: the manual describes loading a drum kit "into the current
+    pattern" (p. 79), which only means anything if the pattern holds the sound settings a kit
+    would overwrite. And initialising one clears "pattern settings along with note and parameter
+    lock data" (p. 57) — settings and notes named separately.
+
+    So a pattern stores its sounds *and* its sequence. Kits are a separate store that can be
+    stamped over a pattern's sounds; saving one does not save the other (p. 80).
+
+    Left out deliberately:
+
+    - **Master volume** — a performance control on the front panel, not a property of the music.
+      A pattern that reset it would make switching patterns a volume jump.
+    - **`MFX ON`** — the manual marks it as not saved with the pattern; it is a momentary
+      performance switch, and a pattern that restored it would re-engage an effect the player had
+      let go of.
+    - **External input and sampler settings** — properties of what is plugged in, not of a
+      pattern.
+    - **System settings** — knob mode, mute mode, clock, master tune.
+    - **Phrase rotation** — explicitly not saved (p. 55).
+*/
+std::span<const ParamKind> patternGlobalParameters() noexcept;
+std::span<const ParamKind> patternTrackParameters() noexcept;
+
+/// Room for the lists above, checked with a static_assert where they are defined.
+inline constexpr int kMaxPatternGlobals = 24;
+inline constexpr int kMaxPatternTrackParams = 24;
+
+/** A pattern's stored parameter values, in the raw domain the device uses. */
+struct PatternSettings
+{
+    /// False until the pattern has been saved. An unsaved pattern recalls nothing rather than a
+    /// set of zeroes, which would arrive as silence.
+    bool stored = false;
+
+    std::array<int, kMaxPatternGlobals> globals {};
+    std::array<std::array<int, kMaxPatternTrackParams>, kNumTracks> perTrack {};
+};
+
+//==============================================================================
+
+/** A pattern: all eleven tracks' sequences, its stored settings, and its name. */
 struct Pattern
 {
     std::array<TrackPattern, kNumTracks> tracks {};
+    PatternSettings settings;
     std::string name;
 
     void clear();
@@ -98,6 +144,35 @@ public:
 
     void clear (int index);
     void copy (int from, int to);
+
+    //==========================================================================
+    // Pattern operations (p. 56-58)
+
+    /** Save: capture the live parameters into a slot's settings (`func` + `PTN save`, p. 56).
+
+        The steps are already in the slot — they are edited in place — so what a save adds is the
+        settings snapshot and the mark that makes the slot recallable.
+    */
+    void store (int index, const ParameterSet&) noexcept;
+
+    /** Recall a slot's settings into the live parameters, as selecting it does.
+
+        @param includeTempo  false when `TEMPO` is set to `GLOBAL`, so switching pattern does not
+                             change the tempo (p. 113).
+        @returns false for an unsaved slot, whose settings would otherwise arrive as zeroes.
+    */
+    bool recall (int index, ParameterSet&, bool includeTempo) const noexcept;
+
+    /** Initialise: `CLR` + `PTN` (p. 57).
+
+        Clears the steps, the parameter locks and the stored settings — the manual lists all
+        three. Does not touch the live parameters: initialising a pattern you are not currently
+        on must not reach out and change the sound of the one you are playing.
+    */
+    void initialise (int index) noexcept;
+
+    /// `PT.RENM` (p. 58). Naming an unsaved pattern is allowed — the name is how it is found.
+    bool rename (int index, std::string) noexcept;
 
 private:
     std::array<Pattern, kNumPatterns> patterns_;

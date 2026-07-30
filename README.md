@@ -21,11 +21,11 @@ specification and [`docs/PARAMETERS.md`](docs/PARAMETERS.md) for the parameter r
 | M1 | Transport, sequencer, FEEL drift | done |
 | M2 | Voices (drum synth, sample, loop, bass) | done |
 | M3 / R7 | Effects (isolator, master, reverb, tape echo) | done |
-| M4 / R8 | Sampler (record, banks, stretch/repitch), drum kits | in progress |
+| M4 / R8 | Sampler, drum kits, pattern ops, note input | done |
 | M5 / R6 | Procedural factory content | done |
 | M6 | Hardware-replica interface | pending |
 | M7 | MIDI and sync | pending |
-| M8 | Project/pattern/kit state | pending |
+| M8 | Project save/load to disk | pending |
 | M9 | macOS packaging | pending |
 | M10 | iPad AUv3 | pending |
 

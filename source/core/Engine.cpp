@@ -158,6 +158,16 @@ void Engine::start()
         filterRight_[t].reset();
     }
 
+    // Re-anchor the chain. Without this a stop and restart would leave `patternStartPpq_` at the
+    // position playback had reached while the transport went back to zero, so the chain would sit
+    // on its current pattern until the clock caught up again — silently, and for as long as the
+    // previous run had lasted.
+    chainPosition_ = 0;
+    patternStartPpq_ = 0.0;
+
+    if (! patternChain_.empty())
+        selectPattern (patternChain_.front());
+
     transport_.start();
 }
 
@@ -177,6 +187,110 @@ void Engine::rebindSequencers()
 void Engine::selectPattern (int index)
 {
     pendingPatternIndex_ = std::clamp (index, 0, kNumPatterns - 1);
+}
+
+//==============================================================================
+
+void Engine::initialisePattern (int index)
+{
+    patterns_.initialise (index);
+
+    // p. 57: "Executing CLR + PTN also clears MUTE and SOLO selection modes." An initialised
+    // pattern that still had tracks muted would not be blank in the way the display claims.
+    if (index == patternIndex_)
+    {
+        for (int track = 0; track < kNumTracks; ++track)
+            parameters_.set (ParamKind::TrackMute, track, 0);
+
+        solo_ = -1;
+    }
+}
+
+void Engine::setPatternChain (std::span<const int> indices)
+{
+    patternChain_.clear();
+
+    for (const auto index : indices)
+        if (index >= 0 && index < kNumPatterns)
+            patternChain_.push_back (index);
+
+    chainPosition_ = 0;
+    patternStartPpq_ = transport_.blockStartPpq();
+
+    // Starting a chain jumps to its first entry; ending one leaves whatever is playing alone,
+    // which is what pressing PTN again does.
+    if (! patternChain_.empty())
+        selectPattern (patternChain_.front());
+}
+
+double Engine::patternLengthQuarterNotes() const noexcept
+{
+    const auto& pattern = patterns_.pattern (patternIndex_);
+
+    auto longest = 0.0;
+
+    for (int track = 0; track < kNumTracks; ++track)
+    {
+        const auto division = static_cast<StepDivision> (std::clamp (
+            parameters_.get (ParamKind::TrackNoteLength, track), 0, kNumStepDivisions - 1));
+
+        const auto stepLength = std::clamp (
+            parameters_.get (ParamKind::TrackStepLength, track), 1, kStepsPerVariation);
+
+        const auto chainLength = std::clamp (pattern.track (track).chainLength,
+                                             1, kNumVariations);
+
+        const auto steps = static_cast<double> (stepLength) * chainLength;
+
+        longest = std::max (longest, steps * quarterNotesPerStep (division));
+    }
+
+    // A pattern with nothing set still has to have a length, or a chain would never advance.
+    return longest > 0.0 ? longest : static_cast<double> (kStepsPerVariation) * 0.25;
+}
+
+int Engine::samplesUntilChainAdvance (int numSamples) const noexcept
+{
+    if (patternChain_.empty() || ! transport_.isPlaying())
+        return numSamples;
+
+    const auto length = patternLengthQuarterNotes();
+
+    if (length <= 0.0)
+        return numSamples;
+
+    const auto remaining = (patternStartPpq_ + length - transport_.blockStartPpq())
+                         * transport_.samplesPerQuarterNote();
+
+    // Already due, or so close that a block of one sample would still overshoot: let the block
+    // run and `advanceChainIfDue` will switch at its start.
+    if (remaining <= 0.0)
+        return numSamples;
+
+    return std::max (1, std::min (numSamples, static_cast<int> (std::ceil (remaining))));
+}
+
+void Engine::advanceChainIfDue()
+{
+    if (patternChain_.empty() || ! transport_.isPlaying())
+        return;
+
+    const auto length = patternLengthQuarterNotes();
+
+    if (length <= 0.0)
+        return;
+
+    // Compared against the block's start, so the switch lands on a block boundary the same way a
+    // manual pattern change does — `selectPattern` already defers to the next block.
+    if (transport_.blockStartPpq() < patternStartPpq_ + length)
+        return;
+
+    patternStartPpq_ += length;
+
+    if (++chainPosition_ >= static_cast<int> (patternChain_.size()))
+        chainPosition_ = 0;
+
+    selectPattern (patternChain_[static_cast<std::size_t> (chainPosition_)]);
 }
 
 int Engine::playheadStep (int track) const noexcept
@@ -226,7 +340,24 @@ bool Engine::trackAudible (int track) const noexcept
     if (solo_ >= 0)
         return track == solo_;
 
-    return parameters_.get (ParamKind::TrackMute, track) == 0;
+    if (parameters_.get (ParamKind::TrackMute, track) == 0)
+        return true;
+
+    // MUTE.MD (p. 103). SOUND mutes the track outright. SEQ mutes only the notes in the track's
+    // sequencer — "playback via the keyboard or external MIDI notes remains possible" — so the
+    // track stays audible and it is the sequenced triggers that are dropped instead.
+    return parameters_.get (ParamKind::MuteMode) == static_cast<int> (MuteMode::Sequencer);
+}
+
+bool Engine::sequencerMuted (int track) const noexcept
+{
+    // Solo is a sound-level decision and `trackAudible` already handles it; this only asks
+    // whether *sequenced* notes should be suppressed for an otherwise audible track.
+    if (solo_ >= 0)
+        return false;
+
+    return parameters_.get (ParamKind::TrackMute, track) != 0
+        && parameters_.get (ParamKind::MuteMode) == static_cast<int> (MuteMode::Sequencer);
 }
 
 //==============================================================================
@@ -576,7 +707,11 @@ void Engine::process (float* left, float* right,
     // untouched — in a plugin that is whatever the host happened to leave there, played as audio.
     for (int offset = 0; offset < numSamples;)
     {
-        const auto count = std::min (numSamples - offset, maxBlockSize_);
+        auto count = std::min (numSamples - offset, maxBlockSize_);
+
+        // Split at a chain boundary so the pattern switch is sample-accurate rather than landing
+        // wherever the host's buffer happens to end.
+        count = samplesUntilChainAdvance (count);
 
         processBlock (left + offset, right + offset,
                       inputLeft != nullptr ? inputLeft + offset : nullptr,
@@ -593,11 +728,19 @@ void Engine::processBlock (float* left, float* right,
     std::fill_n (left, numSamples, 0.0f);
     std::fill_n (right, numSamples, 0.0f);
 
+    advanceChainIfDue();
+
     if (pendingPatternIndex_ != patternIndex_)
     {
         patternIndex_ = pendingPatternIndex_;
         rebindSequencers();
         activeLocks_.fill (nullptr);
+
+        // Selecting a pattern restores its settings, which is what makes a pattern a pattern
+        // rather than just a set of steps. With TEMPO on GLOBAL the tempo stays put (p. 113).
+        const auto followsPattern = parameters_.get (ParamKind::TempoSource) == 0;
+
+        patterns_.recall (patternIndex_, parameters_, followsPattern);
     }
 
     syncFromParameters();
@@ -612,6 +755,12 @@ void Engine::processBlock (float* left, float* right,
 
         sequencers_[static_cast<std::size_t> (track)]
             .collectEvents (transport_, groove_, parameters_, events);
+
+        // In SEQ mute mode the track still sounds, but nothing its sequencer produced reaches a
+        // voice. Dropping the events here rather than silencing the track is what leaves the
+        // keyboard and incoming MIDI free to play it (p. 103).
+        if (sequencerMuted (track))
+            events.clear();
 
         // Drift can reorder triggers relative to the order their steps were consumed in.
         std::sort (events.begin(), events.end(),

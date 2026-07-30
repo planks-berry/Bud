@@ -337,6 +337,23 @@ itself. Likewise, saving a pattern does not update the drum kit parameters" (p. 
 slot loads as *nothing* rather than as a kit of zeroes, which would set every bank and level to
 zero and silence the machine.
 
+### Pattern length, for chain playback *(Chosen)*
+
+Chain playback (p. 59) advances at the end of the pattern, but the manual never says what that
+means on an instrument whose tracks each carry their own division and step length. Taken as **the
+longest track cycle**:
+
+```
+length = max over tracks of ( stepLength × chainLength × quarterNotesPerStep(division) )
+```
+
+That is the first point at which every track has completed a whole number of its own passes.
+Taking the shortest, or a fixed sixteen steps, would cut a polymetric track off mid-phrase.
+
+The switch is sample-accurate: the engine splits its processing block at the boundary rather than
+waiting for the next one, so a chain sounds the same at any host buffer size. Left to the block
+boundary a 4096-sample buffer would land the change nearly a tenth of a second late.
+
 ---
 
 ## Sampler
@@ -398,7 +415,9 @@ not on a boundary, and rounding would quietly retime it.
 | Master tune `M.TUNE` | −75 … +75 cents | Measured p. 105 |
 | Knob mode `KNOB.MD` | `SCALED` `LATCH` `JUMP` | Measured p. 103 |
 | Mute mode `MUTE.MD` | `SOUND` `SEQ` | Measured p. 103 |
-| Tempo source | `PTN` `GLOBAL` | Measured p. 113 |
+| Tempo source `TEMPO` | `PTN` `GLOBAL` | Measured p. 113 |
+| Auto step `AT.STEP` | `ON` `OFF` | Measured p. 113 |
+| Bass tie `BS.TIE` | `ON` `OFF` | Measured p. 113 |
 | Tempo | 20–300 BPM *(Chosen — the manual does not state the range)* | Chosen |
 
 ---

@@ -70,6 +70,14 @@ enum class ParamKind : std::uint16_t
     ExtInUsbReverbSend,
     ExtInUsbDelaySend,
 
+    // ---- System (func + system, p. 113) -------------------------------------
+    TempoSource,         ///< PTN: the tempo belongs to the pattern; GLOBAL: to the instrument
+    MuteMode,            ///< SOUND mutes the voice; SEQ mutes only sequenced notes (p. 103)
+    AutoStep,            ///< AT.STEP: step recording advances on each key press (p. 38)
+    BassTie,             ///< BS.TIE: tie-note input during real-time bass recording (p. 113)
+    KnobMode,            ///< SCALED / LATCH / JUMP (p. 103)
+    MasterTune,          ///< -75 to +75 cents (p. 105)
+
     // ---- Sampler ------------------------------------------------------------
     SamplerInputGain,    ///< The TEMPO knob while sampling (p. 81, 83)
     SamplerAutoRecord,   ///< OFF, or a -60 to -20 dB trigger level (p. 83)

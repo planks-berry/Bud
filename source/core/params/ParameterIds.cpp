@@ -28,6 +28,9 @@ namespace labels
     inline constexpr std::string_view onOff[]      = { "OFF", "ON" };
     inline constexpr std::string_view extSource[]  = { "LIN", "USB" };
     inline constexpr std::string_view sampleBank[] = { "S2", "S4", "S8" };
+    inline constexpr std::string_view tempoSource[] = { "PTN", "GLOBAL" };
+    inline constexpr std::string_view muteMode[]   = { "SOUND", "SEQ" };
+    inline constexpr std::string_view knobMode[]   = { "SCALED", "LATCH", "JUMP" };
 }
 
 //==============================================================================
@@ -89,6 +92,14 @@ static const std::array<ParamDescriptor, kNumParamKinds> kParamTable { {
     { ParamKind::ExtInUsbGain,         "ext_usb_gain",   "USB.",    S::Global,   0,  127,   0, U::Raw,          false, noLabels },
     { ParamKind::ExtInUsbReverbSend,   "ext_usb_rvb",    "U.RV",    S::Global,   0,  127,   0, U::Raw,          false, noLabels },
     { ParamKind::ExtInUsbDelaySend,    "ext_usb_dly",    "U.DL",    S::Global,   0,  127,   0, U::Raw,          false, noLabels },
+
+    { ParamKind::TempoSource,          "tempo_source",   "TEMPO",   S::Global,   0,    1,   1, U::Enum,         false, lab (labels::tempoSource) },
+
+    { ParamKind::MuteMode,             "mute_mode",      "MUTE.MD", S::Global,   0,    1,   0, U::Enum,         false, lab (labels::muteMode) },
+    { ParamKind::AutoStep,             "auto_step",      "AT.STEP", S::Global,   0,    1,   0, U::Bool,         false, lab (labels::onOff) },
+    { ParamKind::BassTie,              "bass_tie",       "BS.TIE",  S::Global,   0,    1,   0, U::Bool,         false, lab (labels::onOff) },
+    { ParamKind::KnobMode,             "knob_mode",      "KNOB.MD", S::Global,   0,    2,   0, U::Enum,         false, lab (labels::knobMode) },
+    { ParamKind::MasterTune,           "master_tune",    "M.TUNE",  S::Global, -75,   75,   0, U::Semitones,    false, noLabels },
 
     { ParamKind::SamplerInputGain,     "smp_in_gain",    "IN.GAIN", S::Global,   0,  127, 100, U::Raw,          false, noLabels },
     { ParamKind::SamplerAutoRecord,    "smp_auto_rec",   "AT.REC",  S::Global,   0,  127,  40, U::Raw,          false, noLabels },

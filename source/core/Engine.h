@@ -4,10 +4,10 @@
 #include "Types.h"
 #include "dsp/Filters.h"
 #include "fx/Isolator.h"
-#include "kit/DrumKit.h"
 #include "fx/MasterFx.h"
 #include "fx/Reverb.h"
 #include "fx/TapeEcho.h"
+#include "kit/DrumKit.h"
 #include "params/ParameterSet.h"
 #include "sampler/SampleBank.h"
 #include "sampler/Sampler.h"
@@ -17,6 +17,7 @@
 #include "voices/Voice.h"
 
 #include <memory>
+#include <span>
 #include <vector>
 
 namespace bud
@@ -108,6 +109,44 @@ public:
     void selectPattern (int bank, int slot) { selectPattern (PatternBank::flatIndex (bank, slot)); }
     int patternIndex() const noexcept { return patternIndex_; }
 
+    //==========================================================================
+    // Pattern operations (p. 56-59)
+
+    /// Save the live parameters into the current pattern (`func` + `PTN save`, p. 56).
+    void savePattern() { patterns_.store (patternIndex_, parameters_); }
+    void savePatternTo (int index) { patterns_.store (index, parameters_); }
+
+    /** Initialise a pattern (`CLR` + `PTN`, p. 57).
+
+        Also clears mute and solo, which the manual calls out separately — an initialised pattern
+        that still had tracks muted would not be blank in the way the display claims.
+    */
+    void initialisePattern (int index);
+
+    /** Chain playback: select several patterns and play them in order (p. 59).
+
+        Passing an empty list ends chain playback and leaves the current pattern playing, which is
+        what pressing `PTN` again does. Indices outside the bank are ignored rather than clamped —
+        clamping would silently substitute a pattern the player did not choose.
+    */
+    void setPatternChain (std::span<const int> indices);
+    void clearPatternChain() { setPatternChain ({}); }
+
+    std::span<const int> patternChain() const noexcept { return patternChain_; }
+    bool isChaining() const noexcept { return ! patternChain_.empty(); }
+
+    /// Position within the chain, or -1 when not chaining.
+    int chainPosition() const noexcept { return patternChain_.empty() ? -1 : chainPosition_; }
+
+    /** Length of the current pattern in quarter notes — when a chain advances.
+
+        The manual does not define this for an instrument whose tracks can each run at their own
+        division and step length, so the choice is ours: the longest track cycle, which is the
+        point at which every track has completed a whole number of its own passes. Taking the
+        shortest, or a fixed sixteen steps, would cut a polymetric track off mid-phrase.
+    */
+    double patternLengthQuarterNotes() const noexcept;
+
     /// -1 clears solo. While a track is soloed, mutes on other tracks are ignored.
     void setSolo (int track) noexcept { solo_ = track; }
     int solo() const noexcept { return solo_; }
@@ -126,6 +165,18 @@ private:
     void buildVoices();
     void rebindSequencers();
     void syncFromParameters();
+
+    /// Step to the next pattern in the chain once the current one has run its length (p. 59).
+    void advanceChainIfDue();
+
+    /** Samples remaining before the chain advances, or `numSamples` if that is sooner.
+
+        `process` splits its blocks here so the switch lands on the same sample whatever buffer
+        size the host uses. Without it a chain would advance at the first block boundary *after*
+        the musical position, which at 4096 samples is nearly a tenth of a second late — audible,
+        and different for every host.
+    */
+    int samplesUntilChainAdvance (int numSamples) const noexcept;
 
     /// One block, no larger than the prepared maximum. `process` splits oversized requests down
     /// to this.
@@ -147,6 +198,9 @@ private:
     float delayTimeMs() const noexcept;
 
     bool trackAudible (int track) const noexcept;
+
+    /// True when the track is muted in SEQ mode: audible, but its sequenced notes are dropped.
+    bool sequencerMuted (int track) const noexcept;
 
     /// The voice a trigger on this bank should reach.
     Voice* voiceFor (int track, SoundBank) noexcept;
@@ -215,6 +269,14 @@ private:
     int maxBlockSize_ = 512;
     int patternIndex_ = 0;
     int pendingPatternIndex_ = 0;
+
+    /// Chain playback (p. 59). Empty when not chaining.
+    std::vector<int> patternChain_;
+    int chainPosition_ = 0;
+
+    /// Musical position the current pattern started at, so the chain advances a pattern length
+    /// after it began rather than at an absolute grid position.
+    double patternStartPpq_ = 0.0;
     int solo_ = -1;
 };
 

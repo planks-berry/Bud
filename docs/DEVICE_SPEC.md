@@ -235,6 +235,33 @@ note length). Per track, swing is either `PTN` (follow the pattern) or an indepe
 Hold `OK` and press a step to move the sequence start position. Takes effect at the next cycle,
 and **is not saved with the pattern**.
 
+## Note input (p. 37–42)
+
+Four recording modes. They differ in what a key press means, not in what they produce — all four
+write the same steps.
+
+| Mode | Entry | Behaviour |
+|---|---|---|
+| Direct (p. 37) | press a step | Toggles a note. Clearing removes sub-steps but **keeps parameter locks** |
+| Step (p. 38–39) | cursor + key | Writes at the cursor. With `AT.STEP` the cursor advances on each key press |
+| Real-time (p. 40) | play along | Notes land on the nearest step |
+| Keyboard (p. 41) | hold a step, play a note | Either order works |
+
+**Tied notes** (p. 39) — hold a key from one step to another to join them. **Tracks 10 and 11
+only.** Every step in the run holds through except the last, which ends the note.
+
+**Loop input** (p. 42) — on track 10, four steps represent one bar of a four-bar loop. A run of
+gated steps plays through without retriggering; a retrigger happens where one is entered **or
+where a note follows a step with no note on it**. That second case is derived, not stored — a
+note opening a run retriggers whether or not the flag is set.
+
+## Mute modes (`MUTE.MD`, p. 103)
+
+| Mode | Behaviour |
+|---|---|
+| `SOUND` | Mutes the track outright. Anything sounding stops dead |
+| `SEQ` | Mutes only the sequencer's notes. The track stays a live voice, so a note already ringing finishes and the keyboard or incoming MIDI can still play it. Parameter locks still apply during performance |
+
 ## Patterns
 
 - 16 patterns per bank, **8 banks, 128 patterns total** (p. 17). Bank 1 holds preset songs.

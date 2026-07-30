@@ -13,6 +13,7 @@ add_library(BudCore STATIC
     sequencer/Step.cpp
     sequencer/Pattern.cpp
     sequencer/TrackSequencer.cpp
+    sequencer/NoteInput.cpp
     sequencer/Groove.cpp
     dsp/TimeStretch.cpp
     factory/FactoryContent.cpp
