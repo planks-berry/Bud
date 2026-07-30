@@ -147,22 +147,23 @@ GitHub Pages on every push. The test runs *before* the deploy on purpose: publis
 loads but produces silence would be worse than not publishing at all, and only a real browser
 catches that.
 
-**One-time setup, which has to be done in the repository settings:**
-
-1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
-2. Re-run the workflow (Actions → Publish web build → Run workflow), or push anything.
-
-The URL then appears on the workflow run, and under Settings → Pages. It is of the form
+The published URL appears on the workflow run and under Settings → Pages, in the form
 `https://<owner>.github.io/<repo>/`.
 
-Until that setting is made, the deploy job fails with
+**One-time setup, in the repository settings** — done for this repository, and recorded because
+a fork or a fresh clone needs it again:
+
+1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
+2. Push anything, or Actions → Publish web build → Run workflow.
+
+Until that is done the deploy job fails with
 
 ```
 Failed to create deployment (status: 404) ... Ensure GitHub Pages has been enabled
 ```
 
-while the build job — wasm, browser test, artifacts — passes. That is the intended split: the
-build proves the instrument works, and only the last step needs the repository's permission.
+while the build job — wasm, browser test, artifacts — passes. That split is deliberate: the build
+proves the instrument works, and only the last step needs the repository's permission.
 
 ### If the repository is private
 
