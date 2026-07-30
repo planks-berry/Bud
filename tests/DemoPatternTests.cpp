@@ -198,3 +198,98 @@ BUD_TEST (Demo, aBlockLargerThanPreparedForIsSplitRatherThanTruncated)
 
     CHECK_EQ (differing, 0);
 }
+
+BUD_TEST (Demo, aReusedEngineRendersIdenticallyAfterBeingPreparedAgain)
+{
+    // Hosts call prepareToPlay repeatedly — on a sample-rate change, a buffer-size change, or
+    // simply when reopening a project — and an offline bounce must match what was heard. So
+    // preparing an engine that has already rendered has to put it back where it started.
+    //
+    // Every other test builds a fresh Engine, which is why nothing caught this: two separate
+    // faults survived, and both only showed on a *reused* engine. The synth voices' noise
+    // generators carried their PRNG state across `reset`, and the tape echo's glide restored to
+    // the last commanded delay rather than to a defined starting point.
+    Engine engine;
+
+    const auto render = [&engine]
+    {
+        engine.prepare (kSampleRate, 8192);
+        demo::buildPattern (engine);
+        engine.start();
+
+        const auto total = static_cast<int> (kSampleRate * 2);
+        Render out;
+        out.left.assign (static_cast<std::size_t> (total), 0.0f);
+        out.right.assign (static_cast<std::size_t> (total), 0.0f);
+
+        for (int position = 0; position < total; position += 512)
+            engine.process (out.left.data() + position, out.right.data() + position,
+                            std::min (512, total - position));
+
+        return out;
+    };
+
+    const auto first = render();
+    const auto second = render();
+    const auto third = render();
+
+    CHECK (first.peak() > 0.2f);
+
+    int differing = 0;
+
+    for (std::size_t i = 0; i < first.left.size(); ++i)
+    {
+        if (first.left[i] != second.left[i] || first.right[i] != second.right[i])
+            ++differing;
+
+        if (second.left[i] != third.left[i] || second.right[i] != third.right[i])
+            ++differing;
+    }
+
+    CHECK_EQ (differing, 0);
+}
+
+BUD_TEST (Demo, aReusedEngineMatchesAFreshOne)
+{
+    // Stronger than self-consistency: a reused engine must agree with one that has never
+    // rendered, or a re-opened project would sound different from a new one.
+    Engine fresh;
+    fresh.prepare (kSampleRate, 8192);
+    demo::buildPattern (fresh);
+    fresh.start();
+
+    const auto play = [] (Engine& engine)
+    {
+        constexpr auto count = static_cast<int> (kSampleRate * 2);
+
+        std::vector<float> left (static_cast<std::size_t> (count), 0.0f);
+        std::vector<float> right (static_cast<std::size_t> (count), 0.0f);
+
+        for (int position = 0; position < count; position += 512)
+            engine.process (left.data() + position, right.data() + position,
+                            std::min (512, count - position));
+
+        return std::pair { left, right };
+    };
+
+    const auto [freshLeft, freshRight] = play (fresh);
+
+    Engine reused;
+    reused.prepare (kSampleRate, 8192);
+    demo::buildPattern (reused);
+    reused.start();
+    play (reused);                       // burn one render, leaving state behind
+
+    reused.prepare (kSampleRate, 8192);  // and prepare again, as a host would
+    demo::buildPattern (reused);
+    reused.start();
+    const auto [reusedLeft, reusedRight] = play (reused);
+
+    int differing = 0;
+
+    for (std::size_t i = 0; i < freshLeft.size(); ++i)
+        if (freshLeft[i] != reusedLeft[i] || freshRight[i] != reusedRight[i])
+            ++differing;
+
+    CHECK_EQ (differing, 0);
+}

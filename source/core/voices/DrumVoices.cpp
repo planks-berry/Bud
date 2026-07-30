@@ -32,6 +32,7 @@ void KickVoice::prepare (double sampleRate)
 
 void KickVoice::reset()
 {
+    noise_.reset();
     body_.reset();
     amplitude_.reset();
     pitchSweep_.reset();
@@ -125,6 +126,7 @@ void SnareVoice::prepare (double sampleRate)
 
 void SnareVoice::reset()
 {
+    noise_.reset();
     tone1_.reset();
     tone2_.reset();
     toneEnv_.reset();

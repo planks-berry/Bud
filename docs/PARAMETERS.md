@@ -309,6 +309,12 @@ than an EQ.
 | Delay F.BACK | 0–127 | 0 … 0.95 *(Chosen)* |
 | `D>R` | 0–127 | `S(v)` |
 | `D.PP` | OFF/ON | ping-pong |
+
+The delay **glides** to a new time rather than jumping, so changing `TIME` sounds like tape
+speeding up instead of clicking *(Chosen)*. The glide applies only to a *change* — after a reset
+the effect starts already at its commanded time, with no swoop on the first playback. Restoring
+the glide to the last commanded value instead made a second render of the same material differ
+from the first, which is what `tests/DemoPatternTests.cpp` now guards.
 | `D.SY` | OFF/ON | tempo sync |
 
 ---

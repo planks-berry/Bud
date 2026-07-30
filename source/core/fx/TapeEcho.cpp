@@ -53,7 +53,12 @@ void TapeEcho::reset()
     std::fill (bufferRight_.begin(), bufferRight_.end(), 0.0f);
 
     writeIndex_ = 0;
-    smoothedDelay_ = delaySamples_;
+    // Not `smoothedDelay_ = delaySamples_`: at this point `delaySamples_` holds whatever was
+    // last commanded, which differs between a freshly constructed effect and one being reset
+    // after use. That made a second render of the same material differ from the first — the
+    // first glided up to the delay time, later ones started already there. Defer instead, and
+    // snap on the first block.
+    delayPrimed_ = false;
     wowPhase_ = 0.0;
     flutterPhase_ = 0.0;
 
@@ -116,6 +121,12 @@ void TapeEcho::process (const float* inLeft, const float* inRight,
 
     const auto wowIncrement = kWowHz / sampleRate_;
     const auto flutterIncrement = kFlutterHz / sampleRate_;
+
+    if (! delayPrimed_)
+    {
+        smoothedDelay_ = delaySamples_;
+        delayPrimed_ = true;
+    }
 
     for (int i = 0; i < numSamples; ++i)
     {

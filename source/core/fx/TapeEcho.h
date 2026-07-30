@@ -52,6 +52,11 @@ private:
     double delaySamples_ = 12000.0;
     double smoothedDelay_ = 12000.0;
 
+    /// False until the first block after a reset has snapped the glide to the commanded time.
+    /// The glide exists so that *changing* the delay sounds like tape speeding up; it should not
+    /// apply to the value the effect starts at.
+    bool delayPrimed_ = false;
+
     float feedback_ = 0.4f;
     bool pingPong_ = false;
 
