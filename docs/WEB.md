@@ -106,9 +106,43 @@ A web page cannot host in AUM or GarageBand, so this **complements** the AUv3 ra
 replacing it. What it does give you today is the instrument running on any machine with a browser
 — including an iPad — with no Xcode, no JUCE and no local build.
 
+## Published from CI
+
+`.github/workflows/pages.yml` builds the wasm, runs the browser test against it, and deploys to
+GitHub Pages on every push. The test runs *before* the deploy on purpose: publishing a page that
+loads but produces silence would be worse than not publishing at all, and only a real browser
+catches that.
+
+**One-time setup, which has to be done in the repository settings:**
+
+1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
+2. Re-run the workflow (Actions → Publish web build → Run workflow), or push anything.
+
+The URL then appears on the workflow run, and under Settings → Pages. It is of the form
+`https://<owner>.github.io/<repo>/`.
+
+### If the repository is private
+
+GitHub Pages on a **private** repository requires a paid plan (Pro, Team or Enterprise). On a
+free account the deploy step fails with a permissions error. Three ways round it:
+
+- Make the repository public — the engine is clean-room and carries no Sonicware material, so
+  there is nothing here that has to stay closed.
+- Upgrade the plan.
+- Skip Pages and take the artifact: the build job uploads the site, so it can be downloaded from
+  the run summary, unzipped, and served locally with `python3 -m http.server`. That works but
+  does not give you a link to open on a tablet, which is the whole point.
+
+### On a tablet
+
+The interface adapts: the editor stacks below the grid, step keys grow to a 44 px touch target,
+and **press and hold** on a step reaches accent, since a tablet has no shift key. Both are
+checked by `web/test.mjs` in a touch-enabled context rather than assumed.
+
+iOS requires a user gesture before audio starts, which is what the PLAY button is.
+
 ## Not yet done
 
-- **Hosting.** CI could build and publish this so it is reachable without cloning.
 - **The panel replica.** The layout is panel-flavoured but not the hardware's artwork; that work
   would double as the reference for the JUCE UI.
 - **Note entry on the pitched tracks.** The grid toggles gates; the bass and loop tracks also want

@@ -174,14 +174,43 @@ function buildTracks() {
             cell.dataset.track = index;
             cell.dataset.step = step;
 
-            cell.addEventListener('click', (event) => {
+            // Two ways to reach accent, because there is no shift key on a tablet: shift-click
+            // with a mouse, press and hold with a finger. Accent layers onto an existing note
+            // rather than replacing it, which is what the device does.
+            let holdTimer = null;
+            let handled = false;
+
+            const beginHold = () => {
+                handled = false;
+                holdTimer = setTimeout(() => {
+                    handled = true;
+                    holdTimer = null;
+                    send({ type: 'cycleAccent', track: index, step });
+                    if (navigator.vibrate) navigator.vibrate(8);
+                }, 450);
+            };
+
+            const endHold = () => {
+                if (holdTimer !== null) clearTimeout(holdTimer);
+                holdTimer = null;
+            };
+
+            cell.addEventListener('pointerdown', beginHold);
+            cell.addEventListener('pointercancel', endHold);
+            cell.addEventListener('pointerleave', endHold);
+
+            cell.addEventListener('pointerup', (event) => {
+                endHold();
                 selectTrack(index);
 
-                // Shift cycles the accent instead of toggling, which is how the device layers
-                // accent onto an existing note rather than replacing it.
+                if (handled) return;   // the hold already cycled the accent
+
                 if (event.shiftKey) send({ type: 'cycleAccent', track: index, step });
                 else send({ type: 'toggleStep', track: index, step });
             });
+
+            // Holding a step must not raise the browser's own context menu or text selection.
+            cell.addEventListener('contextmenu', (event) => event.preventDefault());
 
             steps.appendChild(cell);
         }

@@ -15,6 +15,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, extname } from 'node:path';
+import { existsSync } from 'node:fs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -49,10 +50,15 @@ const server = createServer(async (request, response) => {
 await new Promise((resolve) => server.listen(0, resolve));
 const url = `http://127.0.0.1:${server.address().port}/`;
 
-// The container ships a Chromium build; use it rather than downloading one. Override with
-// BUD_CHROME if your Playwright brings its own.
+// This container ships its own Chromium; a CI runner installs one through Playwright. Detect
+// rather than assume, so the same test runs in both places without a flag.
+const CONTAINER_CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+
+const executablePath = process.env.BUD_CHROME
+    || (existsSync(CONTAINER_CHROME) ? CONTAINER_CHROME : undefined);
+
 const browser = await chromium.launch({
-    executablePath: process.env.BUD_CHROME ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+    executablePath,
     args: ['--autoplay-policy=no-user-gesture-required'],
 });
 
@@ -171,6 +177,49 @@ await page.click('#demo');
 await page.waitForTimeout(200);
 const restored = await page.evaluate(() => document.querySelectorAll('.step.on').length);
 check('DEMO reloads a pattern', restored > 8, `${restored} steps on`);
+
+// ---- touch ---------------------------------------------------------------
+// An iPad has no shift key, so accent has to be reachable by holding. This is the interaction
+// the whole tablet story depends on, so it is checked rather than assumed.
+
+const touch = await browser.newContext({
+    viewport: { width: 834, height: 1194 },
+    hasTouch: true,
+    deviceScaleFactor: 2,
+});
+
+const tablet = await touch.newPage();
+await tablet.goto(url);
+await tablet.waitForFunction(() => window.bud?.parameters.length > 0, null, { timeout: 30000 });
+
+const overflow = await tablet.evaluate(() => ({
+    scroll: document.documentElement.scrollWidth,
+    client: document.documentElement.clientWidth,
+}));
+check('no sideways scrolling on a tablet', overflow.scroll <= overflow.client,
+      `${overflow.scroll} vs ${overflow.client}`);
+
+const keySize = await tablet.evaluate(() =>
+    document.querySelector('.step').getBoundingClientRect().height);
+check('step keys are a comfortable touch target', keySize >= 44, `${keySize}px`);
+
+// Press and hold an already-lit step: it should gain an accent, not vanish. Tapping first
+// would turn the note off, and an accent on an unlit step has nothing to show.
+const target = '.step[data-track="0"][data-step="0"]';
+
+const lit = await tablet.evaluate((s) => document.querySelector(s).classList.contains('on'), target);
+check('the demo leaves a lit step to hold', lit);
+
+await tablet.dispatchEvent(target, 'pointerdown', { pointerType: 'touch', isPrimary: true });
+await tablet.waitForTimeout(700);
+await tablet.dispatchEvent(target, 'pointerup', { pointerType: 'touch', isPrimary: true });
+await tablet.waitForTimeout(250);
+
+const after = await tablet.evaluate((s) => document.querySelector(s).className, target);
+check('press and hold reaches accent without a shift key',
+      after.includes('hard') || after.includes('soft'), after.replace('step ', ''));
+
+await touch.close();
 
 // ---- errors --------------------------------------------------------------
 

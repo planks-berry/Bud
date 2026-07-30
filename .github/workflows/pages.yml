@@ -1,0 +1,77 @@
+# Publish the browser build to GitHub Pages.
+#
+# Kept separate from ci.yml because it deploys rather than checks: it needs the `pages` and
+# `id-token` permissions, and it must not run concurrently with itself. CI stays a pure
+# verification workflow.
+#
+# The page is the engine compiled to WebAssembly, so the deploy is genuinely building the
+# instrument — not copying static files around.
+
+name: Publish web build
+
+on:
+  push:
+    branches: [main, claude/sonicware-deconstruct-emulation-c91vb8]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and never cancel one part-way — a half-finished deploy would leave
+# the published page broken rather than merely out of date.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and test the web bundle
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # emscripten arrives through npm, so the runner needs nothing preinstalled.
+      - name: Build the engine to WebAssembly
+        run: ./web/build.sh
+
+      # The same browser test that runs locally. Publishing a page that loads but produces
+      # silence would be worse than not publishing at all, and only a real browser catches that.
+      - name: Test in a real browser
+        working-directory: web
+        run: |
+          npm install --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+          node test.mjs
+
+      - name: Assemble the site
+        run: |
+          mkdir -p _site
+          cp web/index.html web/app.js web/worklet.js web/style.css web/bud.js _site/
+          # Pages serves from a subdirectory, and everything here is loaded relatively, so no
+          # rewriting is needed. A .nojekyll stops Pages ignoring files it thinks are partials.
+          touch _site/.nojekyll
+          ls -la _site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to Pages
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
