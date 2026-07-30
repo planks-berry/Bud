@@ -184,6 +184,33 @@ As S2/S4, except MOVE depends on playback mode *(Measured, p. 62, 69)*:
 | Loop | X-fade | 0–100 % → 0 … min(4 s, region ÷ 2), curved | Measured p. 69, 116 |
 | One-shot | Slope | as S2/S4 | Measured p. 69 |
 
+#### Time-stretch constants *(Chosen)*
+
+The manual states what the three tempo behaviours **do** (p. 70) but says nothing about how, so
+the algorithm and its constants are ours. WSOLA, with:
+
+| Constant | Value | Why this value |
+|---|---|---|
+| Analysis window | 46 ms | Holds a full cycle of the lowest useful bass (40 Hz is 25 ms) without smearing a transient across two windows |
+| Hop | 23 ms (50 %) | Hann halves at 50 % overlap sum to exactly unity, so the cross-fade is level-preserving by construction |
+| Correlation search | ±12 ms | About one low-frequency period, which is what it takes to find a matching phase; wider only costs time |
+| Search step | 2 samples | Below the period of anything audible, so alignment error is inaudible |
+| Comparison stride | 4 samples | The search needs the periodicity, not every sample; a stride finds the same peak for a quarter of the work |
+
+Two properties are asserted in `tests/StretchTests.cpp` rather than left to inspection:
+
+- **Unity is transparent.** At pitch 1 / speed 1 the output reproduces the source to better than
+  −60 dB. This only holds because ties among period-aligned offsets resolve toward zero
+  displacement, so the search is centre-out rather than left-to-right.
+- **Level is flat.** Ripple at the window rate stays under 0.02 dB measured, which is the
+  signature of joins that are actually phase-aligned. Ripple is what a failed correlation search
+  sounds like.
+
+The pitch ratio scales reads **within** a window; the speed ratio advances the window position
+through the source. Keeping those two independent is the whole mechanism behind the three modes,
+and the correlation search has to read its candidates at the pitch ratio too — comparing a
+transposed candidate against an untransposed reference makes the search meaningless.
+
 ### BASS (track 11)
 
 Track-row knobs. **Taken from p. 77, which contradicts p. 62** — see

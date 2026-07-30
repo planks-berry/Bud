@@ -213,6 +213,7 @@ void DrumSampleVoice::render (float* left, float* right, int numSamples)
 void LoopVoice::prepare (double sampleRate)
 {
     sampleRate_ = std::max (1.0, sampleRate);
+    stretch_.prepare (sampleRate_);
     reset();
 }
 
@@ -222,7 +223,9 @@ void LoopVoice::reset()
     position_ = 0.0;
     regionStart_ = 0.0;
     regionEnd_ = 0.0;
+    stretching_ = false;
     playing_ = false;
+    stretch_.reset();
 }
 
 void LoopVoice::trigger (const TriggerEvent& event, const ParamView& params,
@@ -261,28 +264,55 @@ void LoopVoice::trigger (const TriggerEvent& event, const ParamView& params,
     const auto tune = curves::tuneSemitones (params (ParamKind::TrackTune))
                     + static_cast<float> (event.note);
 
-    auto ratio = static_cast<double> (curves::semitonesToRatio (tune)
-                                      * curves::centsToRatio (event.pitchCents));
+    const auto pitch = static_cast<double> (curves::semitonesToRatio (tune)
+                                            * curves::centsToRatio (event.pitchCents));
+
+    // Correct for a sample recorded at a rate other than the engine's, which applies whichever
+    // path plays it.
+    const auto rateCorrection = slot->sampleRate / sampleRate_;
+    const auto tempoFollow = tempoRatio (*slot, tempo_);
+
+    // The three tempo behaviours differ in which of pitch and speed each control moves. That is
+    // the whole distinction between the modes, and it is why two of them need a stretcher: a
+    // resampler can only move both together.
+    double pitchRatio = pitch;
+    double speedRatio = pitch;
 
     switch (mode)
     {
-        case LoopMode::LoopRhythmic:
-        case LoopMode::OneShotRhythmic:
-            // Rhythmic: hold pitch while following tempo. Proper time-stretch lands with the
-            // sampler milestone; repitching at least keeps the loop in time until then.
-            ratio *= tempoRatio (*slot, tempo_);
-            break;
-
         case LoopMode::LoopMelodic:
         case LoopMode::OneShotMelodic:
-            // Melodic: hold length while the pitch moves. Also awaiting the stretch engine.
+            // Melodic: transposing must not change how long the loop takes, so the pitch moves
+            // and the speed stays where it was.
+            pitchRatio = pitch;
+            speedRatio = 1.0;
+            stretching_ = true;
+            break;
+
+        case LoopMode::LoopRhythmic:
+        case LoopMode::OneShotRhythmic:
+            // Rhythmic: following the tempo must not transpose it, so the speed moves and the
+            // pitch stays put. Tuning still applies on top, deliberately — TUNE is a control the
+            // player reached for, whereas tempo is not.
+            pitchRatio = pitch;
+            speedRatio = pitch * tempoFollow;
+            stretching_ = true;
             break;
 
         default:
+            // No stretch: pitch and length move together, which is what a resampler does.
+            stretching_ = false;
             break;
     }
 
-    increment_ = ratio * slot->sampleRate / sampleRate_;
+    increment_ = pitch * rateCorrection;
+
+    if (stretching_)
+    {
+        stretch_.setSource (slot, regionStart_, regionEnd_);
+        stretch_.setRatios (pitchRatio * rateCorrection, speedRatio * rateCorrection);
+        stretch_.setLooping (looping_);
+    }
 
     // MOVE is the crossfade in loop mode and the slope in one-shot mode (p. 69). Crossfade
     // spans up to four seconds, and cannot exceed half the region.
@@ -300,7 +330,10 @@ void LoopVoice::trigger (const TriggerEvent& event, const ParamView& params,
     level_ = event.velocity;
 
     if (! wasPlaying || event.retrigger || ! looping_)
+    {
         position_ = regionStart_ + increment_ * static_cast<double> (elapsedFraction);
+        stretch_.rewind();
+    }
 
     playing_ = true;
 }
@@ -325,6 +358,14 @@ void LoopVoice::render (float* left, float* right, int numSamples)
     if (! playing_ || sample_ == nullptr)
         return;
 
+    if (stretching_)
+        renderStretched (left, right, numSamples);
+    else
+        renderResampled (left, right, numSamples);
+}
+
+void LoopVoice::renderResampled (float* left, float* right, int numSamples) noexcept
+{
     const auto stereo = sample_->isStereo();
 
     for (int i = 0; i < numSamples; ++i)
@@ -350,6 +391,40 @@ void LoopVoice::render (float* left, float* right, int numSamples)
 
         position_ += increment_;
     }
+}
+
+void LoopVoice::renderStretched (float* left, float* right, int numSamples) noexcept
+{
+    // The stretcher writes rather than accumulates, so it needs its own scratch to add from.
+    // Deliberately small and consumed in chunks rather than sized to the largest possible block:
+    // a buffer big enough for an 8192-sample block would put 64 KB on the stack of whichever
+    // thread is rendering, and an AUv3 render thread has far less to spare than a desktop one.
+    // Chunking costs nothing measurable and keeps the voice allocation-free.
+    static constexpr int kMaxScratch = 256;
+    float scratchLeft[kMaxScratch];
+    float scratchRight[kMaxScratch];
+
+    auto remaining = numSamples;
+    auto offset = 0;
+
+    while (remaining > 0)
+    {
+        const auto count = std::min (remaining, kMaxScratch);
+
+        stretch_.process (scratchLeft, scratchRight, count);
+
+        for (int i = 0; i < count; ++i)
+        {
+            left[offset + i] += scratchLeft[i] * level_;
+            right[offset + i] += scratchRight[i] * level_;
+        }
+
+        offset += count;
+        remaining -= count;
+    }
+
+    if (! stretch_.isActive())
+        playing_ = false;
 }
 
 } // namespace bud

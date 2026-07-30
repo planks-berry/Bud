@@ -6,6 +6,7 @@ add_executable(BudCoreTests
     SequencerTests.cpp
     GrooveTests.cpp
     DspTests.cpp
+    StretchTests.cpp
     EngineTests.cpp
     FxTests.cpp
 )

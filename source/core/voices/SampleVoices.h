@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../dsp/Envelope.h"
+#include "../dsp/TimeStretch.h"
 #include "Voice.h"
 
 namespace bud
@@ -59,8 +60,17 @@ private:
 
 /** The stereo loop voice — track 10, S8 bank (p. 69-70).
 
-    Six playback modes combine looping or one-shot with three tempo behaviours: no stretch,
-    melodic (holds length when pitch changes) and rhythmic (holds pitch when tempo changes).
+    Six playback modes combine looping or one-shot with three tempo behaviours:
+
+    - **no stretch** — plain resampling, so pitch and length move together
+    - **melodic** — length holds when the pitch changes
+    - **rhythmic** — pitch holds when the tempo changes
+
+    The last two need actual time-stretching, which is why this voice has two playback paths: a
+    direct resampler for the unstretched modes, and a `dsp::TimeStretch` for the other four.
+    Sharing one path would mean either no stretching or paying for WSOLA when nothing asked for
+    it, and the unstretched modes are the ones most likely to carry a long ambient bed.
+
     Loop playback crossfades the seam with a curved response.
 */
 class LoopVoice : public Voice
@@ -79,8 +89,16 @@ private:
     /// Gain applied near the loop seam so the wrap does not click.
     float crossfadeGain (double position) const noexcept;
 
+    /// Direct resampling, for the modes that ask for no stretching.
+    void renderResampled (float* left, float* right, int numSamples) noexcept;
+
+    /// WSOLA, for the melodic and rhythmic modes.
+    void renderStretched (float* left, float* right, int numSamples) noexcept;
+
     const SoundLibrary* library_ = nullptr;
     const SampleData* sample_ = nullptr;
+
+    dsp::TimeStretch stretch_;
 
     double sampleRate_ = 48000.0;
     double tempo_ = 128.0;
@@ -91,6 +109,7 @@ private:
     double crossfadeSamples_ = 0.0;
     float level_ = 1.0f;
     bool looping_ = true;
+    bool stretching_ = false;
     bool playing_ = false;
 };
 

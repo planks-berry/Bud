@@ -20,9 +20,9 @@ specification and [`docs/PARAMETERS.md`](docs/PARAMETERS.md) for the parameter r
 | M0 | Build system, parameter table, docs | done |
 | M1 | Transport, sequencer, FEEL drift | done |
 | M2 | Voices (drum synth, sample, loop, bass) | done |
-| M3 | Effects (master, reverb, tape echo) | pending |
-| M4 | Sampler (record, banks, stretch/repitch) | pending |
-| M5 | Procedural factory content | pending |
+| M3 / R7 | Effects (isolator, master, reverb, tape echo) | done |
+| M4 / R8 | Sampler (record, banks, stretch/repitch) | in progress |
+| M5 / R6 | Procedural factory content | done |
 | M6 | Hardware-replica interface | pending |
 | M7 | MIDI and sync | pending |
 | M8 | Project/pattern/kit state | pending |
@@ -52,6 +52,7 @@ docs/          device spec, parameter reference, reference material
 ## Building the engine and tests
 
 Requires CMake 3.22+ and a C++20 compiler. No network access needed.
+**On macOS, follow [`docs/BUILDING.md`](docs/BUILDING.md)** for step-by-step directions.
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release

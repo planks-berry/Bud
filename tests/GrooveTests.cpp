@@ -226,9 +226,12 @@ BUD_TEST (Groove, m909IsTighterThanTheOthers)
     auto m909 = makeGroove (FeelModel::M909);
     auto minimal = makeGroove (FeelModel::Minimal);
 
-    // "a tight, powerful Feel" against 08's laid-back one and MN's unstable one (p. 54).
-    CHECK (peakTimingDrift (m909, SoundBank::HH_CY, 4)
-           < peakTimingDrift (minimal, SoundBank::HH_CY, 4));
+    // "a tight, powerful Feel" against 08's laid-back one and MN's unstable one (p. 54), so it
+    // has to be tighter than both — the name says "the others", and only one was being checked.
+    const auto tight = peakTimingDrift (m909, SoundBank::HH_CY, 4);
+
+    CHECK (tight < peakTimingDrift (m808, SoundBank::HH_CY, 4));
+    CHECK (tight < peakTimingDrift (minimal, SoundBank::HH_CY, 4));
 }
 
 BUD_TEST (Groove, driftScalesWithTempo)
