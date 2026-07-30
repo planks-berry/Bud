@@ -26,6 +26,8 @@ namespace labels
     inline constexpr std::string_view masterFx[]   = { "S.FLT", "PHSR", "DIST", "SN.LP", "DUCK" };
     inline constexpr std::string_view reverbType[] = { "ROOM", "HALL", "PLAT" };
     inline constexpr std::string_view onOff[]      = { "OFF", "ON" };
+    inline constexpr std::string_view extSource[]  = { "LIN", "USB" };
+    inline constexpr std::string_view sampleBank[] = { "S2", "S4", "S8" };
 }
 
 //==============================================================================
@@ -81,9 +83,17 @@ static const std::array<ParamDescriptor, kNumParamKinds> kParamTable { {
     { ParamKind::DelayPingPong,        "dly_pingpong",   "D.PP",    S::Global,   0,    1,   0, U::Bool,         false, lab (labels::onOff) },
     { ParamKind::DelaySync,            "dly_sync",       "D.SY",    S::Global,   0,    1,   1, U::Bool,         false, lab (labels::onOff) },
 
-    { ParamKind::ExtInGain,            "ext_gain",       "IN.GAIN", S::Global,   0,  127,  64, U::Raw,          false, noLabels },
-    { ParamKind::ExtInReverbSend,      "ext_rvb",        "IN.RVB",  S::Global,   0,  127,   0, U::Raw,          false, noLabels },
-    { ParamKind::ExtInDelaySend,       "ext_dly",        "IN.DLY",  S::Global,   0,  127,   0, U::Raw,          false, noLabels },
+    { ParamKind::ExtInLineGain,        "ext_line_gain",  "LIN.",    S::Global,   0,  127,   0, U::Raw,          false, noLabels },
+    { ParamKind::ExtInLineReverbSend,  "ext_line_rvb",   "L.RV",    S::Global,   0,  127,   0, U::Raw,          false, noLabels },
+    { ParamKind::ExtInLineDelaySend,   "ext_line_dly",   "L.DL",    S::Global,   0,  127,   0, U::Raw,          false, noLabels },
+    { ParamKind::ExtInUsbGain,         "ext_usb_gain",   "USB.",    S::Global,   0,  127,   0, U::Raw,          false, noLabels },
+    { ParamKind::ExtInUsbReverbSend,   "ext_usb_rvb",    "U.RV",    S::Global,   0,  127,   0, U::Raw,          false, noLabels },
+    { ParamKind::ExtInUsbDelaySend,    "ext_usb_dly",    "U.DL",    S::Global,   0,  127,   0, U::Raw,          false, noLabels },
+
+    { ParamKind::SamplerInputGain,     "smp_in_gain",    "IN.GAIN", S::Global,   0,  127, 100, U::Raw,          false, noLabels },
+    { ParamKind::SamplerAutoRecord,    "smp_auto_rec",   "AT.REC",  S::Global,   0,  127,  40, U::Raw,          false, noLabels },
+    { ParamKind::SamplerSource,        "smp_source",     "SMP.SRC", S::Global,   0,    1,   0, U::Enum,         false, lab (labels::extSource) },
+    { ParamKind::SamplerBank,          "smp_bank",       "SMP.BNK", S::Global,   0,    2,   0, U::Enum,         false, lab (labels::sampleBank) },
 
     { ParamKind::TrackSoundBank,       "bank",           "BANK",    S::Track,    0,   12,   0, U::Enum,         false, lab (labels::bank) },
     { ParamKind::TrackSound,           "sound",          "SOUND",   S::Track,    0,  127,   0, U::Raw,          true,  noLabels },

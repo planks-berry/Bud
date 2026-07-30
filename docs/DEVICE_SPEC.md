@@ -155,6 +155,39 @@ Track 10 has six playback / time-stretch modes (p. 70):
 Crossfade is 1–4 s during loop playback, with a curved response; retrigger positions are entered
 per step (p. 69, 116).
 
+### Recording (p. 81–83)
+
+`func` + `sampling` enters sampling mode. The flow has six states, and they behave differently
+enough that the distinction matters:
+
+| State | On the device | Behaviour |
+|---|---|---|
+| Idle | — | Not in sampling mode |
+| Standby | REC blinks red | Setting the input level; the meter is live |
+| Armed | REC solid red | Recording begins when the input crosses the auto-record threshold |
+| Recording | Steps show progress | Ends by itself at the bank's length, or on REC |
+| Review | Slot selection | The capture can be auditioned before it is committed |
+| Done | `DONE` | Written to the chosen slot |
+
+- **Source** — `KBD` selects LINE, `BS DRV` selects USB (p. 81).
+- **Sample type** — the `A` / `B` / `C` keys select S2 / S4 / S8 (p. 81).
+- **Input gain** — the `TEMPO` knob while sampling (p. 81, 83).
+- **Auto-record** — `OFF`, or a trigger level from −60 to −20 dB. With it off, REC starts
+  recording outright rather than arming (p. 83).
+- **Level metering** — on the sixteen step keys. **Step 12 is −6 dB and step 16 is 0 dB** (p. 82).
+- **Normalisation** — the capture's volume is normalised once recording ends (p. 83).
+- `CLR` cancels at any point (p. 82).
+
+### External input (p. 85)
+
+LINE and USB are **separate inputs with their own gain and sends**, not one input with a source
+switch: `func` + `ext-in` walks `LIN.`, `USB.`, `→L.RV`, `U.RV` and the delay pair. USB settings
+are unavailable while `USB.AUD` is off (p. 85, 105).
+
+External input joins the direct bus rather than the drum bus — the isolator is a drum-track
+effect (p. 71), and the ducking compressor keys off the drums, so routing input through the drum
+bus would let it trigger its own gain reduction.
+
 ## Sequencer
 
 - 11 tracks; 16 steps × 4 variations (A–D), chainable to 64 steps (p. 34)
@@ -216,7 +249,7 @@ Variations (p. 52): `A–D` switches the playing variation at the end of the cur
 `func + A–D` switches the edit variation without affecting playback; pressing A–D together plays
 them in sequence; `OK + A–D` inserts a variation for one cycle then returns (fill).
 
-## Drum kits (p. 79–80)
+## Drum kits (p. 79–80) — see also [kit membership](PARAMETERS.md#drum-kit-membership)
 
 16 kits covering **tracks 1–9**. Load, save and rename. Kits and patterns are saved separately —
 saving one does not update the other.

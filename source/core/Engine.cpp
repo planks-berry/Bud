@@ -105,6 +105,7 @@ void Engine::prepare (double sampleRate, int maxBlockSize)
     for (auto* bus : { &drumBus_, &directBus_, &reverbSend_, &delaySend_ })
         bus->prepare (maxBlockSize_);
 
+    sampler_.prepare (sampleRate_);
     isolator_.prepare (sampleRate_);
     reverb_.prepare (sampleRate_);
     delay_.prepare (sampleRate_);
@@ -205,6 +206,19 @@ void Engine::syncFromParameters()
         for (auto* voice : { slot.sampler.get(), slot.synth.get() })
             if (voice != nullptr)
                 voice->setTempo (tempo);
+
+    // Sampling settings. The bank parameter indexes S2/S4/S8 rather than naming a SoundBank, so
+    // that the A/B/C keys map to 0/1/2 the way the device presents them (p. 81).
+    static constexpr SoundBank kSampleBanks[] = { SoundBank::S2, SoundBank::S4, SoundBank::S8 };
+
+    const auto bankIndex = std::clamp (parameters_.get (ParamKind::SamplerBank), 0, 2);
+
+    sampler_.setBank (kSampleBanks[bankIndex]);
+    sampler_.setSource (parameters_.get (ParamKind::SamplerSource) == 0 ? SampleSource::LineIn
+                                                                       : SampleSource::Usb);
+    sampler_.setInputGain (parameters_.get (ParamKind::SamplerInputGain));
+    sampler_.setAutoRecordThreshold (parameters_.get (ParamKind::SamplerAutoRecord));
+    sampler_.setTempo (tempo);
 }
 
 bool Engine::trackAudible (int track) const noexcept
@@ -428,6 +442,62 @@ float Engine::delayTimeMs() const noexcept
     return curves::timeMs (raw, 20.0f, 1500.0f);
 }
 
+void Engine::mixExternalInput (const float* inputLeft, const float* inputRight, int numSamples)
+{
+    if (inputLeft == nullptr)
+        return;
+
+    // The sampler sees the input before any of the mix gains, because its own level control is a
+    // separate one — the TEMPO knob in sampling mode (p. 81) — and its meter has to show what is
+    // about to be recorded, not what is being monitored.
+    sampler_.processInput (inputLeft, inputRight, numSamples);
+
+    // LINE and USB are separate inputs with their own gain and sends (p. 85). Which one is
+    // physically connected is outside the engine's knowledge, so both are mixed; a disconnected
+    // input is silence, and both default to a gain of zero so nothing arrives unasked.
+    struct InputStrip { ParamKind gain, reverb, delay; };
+
+    static constexpr InputStrip strips[] = {
+        { ParamKind::ExtInLineGain, ParamKind::ExtInLineReverbSend, ParamKind::ExtInLineDelaySend },
+        { ParamKind::ExtInUsbGain,  ParamKind::ExtInUsbReverbSend,  ParamKind::ExtInUsbDelaySend  }
+    };
+
+    for (const auto& strip : strips)
+    {
+        const auto gain = curves::levelGain (parameters_.get (strip.gain));
+
+        if (gain <= 0.0f)
+            continue;
+
+        const auto reverbSend = curves::sendAmount (parameters_.get (strip.reverb));
+        const auto delaySend = curves::sendAmount (parameters_.get (strip.delay));
+
+        for (int i = 0; i < numSamples; ++i)
+        {
+            const auto l = inputLeft[i] * gain;
+            const auto r = (inputRight != nullptr ? inputRight[i] : inputLeft[i]) * gain;
+
+            // External input joins the direct bus, not the drum bus: the isolator is a drum-track
+            // effect (p. 71), and ducking keys off the drums so routing input through the drum
+            // bus would make it trigger its own gain reduction.
+            directBus_.left[static_cast<std::size_t> (i)] += l;
+            directBus_.right[static_cast<std::size_t> (i)] += r;
+
+            if (reverbSend > 0.0f)
+            {
+                reverbSend_.left[static_cast<std::size_t> (i)] += l * reverbSend;
+                reverbSend_.right[static_cast<std::size_t> (i)] += r * reverbSend;
+            }
+
+            if (delaySend > 0.0f)
+            {
+                delaySend_.left[static_cast<std::size_t> (i)] += l * delaySend;
+                delaySend_.right[static_cast<std::size_t> (i)] += r * delaySend;
+            }
+        }
+    }
+}
+
 void Engine::mixBusesToOutput (float* left, float* right, int numSamples)
 {
     // ---- isolator, on the drum bus only -------------------------------------
@@ -492,6 +562,12 @@ void Engine::mixBusesToOutput (float* left, float* right, int numSamples)
 
 void Engine::process (float* left, float* right, int numSamples)
 {
+    process (left, right, nullptr, nullptr, numSamples);
+}
+
+void Engine::process (float* left, float* right,
+                      const float* inputLeft, const float* inputRight, int numSamples)
+{
     if (numSamples <= 0)
         return;
 
@@ -501,12 +577,18 @@ void Engine::process (float* left, float* right, int numSamples)
     for (int offset = 0; offset < numSamples;)
     {
         const auto count = std::min (numSamples - offset, maxBlockSize_);
-        processBlock (left + offset, right + offset, count);
+
+        processBlock (left + offset, right + offset,
+                      inputLeft != nullptr ? inputLeft + offset : nullptr,
+                      inputRight != nullptr ? inputRight + offset : nullptr,
+                      count);
+
         offset += count;
     }
 }
 
-void Engine::processBlock (float* left, float* right, int numSamples)
+void Engine::processBlock (float* left, float* right,
+                           const float* inputLeft, const float* inputRight, int numSamples)
 {
     std::fill_n (left, numSamples, 0.0f);
     std::fill_n (right, numSamples, 0.0f);
@@ -545,6 +627,8 @@ void Engine::processBlock (float* left, float* right, int numSamples)
         renderTrack (track, numSamples);
         mixTrack (track, numSamples);
     }
+
+    mixExternalInput (inputLeft, inputRight, numSamples);
 
     mixBusesToOutput (left, right, numSamples);
 

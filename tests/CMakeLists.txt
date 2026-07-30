@@ -9,6 +9,8 @@ add_executable(BudCoreTests
     StretchTests.cpp
     EngineTests.cpp
     FxTests.cpp
+    SamplerTests.cpp
+    KitTests.cpp
     DemoPatternTests.cpp
 )
 

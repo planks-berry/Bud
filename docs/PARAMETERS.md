@@ -313,6 +313,84 @@ than an EQ.
 
 ---
 
+## Drum kit membership
+
+*(Chosen — the manual says only that "drum kit data is saved for Tracks 1–9" (p. 79) and never
+lists the parameters.)*
+
+The principle comes from what the feature is for: "swapping sounds while keeping the sequence
+intact" (p. 79). A kit holds everything describing how a track **sounds**, and nothing describing
+what it **plays**.
+
+| In a kit | Not in a kit |
+|---|---|
+| `SOUND BANK`, `SOUND`, `TUNE`, `TONE`, `MOVE`, `ATTACK`, `DECAY` | `NOTE LEN` |
+| `→RVB`, `→DLY`, `PAN`, `LEVEL` | `STEP LEN` |
+| `RND VL`, `CHK`, `RPT`, snappy type | `SWING`, `MUTE` |
+
+Leaving the sequencer settings out matters most for `MUTE`: a kit that carried it would silence a
+track the player had left playing. Leaving `NOTE LEN` and `STEP LEN` out means a kit change never
+alters the rhythm.
+
+Kits and patterns are **independent stores** — "saving a drum kit does not save the pattern
+itself. Likewise, saving a pattern does not update the drum kit parameters" (p. 80). An empty kit
+slot loads as *nothing* rather than as a kit of zeroes, which would set every bank and level to
+zero and silence the machine.
+
+---
+
+## Sampler
+
+### External input *(Measured, p. 85)*
+
+LINE and USB each have their own gain and sends. All four use the shared laws:
+
+| Parameter | Raw | Maps to | Source |
+|---|---|---|---|
+| `LIN.` / `USB.` gain | 0–127 | `L(v)` | Measured p. 85 |
+| `→L.RV` / `U.RV` | 0–127 | `S(v)` | Measured p. 85 |
+| `L.DL` / `U.DL` | 0–127 | `S(v)` | Measured p. 29, 85 |
+
+Both gains default to **0**, not to unity: a connected source appearing in the mix without being
+asked for would be a surprise, and the device's own gain settings start at nothing.
+
+### Input level meter *(Measured, p. 82)*
+
+The manual gives two points — step 12 is −6 dB, step 16 is 0 dB — and two points fix a line:
+
+```
+steps(dB) = ceil( 16 · (1 − dB / −24) ),  clamped to 0…16
+```
+
+So the steps are 1.5 dB apart and the scale bottoms out at **−24 dB**. That floor is a
+*consequence* of the two documented anchors rather than a separate choice, and it is a sensible
+one for a recording meter: the resolution sits where clipping is, not spread thin over a range
+nobody sets levels in.
+
+A step lights on **entering** its band, which is how a segment meter behaves and what makes both
+anchors land exactly. Rounding down instead would require a level at or above 0 dB before the top
+step lit — and a full-scale sine never quite reaches 1.0 once sampled, so it would sit one step
+short for ever.
+
+### Other sampler settings
+
+| Parameter | Raw | Maps to | Source |
+|---|---|---|---|
+| Input gain (`TEMPO` while sampling) | 0–127 | `L(v)` | Measured p. 81, 83 |
+| Auto-record `AT.REC` | 0 = `OFF`, 1–127 | −60 … −20 dB, linear in dB | Measured p. 83 |
+| Progress meter | — | `ceil(16 · captured ÷ capacity)` | Chosen |
+| Meter release | — | 300 ms | Chosen |
+
+*(Chosen)* for the meter release: instant fall would make the meter unreadable on percussive
+material, and no fall would report a peak long past.
+
+**Captured length in beats** *(Chosen)* — a recording's `sourceBeats` is set from the tempo at
+the time it was made, so repitch- and stretch-to-tempo have a musical length without the player
+having to state one. Stored exactly rather than rounded to a bar: a recording stopped by hand is
+not on a boundary, and rounding would quietly retime it.
+
+---
+
 ## System
 
 | Parameter | Range | Source |

@@ -21,7 +21,7 @@ specification and [`docs/PARAMETERS.md`](docs/PARAMETERS.md) for the parameter r
 | M1 | Transport, sequencer, FEEL drift | done |
 | M2 | Voices (drum synth, sample, loop, bass) | done |
 | M3 / R7 | Effects (isolator, master, reverb, tape echo) | done |
-| M4 / R8 | Sampler (record, banks, stretch/repitch) | in progress |
+| M4 / R8 | Sampler (record, banks, stretch/repitch), drum kits | in progress |
 | M5 / R6 | Procedural factory content | done |
 | M6 | Hardware-replica interface | pending |
 | M7 | MIDI and sync | pending |

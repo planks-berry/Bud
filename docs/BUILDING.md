@@ -69,7 +69,7 @@ directly:
 ```
 
 That prints every case, and ends with something like
-`PASSED — 167 tests, 8767737 checks, 0 failures`. You can also run one suite at a time by
+`PASSED — 202 tests, 8792897 checks, 0 failures`. You can also run one suite at a time by
 passing its name as a filter:
 
 ```bash
@@ -77,7 +77,7 @@ passing its name as a filter:
 ```
 
 The suites are `Parameters`, `ParameterSet`, `Curves`, `Transport`, `Sequencer`, `Groove`, `Dsp`,
-`Stretch`, `Engine`, `Factory`, `Fx` and `Demo`.
+`Stretch`, `Engine`, `Factory`, `Fx`, `Sampler`, `Kit` and `Demo`.
 
 A filter is a case-sensitive substring match against `Suite.testName`, so it also narrows to
 individual cases across suites:

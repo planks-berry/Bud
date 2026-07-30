@@ -16,11 +16,13 @@ add_library(BudCore STATIC
     sequencer/Groove.cpp
     dsp/TimeStretch.cpp
     factory/FactoryContent.cpp
+    kit/DrumKit.cpp
     fx/Isolator.cpp
     fx/MasterFx.cpp
     fx/Reverb.cpp
     fx/TapeEcho.cpp
     sampler/SampleBank.cpp
+    sampler/Sampler.cpp
     sampler/WavIo.cpp
     voices/DrumVoices.cpp
     voices/SampleVoices.cpp

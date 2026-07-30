@@ -61,9 +61,20 @@ enum class ParamKind : std::uint16_t
     DelaySync,           ///< D.SY
 
     // ---- External input -----------------------------------------------------
-    ExtInGain,
-    ExtInReverbSend,
-    ExtInDelaySend,
+    // LINE and USB are separate inputs with their own gain and sends, not one input with a
+    // source switch (p. 85): func + ext-in walks LIN., USB., L.RV, U.RV and the delay pair.
+    ExtInLineGain,
+    ExtInLineReverbSend,
+    ExtInLineDelaySend,
+    ExtInUsbGain,
+    ExtInUsbReverbSend,
+    ExtInUsbDelaySend,
+
+    // ---- Sampler ------------------------------------------------------------
+    SamplerInputGain,    ///< The TEMPO knob while sampling (p. 81, 83)
+    SamplerAutoRecord,   ///< OFF, or a -60 to -20 dB trigger level (p. 83)
+    SamplerSource,       ///< LINE or USB (p. 81)
+    SamplerBank,         ///< S2 / S4 / S8, the A/B/C keys (p. 81)
 
     // ---- Per track, the eleven micro knobs ----------------------------------
     TrackSoundBank,

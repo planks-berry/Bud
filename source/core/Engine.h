@@ -4,11 +4,13 @@
 #include "Types.h"
 #include "dsp/Filters.h"
 #include "fx/Isolator.h"
+#include "kit/DrumKit.h"
 #include "fx/MasterFx.h"
 #include "fx/Reverb.h"
 #include "fx/TapeEcho.h"
 #include "params/ParameterSet.h"
 #include "sampler/SampleBank.h"
+#include "sampler/Sampler.h"
 #include "sequencer/Groove.h"
 #include "sequencer/Pattern.h"
 #include "sequencer/TrackSequencer.h"
@@ -65,7 +67,22 @@ public:
     */
     void process (float* left, float* right, int numSamples);
 
+    /** Render with external audio present.
+
+        The device mixes LINE and USB input into its own output with independent gain and sends
+        (p. 85), and the sampler records from whichever is selected (p. 81). Both need the input
+        to reach the engine, so this is the full signature; the two-buffer form above is this one
+        with no input connected.
+
+        `inputRight` may be null for a mono source. The input buffers are read, never written.
+    */
+    void process (float* left, float* right,
+                  const float* inputLeft, const float* inputRight, int numSamples);
+
     //==========================================================================
+
+    Sampler& sampler() noexcept { return sampler_; }
+    const Sampler& sampler() const noexcept { return sampler_; }
 
     Transport& transport() noexcept { return transport_; }
     const Transport& transport() const noexcept { return transport_; }
@@ -73,6 +90,9 @@ public:
     Groove& groove() noexcept { return groove_; }
     ParameterSet& parameters() noexcept { return parameters_; }
     const ParameterSet& parameters() const noexcept { return parameters_; }
+
+    KitBank& kits() noexcept { return kits_; }
+    const KitBank& kits() const noexcept { return kits_; }
 
     SoundLibrary& sounds() noexcept { return sounds_; }
     const SoundLibrary& sounds() const noexcept { return sounds_; }
@@ -109,7 +129,11 @@ private:
 
     /// One block, no larger than the prepared maximum. `process` splits oversized requests down
     /// to this.
-    void processBlock (float* left, float* right, int numSamples);
+    void processBlock (float* left, float* right,
+                       const float* inputLeft, const float* inputRight, int numSamples);
+
+    /// Feed the sampler, then fold the selected external input into the buses (p. 85).
+    void mixExternalInput (const float* inputLeft, const float* inputRight, int numSamples);
 
     void renderTrack (int track, int numSamples);
 
@@ -132,9 +156,11 @@ private:
 
     Transport transport_;
     Groove groove_;
+    Sampler sampler_;
     ParameterSet parameters_;
     SoundLibrary sounds_;
     PatternBank patterns_;
+    KitBank kits_;
 
     std::array<TrackSequencer, kNumTracks> sequencers_;
     std::array<TrackVoices, kNumTracks> voices_;
