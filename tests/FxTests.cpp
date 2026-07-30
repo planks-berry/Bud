@@ -536,12 +536,13 @@ BUD_TEST (Fx, renderedAudioIsIdenticalAtEveryBlockSizeWithEffectsRunning)
     {
         const auto out = build (blockSize);
 
-        double worst = 0.0;
+        // Exact equality — see the note in EngineTests on why a tolerance is the wrong assertion.
+        int differing = 0;
         for (std::size_t i = 0; i < reference.left.size(); ++i)
-            worst = std::max (worst, static_cast<double> (
-                std::abs (out.left[i] - reference.left[i])));
+            if (out.left[i] != reference.left[i] || out.right[i] != reference.right[i])
+                ++differing;
 
-        CHECK_NEAR (worst, 0.0, 1.0e-6);
+        CHECK_EQ (differing, 0);
     }
 }
 

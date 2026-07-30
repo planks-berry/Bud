@@ -69,9 +69,26 @@ directly:
 ```
 
 That prints every case, and ends with something like
-`PASSED — 145 tests, 7325600 checks, 0 failures`. You can also run one suite at a time by
-passing a filter: `./build/tests/BudCoreTests Fx`, or `Sequencer`, `Groove`, `Curves`, `Dsp`,
-`Engine`, `Parameters`, `Transport`.
+`PASSED — 167 tests, 8767737 checks, 0 failures`. You can also run one suite at a time by
+passing its name as a filter:
+
+```bash
+./build/tests/BudCoreTests Fx
+```
+
+The suites are `Parameters`, `ParameterSet`, `Curves`, `Transport`, `Sequencer`, `Groove`, `Dsp`,
+`Stretch`, `Engine`, `Factory`, `Fx` and `Demo`.
+
+A filter is a case-sensitive substring match against `Suite.testName`, so it also narrows to
+individual cases across suites:
+
+```bash
+./build/tests/BudCoreTests BlockSize
+```
+
+which runs all eight block-size invariance tests — sequencer, stretcher, engine, effects and the
+demo pattern. A filter matching nothing exits non-zero and lists the suites, rather than
+reporting a clean run of zero tests.
 
 ## 5. Render some audio
 
@@ -117,18 +134,29 @@ cmp a.wav b.wav && echo "identical"
 The same holds across compilers: a gcc build and a clang build of the same commit render
 byte-for-byte identical audio.
 
+This check is worth running because it is genuinely sharp. It is how the transport's per-block
+re-anchoring was found: an error of about one ten-millionth, far too small to hear directly, but
+enough to flip the occasional sample once the render is rounded to 16 bits — so `cmp` sees it
+even though the ear never would. The suite now asserts the same property on this same pattern
+(`./build/tests/BudCoreTests Demo`), with exact equality rather than a tolerance, because a
+tolerance is what let that error hide.
+
 ## 6. Change something and hear it
 
 The demo pattern is plain readable code in
-[`tools/render/main.cpp`](../tools/render/main.cpp), in `buildDemoPattern`. Everything is there:
-which steps are gated, which sound each track uses, levels, pans, sends, the bass line with its
-glide and parameter lock.
+[`source/demo/DemoPattern.cpp`](../source/demo/DemoPattern.cpp). Everything is there: which steps
+are gated, which sound each track uses, levels, pans, sends, the bass line with its glide and
+parameter lock.
 
 Edit it, then:
 
 ```bash
 cmake --build build -j && ./build/tools/bud-render --out mine.wav && open mine.wav
 ```
+
+It lives in its own small library rather than inside the renderer because the test suite renders
+it too — so `./build/tests/BudCoreTests Demo` checks your edited pattern for buffer-size
+independence, clipping and NaNs as well.
 
 A few things to try:
 

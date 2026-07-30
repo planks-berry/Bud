@@ -21,6 +21,7 @@ option(BUD_BUILD_PLUGIN "Build the JUCE plugin and standalone targets" OFF)
 option(BUD_BUILD_AUV3   "Include the iPad AUv3 target (implies BUD_BUILD_PLUGIN)" OFF)
 
 add_subdirectory(source/core)
+add_subdirectory(source/demo)
 
 if(BUD_BUILD_TESTS)
     enable_testing()

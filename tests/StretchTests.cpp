@@ -231,11 +231,13 @@ BUD_TEST (Stretch, outputIsIdenticalAtEveryBlockSize)
     {
         const auto out = stretchOutput (source, 1.5, 0.8, true, 96000, blockSize);
 
-        double worst = 0.0;
+        // Exact equality — see the note in EngineTests on why a tolerance is the wrong assertion.
+        int differing = 0;
         for (std::size_t i = 0; i < reference.size(); ++i)
-            worst = std::max (worst, static_cast<double> (std::abs (out[i] - reference[i])));
+            if (out[i] != reference[i])
+                ++differing;
 
-        CHECK_NEAR (worst, 0.0, 1.0e-6);
+        CHECK_EQ (differing, 0);
     }
 }
 
@@ -471,10 +473,12 @@ BUD_TEST (Stretch, engineStaysBlockSizeInvariantWithTheLoopTrackStretching)
     {
         const auto out = build (blockSize);
 
-        double worst = 0.0;
+        // Exact equality — see the note in EngineTests on why a tolerance is the wrong assertion.
+        int differing = 0;
         for (std::size_t i = 0; i < reference.size(); ++i)
-            worst = std::max (worst, static_cast<double> (std::abs (out[i] - reference[i])));
+            if (out[i] != reference[i])
+                ++differing;
 
-        CHECK_NEAR (worst, 0.0, 1.0e-6);
+        CHECK_EQ (differing, 0);
     }
 }

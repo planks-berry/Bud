@@ -170,13 +170,17 @@ BUD_TEST (Engine, renderedAudioIsIdenticalAtEveryBlockSize)
     {
         const auto out = build (blockSize);
 
-        double worst = 0.0;
+        // Exact equality, not a tolerance. The property is that the audio *is* the same, and a
+        // tolerance here hid a real bug for two milestones: a per-block re-anchor in the
+        // transport left an error of order 1e-7, small enough to pass a 1e-6 check and large
+        // enough to flip a 16-bit sample on a rounded WAV.
+        int differing = 0;
         for (int i = 0; i < reference.size(); ++i)
-            worst = std::max (worst, static_cast<double> (
-                std::abs (out.left[static_cast<std::size_t> (i)]
-                          - reference.left[static_cast<std::size_t> (i)])));
+            if (out.left[static_cast<std::size_t> (i)] != reference.left[static_cast<std::size_t> (i)]
+                || out.right[static_cast<std::size_t> (i)] != reference.right[static_cast<std::size_t> (i)])
+                ++differing;
 
-        CHECK_NEAR (worst, 0.0, 1.0e-6);
+        CHECK_EQ (differing, 0);
     }
 }
 

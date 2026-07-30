@@ -9,9 +9,10 @@ add_executable(BudCoreTests
     StretchTests.cpp
     EngineTests.cpp
     FxTests.cpp
+    DemoPatternTests.cpp
 )
 
-target_link_libraries(BudCoreTests PRIVATE Bud::Core)
+target_link_libraries(BudCoreTests PRIVATE Bud::Core Bud::Demo)
 target_include_directories(BudCoreTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(MSVC)

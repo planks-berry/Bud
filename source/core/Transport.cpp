@@ -33,17 +33,36 @@ void Transport::reanchor()
     originSample_ = samplePosition_;
 }
 
+// Both setters below re-anchor, and re-anchoring costs a little precision: it adds an elapsed
+// span to `originPpq_` in floating point, which rounds. Doing that once per genuine tempo change
+// is free. Doing it repeatedly is the accumulating-fractional-ppq error this anchor design exists
+// to avoid, and because the engine calls these once per block, "repeatedly" would mean once per
+// block — making the accumulated error a function of the host's buffer size. Hence the guards:
+// an unchanged value must be a no-op, not a cheap re-anchor. The value is clamped *before* the
+// comparison so a caller repeatedly passing an out-of-range number settles rather than
+// re-anchoring forever.
+
 void Transport::setSampleRate (double newRate)
 {
+    const auto clamped = std::max (1.0, newRate);
+
+    if (clamped == sampleRate_)
+        return;
+
     reanchor();
-    sampleRate_ = std::max (1.0, newRate);
+    sampleRate_ = clamped;
     samplesPerQuarterNote_ = sampleRate_ * 60.0 / tempo_;
 }
 
 void Transport::setTempo (double bpm)
 {
+    const auto clamped = std::clamp (bpm, 20.0, 300.0);
+
+    if (clamped == tempo_)
+        return;
+
     reanchor();
-    tempo_ = std::clamp (bpm, 20.0, 300.0);
+    tempo_ = clamped;
     samplesPerQuarterNote_ = sampleRate_ * 60.0 / tempo_;
 }
 

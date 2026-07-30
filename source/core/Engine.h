@@ -53,6 +53,16 @@ public:
     void stop();
     bool isPlaying() const noexcept { return transport_.isPlaying(); }
 
+    /** Render `numSamples` frames, overwriting both buffers.
+
+        Any block size is accepted, including one larger than `prepare` was told to expect —
+        oversized requests are split internally. Hosts do exceed their declared maximum (offline
+        bounces are the usual way), and silently filling only part of the buffer would leave the
+        rest holding whatever the host had in it.
+
+        Splitting is safe precisely because the engine is block-size invariant: a run divided into
+        chunks produces the same samples as one that is not.
+    */
     void process (float* left, float* right, int numSamples);
 
     //==========================================================================
@@ -96,6 +106,11 @@ private:
     void buildVoices();
     void rebindSequencers();
     void syncFromParameters();
+
+    /// One block, no larger than the prepared maximum. `process` splits oversized requests down
+    /// to this.
+    void processBlock (float* left, float* right, int numSamples);
+
     void renderTrack (int track, int numSamples);
 
     /// Fold a track into the buses it feeds: the drum bus or the direct bus, plus the sends.

@@ -495,8 +495,19 @@ void Engine::process (float* left, float* right, int numSamples)
     if (numSamples <= 0)
         return;
 
-    numSamples = std::min (numSamples, maxBlockSize_);
+    // Split anything larger than the prepared maximum rather than truncating it. Truncating
+    // filled only the first `maxBlockSize_` frames and left the rest of the caller's buffer
+    // untouched — in a plugin that is whatever the host happened to leave there, played as audio.
+    for (int offset = 0; offset < numSamples;)
+    {
+        const auto count = std::min (numSamples - offset, maxBlockSize_);
+        processBlock (left + offset, right + offset, count);
+        offset += count;
+    }
+}
 
+void Engine::processBlock (float* left, float* right, int numSamples)
+{
     std::fill_n (left, numSamples, 0.0f);
     std::fill_n (right, numSamples, 0.0f);
 

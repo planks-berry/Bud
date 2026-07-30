@@ -79,6 +79,32 @@ int runAll (const std::string& filter)
         }
     }
 
+    // A filter that matches nothing must not report success. Reporting "PASSED — 0 tests" for a
+    // mistyped suite name is worse than useless: it looks like a clean run.
+    if (run == 0)
+    {
+        std::cout << "\nNo tests matched";
+
+        if (! filter.empty())
+            std::cout << " the filter \"" << filter << "\"";
+
+        std::cout << ". Suites available:";
+
+        std::string listed;
+
+        for (const auto& test : registry())
+        {
+            if (test.suite != listed)
+            {
+                listed = test.suite;
+                std::cout << " " << listed;
+            }
+        }
+
+        std::cout << "\n\n";
+        return 1;
+    }
+
     std::cout << "\n"
               << (failures == 0 ? "PASSED" : "FAILED") << " — " << run << " tests, "
               << assertionsRun << " checks, " << failures << " failures\n\n";

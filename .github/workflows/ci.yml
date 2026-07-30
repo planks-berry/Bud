@@ -55,6 +55,15 @@ jobs:
           ./build/tools/bud-render --out demo-808.wav     --bars 4 --feel 808
           ./build/tools/bud-render --out demo-909.wav     --bars 4 --feel 909 --tempo 138
 
+      # The same check docs/BUILDING.md asks a reader to run. The suite asserts this too, but on
+      # in-memory float buffers; doing it here goes through the 16-bit WAV as well, which is what
+      # made a sub-audible error visible the one time this actually broke.
+      - name: Rendered audio is independent of buffer size
+        run: |
+          ./build/tools/bud-render --out block-7.wav    --bars 4 --block 7
+          ./build/tools/bud-render --out block-1024.wav --bars 4 --block 1024
+          cmp block-7.wav block-1024.wav
+
       - name: Upload rendered audio
         if: matrix.compiler == 'gcc' && matrix.build_type == 'Release'
         uses: actions/upload-artifact@v4

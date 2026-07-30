@@ -2,7 +2,7 @@
 # engine audible and testable on a machine that cannot build the plugin.
 
 add_executable(bud-render render/main.cpp)
-target_link_libraries(bud-render PRIVATE Bud::Core)
+target_link_libraries(bud-render PRIVATE Bud::Core Bud::Demo)
 
 if(MSVC)
     target_compile_options(bud-render PRIVATE /W4)

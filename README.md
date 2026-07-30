@@ -41,13 +41,18 @@ JUCE 8 appears only in `source/plugin/` and `source/ui/`, which wrap the core.
 ```
 source/
   core/        engine — framework-free, fully tested
+  demo/        the demo pattern, shared by the renderer and the test suite
   plugin/      JUCE AudioProcessor, bus layout, host glue
   ui/          panel replica; layout and menu tree are data, not code
   standalone/  macOS audio device and file access
-tools/         offline factory-content generator
+tools/         offline renderer and factory-content generator
 tests/         engine and DSP tests (run anywhere)
 docs/          device spec, parameter reference, reference material
 ```
+
+Rendered audio is **bit-identical at any host buffer size**, and identical between a gcc and a
+clang build of the same commit. That property is what most of the suite defends, and
+[`docs/BUILDING.md`](docs/BUILDING.md) shows how to check it yourself in three commands.
 
 ## Building the engine and tests
 
