@@ -221,6 +221,55 @@ await page.waitForTimeout(200);
 const restored = await page.evaluate(() => document.querySelectorAll('.step.on').length);
 check('DEMO reloads a pattern', restored > 8, `${restored} steps on`);
 
+// ---- sound selection -----------------------------------------------------
+// Five named sounds per instrument, generated from the engine's own menu.
+
+await page.click('.track-label');           // BD1
+await page.waitForTimeout(150);
+
+const picker = await page.evaluate(() => ({
+    count: document.querySelectorAll('.sound').length,
+    names: [...document.querySelectorAll('.sound')].map((b) => b.textContent),
+    selected: document.querySelectorAll('.sound.on').length,
+}));
+
+check('five sounds offered for a track', picker.count === 5, picker.names.join(' '));
+check('they are named, not numbered', picker.names.every((n) => /[A-Z]/.test(n)));
+check('one of them starts selected', picker.selected === 1);
+
+// Choosing one has to reach the engine, not just paint a button.
+await page.click('.sound[data-choice="3"]');
+await page.waitForTimeout(250);
+
+const chosen = await page.evaluate(() => ({
+    lit: document.querySelector('.sound.on')?.dataset.choice,
+    engine: window.bud.sounds[window.bud.selectedTrack],
+}));
+
+check('choosing a sound selects it', chosen.lit === '3', `lit ${chosen.lit}`);
+check('and the engine agrees', chosen.engine === 3, `engine says ${chosen.engine}`);
+
+// A different instrument offers a different five — the menu is per track, not global.
+const menus = await page.evaluate(() => ({
+    kick: window.bud.soundMenu[0],
+    bass: window.bud.soundMenu[10],
+    loop: window.bud.soundMenu[9],
+}));
+
+check('each instrument has its own five',
+      menus.kick.join() !== menus.bass.join() && menus.loop.length === 5,
+      `${menus.kick[0]} / ${menus.loop[0]} / ${menus.bass[0]}`);
+
+// Selecting a different track repaints the picker with that track's names.
+await page.click('.track-row[data-track="10"] .track-label');
+await page.waitForTimeout(200);
+
+const bassNames = await page.evaluate(() =>
+    [...document.querySelectorAll('.sound')].map((b) => b.textContent));
+
+check('the picker follows the selected track',
+      bassNames.join() === menus.bass.join(), bassNames.join(' '));
+
 // ---- touch ---------------------------------------------------------------
 // An iPad has no shift key, so accent has to be reachable by holding. This is the interaction
 // the whole tablet story depends on, so it is checked rather than assumed.

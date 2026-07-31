@@ -151,6 +151,20 @@ public:
     void setSolo (int track) noexcept { solo_ = track; }
     int solo() const noexcept { return solo_; }
 
+    //==========================================================================
+    // Sound selection
+
+    /** Choose one of the five sounds a track offers (factory::soundMenu).
+
+        This only writes the track's BANK and SOUND parameters, so it composes with everything
+        else: a parameter lock, a kit load or a turn of the knob all still work, and none of
+        them has to know the menu exists.
+    */
+    void selectSound (int track, int choice);
+
+    /// Which menu entry the track is currently on, or -1 when the knob is somewhere unnamed.
+    int selectedSound (int track) const;
+
     int playheadStep (int track) const noexcept;
 
     double sampleRate() const noexcept { return sampleRate_; }

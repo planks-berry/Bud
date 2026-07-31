@@ -36,6 +36,9 @@ class BudProcessor extends AudioWorkletProcessor {
                 parametersJson: module.cwrap('bud_parameters_json', 'string', []),
                 tracksJson: module.cwrap('bud_tracks_json', 'string', []),
                 knobKindsJson: module.cwrap('bud_knob_kinds_json', 'string', []),
+                soundMenuJson: module.cwrap('bud_sound_menu_json', 'string', []),
+                selectSound: module.cwrap('bud_select_sound', null, ['number', 'number']),
+                selectedSound: module.cwrap('bud_selected_sound', 'number', ['number']),
                 stepGate: module.cwrap('bud_step_gate', 'number', ['number', 'number']),
                 stepAccent: module.cwrap('bud_step_accent', 'number', ['number', 'number']),
                 stepToggle: module.cwrap('bud_step_toggle', null, ['number', 'number']),
@@ -62,7 +65,9 @@ class BudProcessor extends AudioWorkletProcessor {
                 parameters: this.api.parametersJson(),
                 tracks: this.api.tracksJson(),
                 knobKinds: this.api.knobKindsJson(),
+                soundMenu: this.api.soundMenuJson(),
                 state: this.snapshot(),
+                sounds: this.sounds(),
             });
         });
     }
@@ -87,6 +92,13 @@ class BudProcessor extends AudioWorkletProcessor {
         }
 
         return { gates, accents };
+    }
+
+    /// Which menu entry each track is on. -1 means the knob is somewhere the menu does not name.
+    sounds() {
+        const out = [];
+        for (let track = 0; track < 11; track++) out.push(this.api.selectedSound(track));
+        return out;
     }
 
     handle(message) {
@@ -118,15 +130,22 @@ class BudProcessor extends AudioWorkletProcessor {
             case 'clear':
                 this.api.clearPattern();
                 this.port.postMessage({ type: 'state', state: this.snapshot() });
+                this.port.postMessage({ type: 'sounds', sounds: this.sounds() });
                 break;
 
             case 'loadDemo':
                 this.api.loadDemo();
                 this.port.postMessage({ type: 'state', state: this.snapshot() });
+                this.port.postMessage({ type: 'sounds', sounds: this.sounds() });
                 break;
 
             case 'solo':
                 this.api.setSolo(message.track);
+                break;
+
+            case 'selectSound':
+                this.api.selectSound(message.track, message.choice);
+                this.port.postMessage({ type: 'sounds', sounds: this.sounds() });
                 break;
 
             case 'query': {

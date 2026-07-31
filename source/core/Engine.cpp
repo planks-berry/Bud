@@ -1,6 +1,7 @@
 #include "Engine.h"
 
 #include "factory/FactoryContent.h"
+#include "factory/SoundMenu.h"
 #include "voices/BassVoice.h"
 #include "voices/DrumVoices.h"
 #include "voices/SampleVoices.h"
@@ -299,6 +300,32 @@ int Engine::playheadStep (int track) const noexcept
         return 0;
 
     return sequencers_[static_cast<std::size_t> (track)].playheadStep();
+}
+
+//==============================================================================
+
+void Engine::selectSound (int track, int choice)
+{
+    const auto menu = factory::soundMenu (track);
+
+    if (choice < 0 || choice >= static_cast<int> (menu.size()))
+        return;
+
+    const auto& entry = menu[static_cast<std::size_t> (choice)];
+
+    parameters_.set (ParamKind::TrackSoundBank, track, static_cast<int> (entry.bank));
+    parameters_.set (ParamKind::TrackSound, track, entry.sound);
+}
+
+int Engine::selectedSound (int track) const
+{
+    if (track < 0 || track >= kNumTracks)
+        return -1;
+
+    return factory::menuIndexFor (track,
+                                  static_cast<SoundBank> (
+                                      parameters_.get (ParamKind::TrackSoundBank, track)),
+                                  parameters_.get (ParamKind::TrackSound, track));
 }
 
 //==============================================================================

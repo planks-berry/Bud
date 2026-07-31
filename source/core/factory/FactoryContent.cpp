@@ -168,11 +168,478 @@ namespace
     }
 
     //==========================================================================
-    // Bank generators. Each takes an index and varies its character across the bank, so a bank
-    // sweeps from its most typical sound to its most extreme.
+    // Signature sounds — the first few slots of each bank.
+    //
+    // The rest of a bank sweeps one parameter from typical to extreme, which gives range but
+    // makes any five neighbours sound like the same drum at five settings. These are written
+    // individually instead, so the five a track offers are five *different* drums: the
+    // archetypes that category is actually known for.
+    //
+    // They are original synthesis, like everything else here. Nothing is sampled from any
+    // hardware, and the names describe the character rather than naming a machine.
+
+    constexpr int kSignatures = 5;
+
+    /// Mix an already-rendered sound into a canvas at a time offset. Used to build loops out of
+    /// the one-shots, so a loop and the kit agree with each other.
+    void place (Canvas& c, const SampleData& sound, double atSeconds, double gain)
+    {
+        const auto start = static_cast<int> (atSeconds * c.sampleRate);
+
+        for (int i = 0; i < sound.length(); ++i)
+        {
+            const auto target = start + i;
+
+            if (target >= c.length())
+                break;
+
+            if (target >= 0)
+                c.add (target, sound.at (0, i) * gain);
+        }
+    }
+
+    /// Normalise two canvases together. Doing them separately would move the stereo image.
+    void finishStereo (Canvas& left, Canvas& right, float peak = 0.85f)
+    {
+        auto maximum = 0.0f;
+
+        for (const auto* c : { &left, &right })
+            for (auto v : c->data)
+                maximum = std::max (maximum, std::isfinite (v) ? std::abs (v) : 0.0f);
+
+        for (auto* c : { &left, &right })
+        {
+            for (auto& v : c->data)
+                v = std::isfinite (v) ? (maximum > 0.0f ? v * peak / maximum : 0.0f) : 0.0f;
+
+            const auto fade = std::min<int> (256, c->length());
+
+            for (int i = 0; i < fade; ++i)
+            {
+                const auto g = static_cast<float> (i) / static_cast<float> (fade);
+                c->data[c->data.size() - 1 - static_cast<std::size_t> (i)] *= g;
+            }
+        }
+    }
+
+    SampleData signatureKick (int pick, double rate)
+    {
+        dsp::Noise noise (0x1A00u + static_cast<std::uint32_t> (pick));
+
+        switch (pick)
+        {
+            case 0:   // Long, round, almost no click — the one that carries a room.
+            {
+                Canvas c (rate, 0.85);
+                addBody (c, 95.0, 44.0, 0.030, 0.52, 1.0, 1.0);
+                addNoise (c, noise, 0.002, 1600.0, 1.2, 0.05);
+                c.finish();
+                return { c.data, {}, rate, "DEEP", 0.0 };
+            }
+
+            case 1:   // Fast pitch drop and a hard attack: cuts through a dense mix.
+            {
+                Canvas c (rate, 0.34);
+                addBody (c, 210.0, 50.0, 0.006, 0.16, 1.0, 2.2);
+                addNoise (c, noise, 0.003, 3600.0, 1.0, 0.30);
+                c.finish();
+                return { c.data, {}, rate, "PUNCH", 0.0 };
+            }
+
+            case 2:   // Short and dry, for patterns that need space between hits.
+            {
+                Canvas c (rate, 0.18);
+                addBody (c, 150.0, 60.0, 0.010, 0.075, 1.0, 1.6);
+                addNoise (c, noise, 0.002, 2800.0, 1.1, 0.18);
+                c.finish();
+                return { c.data, {}, rate, "TIGHT", 0.0 };
+            }
+
+            case 3:   // Driven into shape — the body clips rather than swells.
+            {
+                Canvas c (rate, 0.42);
+                addBody (c, 130.0, 48.0, 0.014, 0.26, 1.0, 1.3);
+                addNoise (c, noise, 0.004, 2200.0, 1.0, 0.22);
+
+                for (auto& v : c.data)
+                    v = static_cast<float> (std::tanh (v * 3.4));
+
+                c.finish();
+                return { c.data, {}, rate, "DRIVE", 0.0 };
+            }
+
+            default:  // Nearly pure low sine: felt more than heard.
+            {
+                Canvas c (rate, 1.05);
+                addBody (c, 62.0, 36.0, 0.045, 0.70, 1.0, 1.0);
+                c.finish();
+                return { c.data, {}, rate, "SUB", 0.0 };
+            }
+        }
+    }
+
+    SampleData signatureSnare (int pick, double rate)
+    {
+        dsp::Noise noise (0x2A00u + static_cast<std::uint32_t> (pick));
+
+        switch (pick)
+        {
+            case 0:   // Bright and short: the backbeat that sits on top.
+            {
+                Canvas c (rate, 0.26);
+                addBody (c, 240.0, 190.0, 0.008, 0.055, 0.5);
+                addNoise (c, noise, 0.085, 3400.0, 1.4, 0.9);
+                c.finish();
+                return { c.data, {}, rate, "CRACK", 0.0 };
+            }
+
+            case 1:   // More shell, longer body — fills the middle of a sparse pattern.
+            {
+                Canvas c (rate, 0.46);
+                addBody (c, 195.0, 155.0, 0.014, 0.15, 0.75);
+                addBody (c, 310.0, 260.0, 0.012, 0.11, 0.4);
+                addNoise (c, noise, 0.16, 2100.0, 0.9, 0.75);
+                c.finish();
+                return { c.data, {}, rate, "FAT", 0.0 };
+            }
+
+            case 2:   // Rimshot: a hard woody transient over a short shell.
+            {
+                Canvas c (rate, 0.20);
+                addBody (c, 420.0, 330.0, 0.004, 0.030, 0.7);
+
+                for (int i = 0; i < c.length(); ++i)
+                {
+                    const auto t = c.time (i);
+                    c.add (i, sine (t, 1750.0) * 0.5 * envExp (t, 0.006));
+                }
+
+                addNoise (c, noise, 0.045, 4200.0, 1.6, 0.8);
+                c.finish();
+                return { c.data, {}, rate, "RIM", 0.0 };
+            }
+
+            case 3:   // Mostly noise, soft attack — brushed rather than struck.
+            {
+                Canvas c (rate, 0.40);
+                addBody (c, 180.0, 160.0, 0.020, 0.06, 0.22);
+                addNoise (c, noise, 0.22, 5200.0, 0.7, 0.85);
+                c.finish (0.8f);
+                return { c.data, {}, rate, "BRUSH", 0.0 };
+            }
+
+            default:  // Cut off abruptly, the way a gate does.
+            {
+                Canvas c (rate, 0.17);
+                addBody (c, 220.0, 175.0, 0.010, 0.09, 0.6);
+                addNoise (c, noise, 0.30, 2800.0, 1.1, 0.9);
+
+                // A hard close near the end is the whole point of the sound.
+                const auto hold = static_cast<int> (rate * 0.115);
+
+                for (int i = hold; i < c.length(); ++i)
+                {
+                    const auto g = 1.0 - static_cast<double> (i - hold)
+                                             / static_cast<double> (c.length() - hold);
+                    c.data[static_cast<std::size_t> (i)] *= static_cast<float> (g * g);
+                }
+
+                c.finish();
+                return { c.data, {}, rate, "GATED", 0.0 };
+            }
+        }
+    }
+
+    /// Hats occupy ten signature slots: five closed, then five open.
+    SampleData signatureHat (int pick, bool open, double rate)
+    {
+        dsp::Noise noise (0x3A00u + static_cast<std::uint32_t> (pick + (open ? 16 : 0)));
+
+        struct Shape { const char* name; double decay; double base; double spread; double air; };
+
+        constexpr Shape closed[] = {
+            { "TIGHT",  0.022, 320.0, 0.85, 0.30 },
+            { "TICK",   0.012, 430.0, 1.10, 0.45 },
+            { "PEDAL",  0.038, 270.0, 0.70, 0.22 },
+            { "SIZZLE", 0.055, 350.0, 1.25, 0.55 },
+            { "METAL",  0.030, 520.0, 1.45, 0.35 },
+        };
+
+        constexpr Shape opened[] = {
+            { "OPEN",   0.34, 315.0, 0.90, 0.35 },
+            { "LONG",   0.62, 300.0, 0.80, 0.28 },
+            { "SPLASH", 0.44, 400.0, 1.30, 0.60 },
+            { "RIDE",   0.80, 240.0, 0.65, 0.20 },
+            { "CRASH",  1.15, 280.0, 1.40, 0.50 },
+        };
+
+        const auto& s = open ? opened[pick] : closed[pick];
+
+        Canvas c (rate, std::min (2.0, s.decay * 4.0 + 0.05));
+
+        addMetal (c, s.base, s.decay, 0.9, s.spread);
+        addNoise (c, noise, s.decay * 0.7, 7500.0, 0.7, s.air);
+
+        c.finish (0.7f);
+        return { c.data, {}, rate, s.name, 0.0 };
+    }
+
+    SampleData signatureClap (int pick, double rate)
+    {
+        dsp::Noise noise (0x4A00u + static_cast<std::uint32_t> (pick));
+
+        struct Shape { const char* name; int taps; double spacing; double tail; double tone; };
+
+        constexpr Shape shapes[] = {
+            { "CLASSIC", 3, 0.011, 0.13, 1500.0 },
+            { "TIGHT",   2, 0.007, 0.06, 2200.0 },
+            { "ROOM",    3, 0.013, 0.30, 1200.0 },
+            { "WIDE",    4, 0.017, 0.20, 1700.0 },
+            { "SNAPPY",  3, 0.008, 0.09, 2600.0 },
+        };
+
+        const auto& s = shapes[pick];
+        Canvas c (rate, 0.14 + s.tail * 2.2);
+
+        for (int tap = 0; tap < s.taps; ++tap)
+            addNoise (c, noise, 0.014, s.tone, 1.1, 0.55,
+                      static_cast<double> (tap) * s.spacing);
+
+        addNoise (c, noise, s.tail, s.tone * 0.85, 1.4, 0.7,
+                  static_cast<double> (s.taps) * s.spacing);
+
+        c.finish (0.8f);
+        return { c.data, {}, rate, s.name, 0.0 };
+    }
+
+    SampleData signatureStick (int pick, double rate)
+    {
+        dsp::Noise noise (0x5A00u + static_cast<std::uint32_t> (pick));
+
+        struct Shape { const char* name; double low; double high; double decay; double click; };
+
+        constexpr Shape shapes[] = {
+            { "RIM",   1500.0, 2400.0, 0.010, 0.35 },
+            { "CLAVE", 2400.0, 3900.0, 0.022, 0.20 },
+            { "WOOD",   900.0, 1450.0, 0.030, 0.25 },
+            { "TICK",  3200.0, 5100.0, 0.006, 0.45 },
+            { "SIDE",  1150.0, 3050.0, 0.014, 0.55 },
+        };
+
+        const auto& s = shapes[pick];
+        Canvas c (rate, 0.10 + s.decay * 2.0);
+
+        for (int i = 0; i < c.length(); ++i)
+        {
+            const auto t = c.time (i);
+            const auto e = envExp (t, s.decay);
+            c.add (i, (sine (t, s.low) * 0.6 + sine (t, s.high) * 0.4) * e);
+        }
+
+        addNoise (c, noise, 0.004, 5500.0, 0.8, s.click);
+
+        c.finish (0.8f);
+        return { c.data, {}, rate, s.name, 0.0 };
+    }
+
+    SampleData signatureTom (int pick, double rate)
+    {
+        dsp::Noise noise (0x6A00u + static_cast<std::uint32_t> (pick));
+
+        struct Shape { const char* name; double pitch; double decay; double bend; double skin; };
+
+        constexpr Shape shapes[] = {
+            { "FLOOR",  70.0, 0.46, 0.030, 0.12 },
+            { "LOW",    98.0, 0.38, 0.026, 0.14 },
+            { "MID",   140.0, 0.30, 0.022, 0.15 },
+            { "HIGH",  198.0, 0.24, 0.018, 0.16 },
+            { "SYNTH",  86.0, 0.55, 0.070, 0.04 },
+        };
+
+        const auto& s = shapes[pick];
+        Canvas c (rate, s.decay * 2.2);
+
+        addBody (c, s.pitch * 1.7, s.pitch, s.bend, s.decay, 1.0);
+        addNoise (c, noise, 0.02, s.pitch * 6.0, 1.0, s.skin);
+
+        c.finish();
+        return { c.data, {}, rate, s.name, 0.0 };
+    }
+
+    SampleData signaturePerc (int pick, double rate)
+    {
+        dsp::Noise noise (0x7A00u + static_cast<std::uint32_t> (pick));
+
+        switch (pick)
+        {
+            case 0:   // Conga: a tuned skin with very little noise.
+            {
+                Canvas c (rate, 0.34);
+                addBody (c, 245.0, 205.0, 0.016, 0.16, 1.0);
+                addNoise (c, noise, 0.008, 3000.0, 1.0, 0.14);
+                c.finish (0.85f);
+                return { c.data, {}, rate, "CONGA", 0.0 };
+            }
+
+            case 1:   // Cowbell: two detuned squares, no skin at all.
+            {
+                Canvas c (rate, 0.40);
+
+                for (int i = 0; i < c.length(); ++i)
+                {
+                    const auto t = c.time (i);
+                    const auto e = envExp (t, 0.16);
+                    const auto a = sine (t, 540.0) > 0.0 ? 1.0 : -1.0;
+                    const auto b = sine (t, 800.0) > 0.0 ? 1.0 : -1.0;
+                    c.add (i, (a * 0.5 + b * 0.5) * e * 0.5);
+                }
+
+                c.finish (0.75f);
+                return { c.data, {}, rate, "COWBELL", 0.0 };
+            }
+
+            case 2:   // Shaker: filtered noise with a soft attack.
+            {
+                Canvas c (rate, 0.16);
+                addNoise (c, noise, 0.045, 8000.0, 0.6, 0.9);
+
+                const auto attack = static_cast<int> (rate * 0.006);
+
+                for (int i = 0; i < std::min (attack, c.length()); ++i)
+                    c.data[static_cast<std::size_t> (i)] *=
+                        static_cast<float> (i) / static_cast<float> (attack);
+
+                c.finish (0.7f);
+                return { c.data, {}, rate, "SHAKER", 0.0 };
+            }
+
+            case 3:   // Tambourine: jingles over a short noise burst.
+            {
+                Canvas c (rate, 0.30);
+                addMetal (c, 760.0, 0.10, 0.6, 1.6);
+                addNoise (c, noise, 0.075, 9000.0, 0.8, 0.6);
+                c.finish (0.7f);
+                return { c.data, {}, rate, "TAMB", 0.0 };
+            }
+
+            default:  // Woodblock: one hard pitched click.
+            {
+                Canvas c (rate, 0.14);
+
+                for (int i = 0; i < c.length(); ++i)
+                {
+                    const auto t = c.time (i);
+                    c.add (i, (sine (t, 1150.0) * 0.75 + sine (t, 3100.0) * 0.25)
+                                  * envExp (t, 0.020));
+                }
+
+                c.finish (0.8f);
+                return { c.data, {}, rate, "BLOCK", 0.0 };
+            }
+        }
+    }
+
+    /// Loops, built by sequencing the signature one-shots — so a loop and the kit under it are
+    /// made of the same drums and agree with each other. Two bars at 120 bpm, which is what
+    /// `sourceBeats` records, so the loop track can stretch or repitch it to any tempo.
+    SampleData signatureLoop (int pick, double rate)
+    {
+        constexpr double kLoopBpm = 120.0;
+        constexpr double kBeats = 8.0;
+
+        const auto sixteenth = 60.0 / kLoopBpm / 4.0;
+        const auto seconds = kBeats * 60.0 / kLoopBpm;
+
+        Canvas left (rate, seconds);
+        Canvas right (rate, seconds);
+
+        const auto kick = signatureKick (pick == 2 ? 0 : 1, rate);
+        const auto snare = signatureSnare (pick == 2 ? 1 : 0, rate);
+        const auto hat = signatureHat (0, false, rate);
+        const auto openHat = signatureHat (0, true, rate);
+        const auto perc = signaturePerc (pick == 4 ? 2 : 4, rate);
+
+        // Each entry is a sixteenth-note position within the two bars.
+        struct Pattern
+        {
+            const char* name;
+            std::initializer_list<int> kicks;
+            std::initializer_list<int> snares;
+            std::initializer_list<int> hats;
+            std::initializer_list<int> opens;
+            std::initializer_list<int> percs;
+        };
+
+        const Pattern patterns[] = {
+            { "FOURFOUR",
+              { 0, 4, 8, 12, 16, 20, 24, 28 },
+              { 4, 12, 20, 28 },
+              { 2, 6, 10, 14, 18, 22, 26, 30 },
+              { 14, 30 },
+              {} },
+            { "BREAK",
+              { 0, 10, 16, 22, 26 },
+              { 4, 12, 20, 28 },
+              { 2, 6, 8, 14, 18, 24, 30 },
+              { 11 },
+              { 7, 23 } },
+            { "BOOMBAP",
+              { 0, 7, 16, 22 },
+              { 4, 12, 20, 28 },
+              { 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30 },
+              {},
+              { 15, 31 } },
+            { "SPARSE",
+              { 0, 16, 27 },
+              { 8, 24 },
+              { 12, 13, 14, 28, 29, 30, 31 },
+              { 20 },
+              {} },
+            { "PERCUSSION",
+              {},
+              {},
+              { 0, 4, 8, 12, 16, 20, 24, 28 },
+              {},
+              { 2, 3, 6, 10, 11, 14, 18, 19, 22, 26, 27, 30 } },
+        };
+
+        const auto& p = patterns[pick];
+
+        // Slight level differences between the channels give the loop a stereo image without
+        // any delay, which would smear it once the stretcher gets hold of it.
+        const auto stereo = [&] (Canvas& c, const SampleData& sound,
+                                 std::initializer_list<int> steps, double gain, double side)
+        {
+            for (auto step : steps)
+                place (c, sound, static_cast<double> (step) * sixteenth, gain * side);
+        };
+
+        for (auto* c : { &left, &right })
+        {
+            const auto isLeft = (c == &left);
+
+            stereo (*c, kick, p.kicks, 1.0, 1.0);
+            stereo (*c, snare, p.snares, 0.85, 1.0);
+            stereo (*c, hat, p.hats, 0.45, isLeft ? 1.08 : 0.92);
+            stereo (*c, openHat, p.opens, 0.40, isLeft ? 0.92 : 1.08);
+            stereo (*c, perc, p.percs, 0.50, isLeft ? 0.88 : 1.12);
+        }
+
+        finishStereo (left, right, 0.8f);
+
+        return { left.data, right.data, rate, p.name, kBeats };
+    }
+
+    //==========================================================================
+    // Bank generators. Past the signature slots, each takes an index and varies its character
+    // across the bank, so a bank sweeps from its most typical sound to its most extreme.
 
     SampleData makeKick (int index, int count, double rate)
     {
+        if (index < kSignatures)
+            return signatureKick (index, rate);
+
+
         const auto v = static_cast<double> (index) / std::max (1, count - 1);
         Canvas c (rate, 0.15 + 0.55 * (1.0 - v * 0.6));
 
@@ -188,6 +655,9 @@ namespace
 
     SampleData makeSnare (int index, int count, double rate)
     {
+        if (index < kSignatures)
+            return signatureSnare (index, rate);
+
         const auto v = static_cast<double> (index) / std::max (1, count - 1);
         Canvas c (rate, 0.12 + 0.34 * (1.0 - v * 0.4));
 
@@ -203,6 +673,11 @@ namespace
 
     SampleData makeHat (int index, int count, double rate)
     {
+        // Ten signature slots here rather than five: the closed and open hats are different
+        // instruments on different tracks, and each wants its own five.
+        if (index < kSignatures * 2)
+            return signatureHat (index % kSignatures, index >= kSignatures, rate);
+
         const auto v = static_cast<double> (index) / std::max (1, count - 1);
 
         // The bank sweeps from tight closed hats through open hats into cymbals.
@@ -222,6 +697,9 @@ namespace
 
     SampleData makeClap (int index, int count, double rate)
     {
+        if (index < kSignatures)
+            return signatureClap (index, rate);
+
         const auto v = static_cast<double> (index) / std::max (1, count - 1);
         Canvas c (rate, 0.42);
 
@@ -242,6 +720,9 @@ namespace
 
     SampleData makeStick (int index, int count, double rate)
     {
+        if (index < kSignatures)
+            return signatureStick (index, rate);
+
         const auto v = static_cast<double> (index) / std::max (1, count - 1);
         Canvas c (rate, 0.10);
 
@@ -263,6 +744,9 @@ namespace
 
     SampleData makeTom (int index, int count, double rate)
     {
+        if (index < kSignatures)
+            return signatureTom (index, rate);
+
         const auto v = static_cast<double> (index) / std::max (1, count - 1);
 
         // Low toms at the bottom of the bank through to high toms at the top.
@@ -280,6 +764,9 @@ namespace
 
     SampleData makePercussion (int index, int count, double rate)
     {
+        if (index < kSignatures)
+            return signaturePerc (index, rate);
+
         const auto v = static_cast<double> (index) / std::max (1, count - 1);
         dsp::Noise noise (0x7000u + static_cast<std::uint32_t> (index));
 
@@ -346,6 +833,11 @@ namespace
 
     SampleData makeEffect (int index, int count, double rate)
     {
+        // The loop track has no factory bank of its own — S8 is where a person's own recordings
+        // go — so its five live at the head of FX, which no track uses as its default.
+        if (index < kSignatures)
+            return signatureLoop (index, rate);
+
         const auto v = static_cast<double> (index) / std::max (1, count - 1);
         dsp::Noise noise (0x8000u + static_cast<std::uint32_t> (index));
         Canvas c (rate, 0.8 + v * 0.9);

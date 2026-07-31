@@ -14,6 +14,7 @@ add_executable(BudCoreTests
     PatternOpsTests.cpp
     NoteInputTests.cpp
     DemoPatternTests.cpp
+    SoundMenuTests.cpp
 )
 
 target_link_libraries(BudCoreTests PRIVATE Bud::Core Bud::Demo)

@@ -234,7 +234,11 @@ void LoopVoice::trigger (const TriggerEvent& event, const ParamView& params,
     if (library_ == nullptr)
         return;
 
-    const auto* slot = library_->find (SoundBank::S8, params (ParamKind::TrackSound));
+    // The loop track's home is S8, the stereo bank a person records into, and that stays its
+    // default. It reads the bank parameter rather than hard-coding S8 so the track is not empty
+    // before anything has been recorded — the factory loops live in a bank of their own.
+    const auto bank = params.enumValue<SoundBank> (ParamKind::TrackSoundBank);
+    const auto* slot = library_->find (bank, params (ParamKind::TrackSound));
 
     if (slot == nullptr)
     {

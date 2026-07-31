@@ -17,6 +17,7 @@ add_library(BudCore STATIC
     sequencer/Groove.cpp
     dsp/TimeStretch.cpp
     factory/FactoryContent.cpp
+    factory/SoundMenu.cpp
     kit/DrumKit.cpp
     fx/Isolator.cpp
     fx/MasterFx.cpp

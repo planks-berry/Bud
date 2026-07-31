@@ -42,6 +42,9 @@ moment `-O3` asks for it, which is why CI installs the SDK proper.
   thread rather than from a timer on the page.
 - **The editor** — click a track name to select it. Its eleven micro knobs and sequencer settings
   appear, and the bass track additionally gets its own knob section (p. 72).
+- **Sound** — the five sounds that instrument offers, by name. The SOUND knob still reaches every
+  sound in the bank; this sits in front of it, and shows nothing selected when the knob is
+  somewhere the menu does not name.
 - **DEMO / CLR PTN** — load the demo pattern, or initialise the current one.
 
 ---

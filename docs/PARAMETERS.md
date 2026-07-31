@@ -435,3 +435,48 @@ Bud to the same value, record both, and compare — decay times from an envelope
 corners from a sweep, level law from a series of steady tones. Correcting one is a single-row
 edit here plus the matching constant in the voice, and the golden-file tests will show exactly
 what moved.
+
+---
+
+## The sound menu
+
+`SOUND` is a 0–127 knob over a bank that wraps (`SoundLibrary::find`), which is faithful to the
+device and tells you nothing: there is no way to know what 43 is. `factory::soundMenu` is the
+shortlist in front of it — **five named sounds per track**.
+
+| Track | Bank | Slots | The five |
+|---|---|---|---|
+| BD1, BD2 | BD | 0–4 | DEEP, PUNCH, TIGHT, DRIVE, SUB |
+| SD | SD | 0–4 | CRACK, FAT, RIM, BRUSH, GATED |
+| CP | CP | 0–4 | CLASSIC, TIGHT, ROOM, WIDE, SNAPPY |
+| CH | HH_CY | 0–4 | TIGHT, TICK, PEDAL, SIZZLE, METAL |
+| OH | HH_CY | 5–9 | OPEN, LONG, SPLASH, RIDE, CRASH |
+| TT | TT | 0–4 | FLOOR, LOW, MID, HIGH, SYNTH |
+| ST | ST | 0–4 | RIM, CLAVE, WOOD, TICK, SIDE |
+| PC | PC | 0–4 | CONGA, COWBELL, SHAKER, TAMB, BLOCK |
+| LOOP | FX | 0–4 | FOUR/FOUR, BREAK, BOOM BAP, SPARSE, PERC |
+| BASS | BASS | knob fifths | SAW, SQUARE, TRI, RECT, S01 |
+
+### Why these are written individually
+
+Past the signature slots a bank sweeps **one** parameter from typical to extreme. That gives a
+bank its range, but it means any five neighbours are the same drum at five settings. The
+signature slots are each written out instead, so the five a track offers are five different
+drums — which is the only thing that makes a shortlist worth having.
+
+They remain original synthesis. Nothing is sampled from any hardware, and the names describe the
+character rather than naming a machine.
+
+### Three consequences worth knowing
+
+- **Hats get ten signature slots, not five.** Closed and open hats share the `HH_CY` bank but are
+  different instruments on different tracks, so each track offers its own five.
+- **The loop track's five live in `FX`.** Its own bank, `S8`, is the stereo bank a person records
+  into and starts empty. The loops are built by sequencing the signature one-shots, so a loop and
+  the kit under it are made of the same drums; each is two bars at 120 bpm and carries
+  `sourceBeats = 8`, which is what lets the loop track stretch or repitch it to any tempo. This is
+  also why `LoopVoice` now reads the track's `BANK` parameter instead of hard-coding `S8`.
+- **Selecting only writes `BANK` and `SOUND`.** Nothing else is stored, so a parameter lock, a kit
+  load or a turn of the knob all still work and none of them has to know the menu exists. Move the
+  knob off a named slot and the interface simply shows nothing selected, rather than relabelling
+  the nearest entry.

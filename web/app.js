@@ -21,6 +21,8 @@ const state = {
     byKind: new Map(),
     tracks: [],
     knobKinds: { knobs: [], sequencer: [], bass: [] },
+    soundMenu: [],              // per track, five names
+    sounds: [],                 // per track, index into that menu (-1 = unnamed)
     values: new Map(),          // "kind:track" -> value
     gates: [],
     accents: [],
@@ -71,6 +73,8 @@ function onMessage(message) {
             state.parameters = JSON.parse(message.parameters);
             state.tracks = JSON.parse(message.tracks);
             state.knobKinds = JSON.parse(message.knobKinds);
+            state.soundMenu = JSON.parse(message.soundMenu);
+            state.sounds = message.sounds;
 
             for (const p of state.parameters) {
                 state.byId.set(p.id, p);
@@ -94,6 +98,11 @@ function onMessage(message) {
         case 'values':
             for (const [k, v] of Object.entries(message.values)) state.values.set(k, v);
             paintControls();
+            break;
+
+        case 'sounds':
+            state.sounds = message.sounds;
+            paintSounds();
             break;
 
         case 'playhead':
@@ -245,6 +254,8 @@ function buildEditor() {
     const track = state.tracks[state.selectedTrack];
     $('editorTrack').textContent = `${track.short} — ${track.name}`;
 
+    buildSoundPicker();
+
     fill($('knobs'), state.knobKinds.knobs);
     fill($('seqKnobs'), state.knobKinds.sequencer);
 
@@ -261,6 +272,43 @@ function buildEditor() {
             if (p) host.appendChild(makeControl(p, state.selectedTrack));
         }
     }
+}
+
+/// The five sounds this track offers, by name.
+///
+/// SOUND is a 0-127 knob over a bank that wraps, which is faithful to the device and tells you
+/// nothing about what you are choosing. This sits in front of it without replacing it: picking an
+/// entry writes BANK and SOUND, and moving the knob past them simply shows nothing selected.
+function buildSoundPicker() {
+    const host = $('sounds');
+    host.innerHTML = '';
+
+    const names = state.soundMenu[state.selectedTrack] || [];
+
+    names.forEach((name, choice) => {
+        const button = document.createElement('button');
+        button.className = 'sound';
+        button.dataset.choice = choice;
+        button.textContent = name;
+        button.addEventListener('click', () => {
+            send({ type: 'selectSound', track: state.selectedTrack, choice });
+            $('display').textContent = name;
+            // The knob moved, so whatever it reads has to be re-fetched.
+            refreshValues();
+        });
+
+        host.appendChild(button);
+    });
+
+    paintSounds();
+}
+
+function paintSounds() {
+    const selected = state.sounds[state.selectedTrack];
+
+    document.querySelectorAll('.sound').forEach((button) => {
+        button.classList.toggle('on', Number(button.dataset.choice) === selected);
+    });
 }
 
 /// One control, shaped by the parameter's own descriptor: enumerated parameters get a select,

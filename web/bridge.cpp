@@ -10,11 +10,13 @@
 // rest of the project follows, extended across the language boundary.
 
 #include "core/Engine.h"
+#include "core/factory/SoundMenu.h"
 #include "demo/DemoPattern.h"
 
 #include <emscripten/emscripten.h>
 
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -180,6 +182,48 @@ EMSCRIPTEN_KEEPALIVE const char* bud_tracks_json()
 
     scratch += ']';
     return scratch.c_str();
+}
+
+/// The five sounds each track offers, by name. Sent once, like the parameter table, so the
+/// interface builds its selectors from the engine rather than from a copy of this list.
+EMSCRIPTEN_KEEPALIVE const char* bud_sound_menu_json()
+{
+    scratch = "[";
+
+    for (int track = 0; track < bud::kNumTracks; ++track)
+    {
+        if (track > 0)
+            scratch += ',';
+
+        scratch += '[';
+
+        auto first = true;
+
+        for (const auto& choice : bud::factory::soundMenu (track))
+        {
+            if (! std::exchange (first, false))
+                scratch += ',';
+
+            scratch += "\"";
+            appendEscaped (scratch, choice.name);
+            scratch += '"';
+        }
+
+        scratch += ']';
+    }
+
+    scratch += ']';
+    return scratch.c_str();
+}
+
+EMSCRIPTEN_KEEPALIVE void bud_select_sound (int track, int choice)
+{
+    engine.selectSound (track, choice);
+}
+
+EMSCRIPTEN_KEEPALIVE int bud_selected_sound (int track)
+{
+    return engine.selectedSound (track);
 }
 
 /// Which parameter kinds make up the eleven micro knobs, in panel order.
