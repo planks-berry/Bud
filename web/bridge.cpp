@@ -10,6 +10,7 @@
 // rest of the project follows, extended across the language boundary.
 
 #include "core/Engine.h"
+#include "core/factory/Presets.h"
 #include "core/factory/SoundMenu.h"
 #include "demo/DemoPattern.h"
 
@@ -214,6 +215,33 @@ EMSCRIPTEN_KEEPALIVE const char* bud_sound_menu_json()
 
     scratch += ']';
     return scratch.c_str();
+}
+
+/// The genre presets: name and family, so the interface can group them.
+EMSCRIPTEN_KEEPALIVE const char* bud_presets_json()
+{
+    scratch = "[";
+
+    const auto all = bud::factory::presets();
+
+    for (std::size_t i = 0; i < all.size(); ++i)
+    {
+        if (i > 0)
+            scratch += ',';
+
+        scratch += "{\"name\":\"";     appendEscaped (scratch, all[i].name);   scratch += '"';
+        scratch += ",\"family\":\"";   appendEscaped (scratch, all[i].family); scratch += '"';
+        scratch += ",\"tempo\":" + std::to_string (all[i].tempo);
+        scratch += '}';
+    }
+
+    scratch += ']';
+    return scratch.c_str();
+}
+
+EMSCRIPTEN_KEEPALIVE void bud_apply_preset (int index)
+{
+    engine.applyPreset (index);
 }
 
 EMSCRIPTEN_KEEPALIVE void bud_select_sound (int track, int choice)

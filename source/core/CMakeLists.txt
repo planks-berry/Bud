@@ -18,6 +18,7 @@ add_library(BudCore STATIC
     dsp/TimeStretch.cpp
     factory/FactoryContent.cpp
     factory/SoundMenu.cpp
+    factory/Presets.cpp
     kit/DrumKit.cpp
     fx/Isolator.cpp
     fx/MasterFx.cpp

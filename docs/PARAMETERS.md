@@ -506,3 +506,49 @@ same step — one column crossing the whole sequencer — while a polymetric tra
 disagrees with its neighbours rather than being forced into a shared column. `tests/SequencerTests.cpp`
 asserts all three: that an empty track advances, that identical settings agree at every instant,
 and that a five-step track wraps on its own.
+
+---
+
+## Genre presets
+
+`factory::presets()` holds 30 starting points. A preset is a whole setting rather than a sound:
+tempo, FEEL, swing, which of each track's five sounds to use, and a one-bar part per track.
+
+| Family | Presets |
+|---|---|
+| House | HOUSE, DEEP HOUSE, TECH HOUSE, PROG HOUSE, TROPICAL, AFRO HOUSE, GUARACHA, FUTURE HOUSE, BASS HOUSE, FRENCH HOUSE, LATIN HOUSE, AMAPIANO, MELODIC |
+| Techno | TECHNO, MINIMAL, DETROIT, ACID, HARD TECHNO |
+| Trance | TRANCE, PSYTRANCE, PROG TRANCE |
+| Bass | DUBSTEP, DNB, JUNGLE, BREAKBEAT, UK GARAGE, FUTURE BASS, TRAP, MOOMBAHTON, HARDSTYLE |
+
+Parts are written as sixteen characters, one per step — `.` silent, `x` play, `X` hard accent,
+`o` soft — because a drum pattern is a shape, and reading it as one in the source is what makes
+thirty of them reviewable:
+
+```cpp
+{ BD,   kick::punch,    "X...X...X...X...", 108 },
+{ CP,   clap::snappy,   "....X.......X...",  88 },
+{ PC,   perc::conga,    "..xx..x...xx..x.",  82 },
+```
+
+Basslines are a list of semitone offsets applied to the gated steps in order, cycling.
+
+### They are starting points, not transcriptions
+
+Each is the rhythmic skeleton a style is built on — where the kick lands, where the backbeat
+sits, how the hats subdivide, what the percussion does against them — written from the
+conventions of the genre. Nothing reproduces a particular record, and the sounds are the same
+original synthesis as the rest of the instrument.
+
+### Two things measurement decided
+
+- **Master volume is set to 84.** The parts are written at the levels a genre wants *relative to
+  each other*, and a full kit at those levels sums past full scale — measured at up to +2.8 dB
+  across the set, with 24 of the 30 clipping. Trimming the parts instead would have flattened the
+  balance that makes them sound like the genre. With the master set, the set spans 0.61–0.98.
+- **Swing is 50–75, not 0–100.** Three presets were authored at 48 and were being silently
+  clamped to 50, so they were not the groove they named. `tests/PresetTests.cpp` now asserts the
+  range rather than trusting it.
+
+`everyPresetActuallyPlays` renders a bar of each from a fresh engine and requires real output:
+silence would mean a part pointing at an empty slot, which nothing else would catch.

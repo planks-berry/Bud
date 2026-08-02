@@ -21,6 +21,7 @@ const state = {
     byKind: new Map(),
     tracks: [],
     knobKinds: { knobs: [], sequencer: [], bass: [] },
+    presets: [],                // genre starting points
     soundMenu: [],              // per track, five names
     sounds: [],                 // per track, index into that menu (-1 = unnamed)
     values: new Map(),          // "kind:track" -> value
@@ -74,6 +75,7 @@ function onMessage(message) {
             state.tracks = JSON.parse(message.tracks);
             state.knobKinds = JSON.parse(message.knobKinds);
             state.soundMenu = JSON.parse(message.soundMenu);
+            state.presets = JSON.parse(message.presets);
             state.sounds = message.sounds;
 
             for (const p of state.parameters) {
@@ -145,6 +147,7 @@ function refreshValues() {
 // Building the interface from the parameter table
 
 function buildInterface() {
+    buildPresets();
     buildRuler();
     buildTracks();
     buildHeaderControls();
@@ -272,6 +275,54 @@ function buildEditor() {
             if (p) host.appendChild(makeControl(p, state.selectedTrack));
         }
     }
+}
+
+/// The genre presets, grouped by family.
+///
+/// A whole setting rather than a sound: tempo, FEEL, swing, each track's sound and its part.
+/// Grouped because thirty flat entries is a list, and four families of them is a menu.
+function buildPresets() {
+    const host = $('presets');
+    host.innerHTML = '';
+
+    const blank = document.createElement('option');
+    blank.textContent = 'PRESET…';
+    blank.value = '';
+    host.appendChild(blank);
+
+    const families = new Map();
+
+    state.presets.forEach((preset, index) => {
+        if (!families.has(preset.family)) families.set(preset.family, []);
+        families.get(preset.family).push({ preset, index });
+    });
+
+    for (const [family, entries] of families) {
+        const group = document.createElement('optgroup');
+        group.label = family;
+
+        for (const { preset, index } of entries) {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = `${preset.name} · ${preset.tempo}`;
+            group.appendChild(option);
+        }
+
+        host.appendChild(group);
+    }
+
+    host.addEventListener('change', async () => {
+        if (host.value === '') return;
+
+        await ensureAudio();
+        send({ type: 'applyPreset', index: Number(host.value) });
+
+        const preset = state.presets[Number(host.value)];
+        $('display').textContent = preset.name;
+
+        // Tempo, swing and the track levels all moved, so re-read what is on screen.
+        refreshValues();
+    });
 }
 
 /// The five sounds this track offers, by name.

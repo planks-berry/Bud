@@ -165,6 +165,14 @@ public:
     /// Which menu entry the track is currently on, or -1 when the knob is somewhere unnamed.
     int selectedSound (int track) const;
 
+    /** Load a genre preset (factory::presets) into the current pattern.
+
+        Clears the pattern first, then writes tempo, FEEL, swing, each track's sound and its
+        part, so what plays afterwards is the preset rather than the preset over whatever was
+        there. Other patterns, the sample banks and the effects are untouched.
+    */
+    void applyPreset (int index);
+
     int playheadStep (int track) const noexcept;
 
     double sampleRate() const noexcept { return sampleRate_; }

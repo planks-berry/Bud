@@ -37,6 +37,8 @@ class BudProcessor extends AudioWorkletProcessor {
                 tracksJson: module.cwrap('bud_tracks_json', 'string', []),
                 knobKindsJson: module.cwrap('bud_knob_kinds_json', 'string', []),
                 soundMenuJson: module.cwrap('bud_sound_menu_json', 'string', []),
+                presetsJson: module.cwrap('bud_presets_json', 'string', []),
+                applyPreset: module.cwrap('bud_apply_preset', null, ['number']),
                 selectSound: module.cwrap('bud_select_sound', null, ['number', 'number']),
                 selectedSound: module.cwrap('bud_selected_sound', 'number', ['number']),
                 stepGate: module.cwrap('bud_step_gate', 'number', ['number', 'number']),
@@ -66,6 +68,7 @@ class BudProcessor extends AudioWorkletProcessor {
                 tracks: this.api.tracksJson(),
                 knobKinds: this.api.knobKindsJson(),
                 soundMenu: this.api.soundMenuJson(),
+                presets: this.api.presetsJson(),
                 state: this.snapshot(),
                 sounds: this.sounds(),
             });
@@ -141,6 +144,12 @@ class BudProcessor extends AudioWorkletProcessor {
 
             case 'solo':
                 this.api.setSolo(message.track);
+                break;
+
+            case 'applyPreset':
+                this.api.applyPreset(message.index);
+                this.port.postMessage({ type: 'state', state: this.snapshot() });
+                this.port.postMessage({ type: 'sounds', sounds: this.sounds() });
                 break;
 
             case 'selectSound':

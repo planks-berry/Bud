@@ -221,6 +221,62 @@ await page.waitForTimeout(200);
 const restored = await page.evaluate(() => document.querySelectorAll('.step.on').length);
 check('DEMO reloads a pattern', restored > 8, `${restored} steps on`);
 
+// ---- genre presets -------------------------------------------------------
+
+const presets = await page.evaluate(() => ({
+    count: window.bud.presets.length,
+    families: [...new Set(window.bud.presets.map((p) => p.family))],
+    names: window.bud.presets.map((p) => p.name),
+    options: document.querySelectorAll('#presets option').length,
+    groups: document.querySelectorAll('#presets optgroup').length,
+}));
+
+check('thirty genre presets', presets.count === 30, `${presets.count}`);
+check('grouped into families', presets.groups === presets.families.length,
+      presets.families.join(', '));
+check('every one is in the menu', presets.options === 31);   // + the placeholder
+
+// The three house subgenres asked for by name.
+for (const wanted of ['TROPICAL', 'AFRO HOUSE', 'GUARACHA'])
+    check(`${wanted} is there`, presets.names.includes(wanted));
+
+// Loading one has to reach the engine: tempo, the grid and the sounds all move together.
+const guaracha = await page.evaluate(() => window.bud.presets.findIndex((p) => p.name === 'GUARACHA'));
+
+await page.selectOption('#presets', String(guaracha));
+await page.waitForTimeout(400);
+
+const loaded = await page.evaluate(() => ({
+    lit: document.querySelectorAll('.step.on').length,
+    display: document.getElementById('display').textContent,
+}));
+
+check('loading a preset fills the grid', loaded.lit > 20, `${loaded.lit} steps on`);
+check('and names it on the display', loaded.display === 'GUARACHA', loaded.display);
+
+// Different genres have to actually differ, or the menu is decoration.
+const trap = await page.evaluate(() => window.bud.presets.findIndex((p) => p.name === 'TRAP'));
+
+const shapeOf = async (index) => {
+    await page.selectOption('#presets', String(index));
+    await page.waitForTimeout(350);
+    return page.evaluate(() => [...document.querySelectorAll('.step')]
+        .map((s) => (s.classList.contains('on') ? '1' : '0')).join(''));
+};
+
+const guarachaShape = await shapeOf(guaracha);
+const trapShape = await shapeOf(trap);
+
+check('different genres are different patterns', guarachaShape !== trapShape);
+
+// And it plays.
+await page.click('#play');
+await page.waitForTimeout(400);
+const presetPeak = await measure();
+check('a loaded preset makes sound', presetPeak > 0.05, `peak ${presetPeak.toFixed(3)}`);
+await page.click('#stop');
+await page.waitForTimeout(600);
+
 // ---- the playhead on an empty pattern ------------------------------------
 // The progression has to be visible on every track, including instruments with nothing
 // programmed on them. It used to be latched when a trigger fired, so an empty track sat on

@@ -45,6 +45,8 @@ moment `-O3` asks for it, which is why CI installs the SDK proper.
 - **Sound** — the five sounds that instrument offers, by name. The SOUND knob still reaches every
   sound in the bank; this sits in front of it, and shows nothing selected when the knob is
   somewhere the menu does not name.
+- **PRESET** — thirty genre starting points, grouped by family. Loading one sets the tempo,
+  FEEL, swing, each track's sound and its part.
 - **DEMO / CLR PTN** — load the demo pattern, or initialise the current one.
 
 ---

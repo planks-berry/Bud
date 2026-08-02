@@ -1,6 +1,7 @@
 #include "Engine.h"
 
 #include "factory/FactoryContent.h"
+#include "factory/Presets.h"
 #include "factory/SoundMenu.h"
 #include "voices/BassVoice.h"
 #include "voices/DrumVoices.h"
@@ -315,6 +316,11 @@ void Engine::selectSound (int track, int choice)
 
     parameters_.set (ParamKind::TrackSoundBank, track, static_cast<int> (entry.bank));
     parameters_.set (ParamKind::TrackSound, track, entry.sound);
+}
+
+void Engine::applyPreset (int index)
+{
+    factory::applyPreset (*this, index);
 }
 
 int Engine::selectedSound (int track) const
