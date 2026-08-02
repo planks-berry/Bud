@@ -51,6 +51,37 @@ moment `-O3` asks for it, which is why CI installs the SDK proper.
 
 ---
 
+## The look
+
+**DORFic** — Daylight, Orange, Red, Futurism, Graphic: the industrial branch of Frutiger Aero,
+as it was used on tech hardware and trade imagery from the mid 2000s into the mid 2010s.
+
+What that means in `web/style.css`, concretely:
+
+| | |
+|---|---|
+| **Daylight** | A high-key ground with real glare in it — warm radials over cool steel — rather than a flat white. Brushed-aluminium grain and a specular sweep across the header. |
+| **Orange** | The accent range is *one* hot ramp, amber into orange into red. There is no second hue. |
+| **Red** | The hottest end is reserved for what is live: a lit step, the playhead, a selected sound. |
+| **Futurism** | Abstract technical linework — a receding hex field behind the sequencer, hairline rules running out of section labels, registration ticks in the corner. |
+| **Graphic** | Chamfered corners and hard diagonal cuts instead of uniform rounded boxes. |
+
+Two decisions worth recording, because both were made by looking at it rather than by reasoning:
+
+- **Lit steps do not use the track's LED colour.** The engine gives every track a hue, and using
+  it in the grid put magenta, violet and blue into it — a perfectly good scheme, but not this
+  one, whose whole discipline is the single ramp. The per-track colour is kept where it costs
+  nothing: the indicator dot beside the track name.
+- **A soft accent steps back along the ramp rather than desaturating.** Desaturating turned the
+  orange to brown on both grounds. A soft hit is quieter, not dirtier.
+
+It is designed for daylight first, and the dark variant is the same aesthetic after hours —
+brushed steel rather than brushed aluminium, with the identical ramp glowing against it — rather
+than an inversion. The specular sweep is 50% white on aluminium and 6% on steel; at the daylight
+value it washed labels off the dark panel entirely.
+
+---
+
 ## Why it is built this way
 
 ### The interface is generated, not written

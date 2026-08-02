@@ -1,110 +1,267 @@
-/* The panel.
-   Dark, matte, with the step keys as the loudest thing on the page — the grid is what you look
-   at while playing, so everything else is deliberately quiet. */
+/* The panel — DORFic.
+   Daylight, Orange, Red, Futurism, Graphic: the industrial branch of Frutiger Aero, as it was
+   used on tech hardware and trade imagery from the mid 2000s into the mid 2010s.
+
+   What that means here, concretely:
+
+     Daylight   a bright, high-key ground with real glare in it, not a flat white
+     Orange     the whole accent range is one hot ramp, orange into red, never a second hue
+     Red        the hottest end is reserved for what is *live* — a lit step, the playhead
+     Futurism   abstract technical linework: a receding hex field, hairline rules, corner ticks
+     Graphic    chamfered corners and hard diagonal cuts rather than uniform rounded boxes
+
+   The instrument keeps its own ground rather than inheriting the page's, and it is designed for
+   daylight first. The dark variant is the same aesthetic after hours — brushed steel instead of
+   brushed aluminium, with the identical hot ramp glowing against it — rather than an inversion. */
 
 :root {
-    --bg: #14161a;
-    --panel: #1d2026;
-    --panel-2: #24282f;
-    --edge: #33383f;
-    --text: #e8eaed;
-    --dim: #8b939e;
-    --accent: #ffb000;
-    --play: #35d07f;
+    /* Daylight */
+    --ground:     #eef1f4;
+    --ground-2:   #e2e7ec;
+    --panel:      #f7f9fb;
+    --panel-2:    #e6ebf0;
+    --panel-edge: #ffffff;
+    --edge:       #b9c2cb;
+    --hairline:   #cdd5dc;
+    --ink:        #1b2026;
+    --dim:        #66717d;
+
+    /* The hot ramp. One hue family, from working orange to live red. */
+    --hot:        #ff5a1f;
+    --hotter:     #e01b1b;
+    --ember:      #ffb03a;
+    --glow:       rgba(255, 90, 31, 0.45);
+    --on-hot:     #2a0b00;
+
+    /* Kept under its old name because the grid still reads it as a fallback for --led. */
+    --accent:     var(--hot);
+    --play:       #ff5a1f;
+
+    --sheen: rgba(255, 255, 255, 0.50);
+    --chamfer: 7px;
+
+    color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --ground:     #0f1319;
+        --ground-2:   #141922;
+        --panel:      #1c222b;
+        --panel-2:    #151b23;
+        --panel-edge: #2f3945;
+        --edge:       #333d49;
+        --hairline:   #2a333d;
+        --ink:        #e9eef4;
+        --dim:        #8b98a6;
+        --glow:       rgba(255, 90, 31, 0.55);
+        --sheen:      rgba(255, 255, 255, 0.06);
+        color-scheme: dark;
+    }
+}
+
+/* The viewer's own toggle has to win over the media query, in both directions. */
+:root[data-theme="dark"] {
+    --ground:     #0f1319;
+    --ground-2:   #141922;
+    --panel:      #1c222b;
+    --panel-2:    #151b23;
+    --panel-edge: #2f3945;
+    --edge:       #333d49;
+    --hairline:   #2a333d;
+    --ink:        #e9eef4;
+    --dim:        #8b98a6;
+    --glow:       rgba(255, 90, 31, 0.55);
+    --sheen:      rgba(255, 255, 255, 0.06);
     color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+    --ground:     #eef1f4;
+    --ground-2:   #e2e7ec;
+    --panel:      #f7f9fb;
+    --panel-2:    #e6ebf0;
+    --panel-edge: #ffffff;
+    --edge:       #b9c2cb;
+    --hairline:   #cdd5dc;
+    --ink:        #1b2026;
+    --dim:        #66717d;
+    --glow:       rgba(255, 90, 31, 0.45);
+    --sheen:      rgba(255, 255, 255, 0.50);
+    color-scheme: light;
 }
 
 * { box-sizing: border-box; }
 
-/* The panel owns its own ground rather than inheriting the page's. It is a dark instrument on
-   purpose — a single, committed look — so it must not sit on a pale band when it is embedded in
-   a host whose own page is light. */
+/* The panel owns its own ground rather than inheriting the page's, so it does not sit on a
+   mismatched band when embedded in a host that supplies its own body. */
 html {
-    background: var(--bg);
+    background: var(--ground);
     min-height: 100%;
 }
 
+/* Daylight: a warm glare from the upper left over a cool steel field. Two radials rather than
+   one, so the light has a hot core and a wide falloff instead of reading as a single blob. */
 body {
     margin: 0;
-    background: var(--bg);
     min-height: 100vh;
-    color: var(--text);
-    font: 13px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--ink);
+    background:
+        radial-gradient(70ch 50ch at 12% -10%, rgba(255, 176, 58, 0.30), transparent 70%),
+        radial-gradient(90ch 60ch at 78% -20%, rgba(255, 90, 31, 0.14), transparent 65%),
+        linear-gradient(180deg, var(--ground), var(--ground-2));
+    background-attachment: fixed;
+    font: 13px/1.45 "Frutiger", "Segoe UI", "Helvetica Neue", ui-sans-serif, system-ui, sans-serif;
     -webkit-text-size-adjust: 100%;
+}
+
+/* Graphic: the square technical face this era set its labels in. Where none of these are
+   installed the tracking and the uppercase are what carry it, so the rule holds up on a
+   fallback grotesque. */
+.mark, .key, .sound, .presets, .group-label, .tname, .editor h3, .ruler-cell {
+    font-family: "Eurostile", "Square721 BT", "Michroma", "Oswald",
+                 "Helvetica Neue Condensed", "Arial Narrow", ui-sans-serif, sans-serif;
 }
 
 /* ---- header ---------------------------------------------------------- */
 
 .panel-head {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 18px;
-    padding: 14px 18px;
-    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    padding: 16px 20px;
+    /* Brushed aluminium: a fine repeating grain under a broad specular sweep. */
+    background:
+        radial-gradient(46ch 26ch at 8% -30%, rgba(255, 176, 58, 0.38), transparent 72%),
+        radial-gradient(38ch 20ch at 62% -40%, rgba(255, 90, 31, 0.16), transparent 70%),
+        linear-gradient(104deg, transparent 20%, var(--sheen) 40%, transparent 58%),
+        repeating-linear-gradient(90deg,
+            rgba(0, 0, 0, 0.018) 0 1px, transparent 1px 3px),
+        linear-gradient(180deg, var(--panel-edge), var(--panel-2));
     border-bottom: 1px solid var(--edge);
+    overflow: hidden;
 }
 
-.brand { display: flex; flex-direction: column; }
-.mark { font-weight: 700; font-size: 20px; letter-spacing: 0.18em; }
-.sub { color: var(--dim); font-size: 11px; }
+/* The hot ramp as a hairline under the header — the one place the full orange-to-red run is
+   shown end to end, so everything else can quote from it. */
+.panel-head::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--ember), var(--hot) 42%, var(--hotter));
+}
+
+.brand { display: flex; flex-direction: column; gap: 1px; }
+
+.mark {
+    font-weight: 700;
+    font-size: 21px;
+    letter-spacing: 0.30em;
+    background: linear-gradient(180deg, var(--hot), var(--hotter));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.sub {
+    color: var(--dim);
+    font-size: 10px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+}
 
 .transport, .patternOps { display: flex; gap: 8px; }
 
+/* Graphic: chamfered rather than rounded. The cut corner is the era's shape. */
 .key {
-    background: var(--panel-2);
-    color: var(--text);
+    position: relative;
+    background: linear-gradient(180deg, var(--panel-edge), var(--panel-2));
+    color: var(--ink);
     border: 1px solid var(--edge);
-    border-radius: 6px;
-    padding: 9px 16px;
+    border-radius: 3px;
+    clip-path: polygon(var(--chamfer) 0, 100% 0, 100% calc(100% - var(--chamfer)),
+                       calc(100% - var(--chamfer)) 100%, 0 100%, 0 var(--chamfer));
+    padding: 10px 17px;
     font: inherit;
-    font-weight: 600;
-    letter-spacing: 0.08em;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
     cursor: pointer;
     min-height: 40px;
+    transition: color 120ms, box-shadow 120ms, background 120ms;
 }
 
-.key:hover { border-color: var(--dim); }
-.key.small { padding: 7px 11px; font-size: 11px; }
-.key-play[aria-pressed="true"] { background: var(--play); color: #06301c; border-color: var(--play); }
+.key:hover {
+    color: var(--hotter);
+    box-shadow: inset 0 0 0 1px var(--hot);
+}
 
+.key:focus-visible { outline: 2px solid var(--hot); outline-offset: 2px; }
+.key.small { padding: 8px 12px; font-size: 10px; }
+
+.key-play[aria-pressed="true"] {
+    background: linear-gradient(180deg, var(--ember), var(--hot) 45%, var(--hotter));
+    color: var(--on-hot);
+    border-color: var(--hotter);
+    box-shadow: 0 0 18px var(--glow);
+}
+
+/* The readout, as an instrument display rather than a text box. */
 .display {
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
-    background: #0b0d10;
+    background:
+        linear-gradient(180deg, rgba(255, 176, 58, 0.10), transparent),
+        linear-gradient(180deg, #14181e, #0a0d11);
     border: 1px solid var(--edge);
-    border-radius: 5px;
-    padding: 9px 14px;
-    min-width: 150px;
-    color: var(--accent);
-    letter-spacing: 0.12em;
+    border-radius: 3px;
+    clip-path: polygon(var(--chamfer) 0, 100% 0, 100% calc(100% - var(--chamfer)),
+                       calc(100% - var(--chamfer)) 100%, 0 100%, 0 var(--chamfer));
+    padding: 10px 15px;
+    min-width: 152px;
+    color: var(--ember);
+    text-shadow: 0 0 12px rgba(255, 176, 58, 0.55);
+    letter-spacing: 0.16em;
+    font-variant-numeric: tabular-nums;
 }
 
 .globals { display: flex; flex-wrap: wrap; gap: 14px; margin-left: auto; align-items: flex-start; }
-
 .group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 
 .group.iso {
     flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
-    padding: 6px 10px;
-    border: 1px solid var(--edge);
-    border-radius: 7px;
+    gap: 5px;
+    padding: 7px 11px;
+    border: 1px solid var(--hairline);
+    border-left: 2px solid var(--hot);
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.35);
 }
+
+@media (prefers-color-scheme: dark) {
+    .group.iso { background: rgba(255, 255, 255, 0.03); }
+}
+
+:root[data-theme="dark"] .group.iso { background: rgba(255, 255, 255, 0.03); }
 
 .group.iso > div { display: flex; gap: 10px; flex-wrap: wrap; }
 
 .group-label {
     font-size: 9px;
-    letter-spacing: 0.16em;
-    color: var(--dim);
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    color: var(--hot);
 }
 
 /* ---- layout ---------------------------------------------------------- */
 
 main {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 1fr) 310px;
     gap: 18px;
     padding: 18px;
     align-items: start;
@@ -115,7 +272,37 @@ main {
     .globals { margin-left: 0; }
 }
 
-.grid-wrap { min-width: 0; overflow-x: auto; }
+/* Futurism: a hex field receding behind the sequencer. Faint enough to read as a surface rather
+   than a pattern, which is the difference between atmosphere and wallpaper. */
+.grid-wrap {
+    position: relative;
+    min-width: 0;
+    overflow-x: auto;
+    padding: 14px 14px 16px;
+    background:
+        repeating-linear-gradient(60deg,
+            rgba(255, 90, 31, 0.045) 0 1px, transparent 1px 22px),
+        repeating-linear-gradient(-60deg,
+            rgba(255, 90, 31, 0.045) 0 1px, transparent 1px 22px),
+        linear-gradient(180deg, var(--panel), var(--panel-2));
+    border: 1px solid var(--hairline);
+    border-top: 2px solid var(--hot);
+    border-radius: 2px;
+}
+
+/* Registration ticks, bottom right — the corner marks this imagery always carried. */
+.grid-wrap::after {
+    content: "";
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    width: 14px;
+    height: 14px;
+    border-right: 1px solid var(--hot);
+    border-bottom: 1px solid var(--hot);
+    opacity: 0.6;
+    pointer-events: none;
+}
 
 .step-ruler, .steps {
     display: grid;
@@ -123,26 +310,40 @@ main {
     gap: 5px;
 }
 
-.step-ruler { margin-left: 78px; margin-bottom: 6px; }
+.step-ruler { margin-left: 78px; margin-bottom: 7px; }
 
 .ruler-cell {
     text-align: center;
-    font-size: 10px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
     color: var(--dim);
     font-variant-numeric: tabular-nums;
+    padding: 2px 0;
+    border-radius: 2px;
+    transition: color 90ms, background 90ms;
 }
 
-.ruler-cell.downbeat { color: var(--text); font-weight: 700; }
+.ruler-cell.downbeat { color: var(--ink); }
+
+.ruler-cell.at {
+    color: var(--on-hot);
+    background: linear-gradient(180deg, var(--ember), var(--hot));
+    box-shadow: 0 0 12px var(--glow);
+}
 
 .track-row {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 2px 4px;
-    border-radius: 7px;
+    border-left: 2px solid transparent;
 }
 
-.track-row.selected { background: rgba(255, 176, 0, 0.07); }
+.track-row.selected {
+    border-left-color: var(--hot);
+    background: linear-gradient(90deg, var(--glow), transparent 42%);
+}
 
 .track-label {
     width: 68px;
@@ -152,66 +353,100 @@ main {
     gap: 7px;
     background: none;
     border: 0;
-    color: var(--text);
+    color: var(--ink);
     font: inherit;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
     padding: 4px 0;
 }
 
+.track-label:focus-visible { outline: 2px solid var(--hot); outline-offset: 2px; }
+
 .led {
-    width: 9px; height: 9px;
+    width: 8px; height: 8px;
     border-radius: 50%;
-    background: var(--led, #666);
-    box-shadow: 0 0 7px var(--led, #666);
+    background: var(--led, var(--hot));
+    box-shadow: 0 0 8px var(--led, var(--hot));
     flex: 0 0 auto;
 }
 
-.tname { font-size: 11px; letter-spacing: 0.06em; }
+.tname { font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; }
 .steps { flex: 1 1 auto; min-width: 0; }
 
+/* A key rather than a cell: chamfered, with a specular top edge. */
 .step {
-    /* A fixed height rather than a square: eleven tracks have to fit on a laptop screen without
-       scrolling, and the grid is the thing you look at while playing. */
+    /* Eleven tracks have to fit a laptop screen without scrolling, and the grid is the thing
+       you look at while playing. */
     height: 34px;
     /* A held step selects text and raises a callout on iOS otherwise. */
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
     touch-action: manipulation;
-    border-radius: 5px;
     border: 1px solid var(--edge);
-    background: var(--panel);
+    border-radius: 2px;
+    clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.75), transparent 46%),
+        linear-gradient(180deg, var(--panel-edge), var(--panel-2));
     cursor: pointer;
     padding: 0;
-    transition: background 90ms, box-shadow 90ms;
+    transition: background 90ms, box-shadow 90ms, filter 90ms;
 }
 
-/* Every fourth step sits slightly brighter, so the bar reads at a glance. */
-.step:nth-child(4n + 1) { background: var(--panel-2); }
+@media (prefers-color-scheme: dark) {
+    .step { background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 46%),
+        linear-gradient(180deg, var(--panel), var(--panel-2)); }
+}
 
+:root[data-theme="dark"] .step { background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 46%),
+    linear-gradient(180deg, var(--panel), var(--panel-2)); }
+
+/* Every fourth step sits fractionally brighter, so the bar reads at a glance. */
+.step:nth-child(4n + 1) { border-color: var(--dim); }
+
+.step:focus-visible { outline: 2px solid var(--hot); outline-offset: 1px; }
+
+/* Live: the hot end of the ramp, with the bloom that makes it read as emitting rather than
+   painted.
+   
+   Deliberately *not* the track's own LED colour. The engine gives each track a hue, and using
+   it here put magenta, violet and blue into the grid — which is a perfectly good scheme, but not
+   this one: the whole discipline of DORFic is that the accent range is a single hot ramp. The
+   per-track colour is kept where it costs nothing, on the indicator dot beside the track name,
+   so the rows are still tellable apart. */
 .step.on {
-    background: var(--led, var(--accent));
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.45), transparent 52%),
+        linear-gradient(180deg, var(--ember), var(--hot) 45%, var(--hotter));
     border-color: transparent;
+    box-shadow: 0 0 14px var(--glow);
 }
 
-.step.on.hard { box-shadow: inset 0 0 0 2px #fff; }
-.step.on.soft { opacity: 0.55; }
+.step.on.hard { box-shadow: 0 0 20px var(--glow), inset 0 0 0 2px #fff; }
+.step.on.soft {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.55), transparent 55%),
+        linear-gradient(180deg, #ffd9a0, var(--ember) 60%);
+    box-shadow: 0 0 8px rgba(255, 176, 58, 0.35);
+}
 
 /* The playhead has to read on an *empty* step too — a track with nothing programmed still shows
    the sequence crossing it, which is how the progression stays legible across all eleven. */
 .step.playing {
-    box-shadow: 0 0 0 2px var(--accent);
-    background: rgba(255, 176, 0, 0.18);
+    box-shadow: inset 0 0 0 2px var(--hot), 0 0 14px var(--glow);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.35), transparent 50%),
+        linear-gradient(180deg, var(--panel-edge), var(--panel-2));
 }
 
-.step.on.playing { background: var(--led, var(--accent)); }
-
-.ruler-cell.at {
-    color: #241800;
-    background: var(--accent);
-    border-radius: 3px;
-    font-weight: 700;
+.step.on.playing {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.6), transparent 54%),
+        linear-gradient(180deg, #fff2d0, var(--ember) 40%, var(--hot));
+    box-shadow: 0 0 0 2px var(--hotter), 0 0 26px var(--glow);
 }
 
 /* Touch devices get larger keys — 34px is comfortable with a mouse and too small for a finger,
@@ -220,36 +455,63 @@ main {
     .step { height: 44px; }
     .key { min-height: 46px; }
     input[type="range"] { min-height: 34px; }
-    select { padding: 8px 6px; }
+    select { padding: 9px 7px; }
 }
 
 /* ---- editor ---------------------------------------------------------- */
 
 .editor {
-    background: var(--panel);
-    border: 1px solid var(--edge);
-    border-radius: 9px;
-    padding: 14px;
+    position: relative;
+    background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.5), transparent 40%),
+        linear-gradient(180deg, var(--panel), var(--panel-2));
+    border: 1px solid var(--hairline);
+    border-top: 2px solid var(--hot);
+    border-radius: 2px;
+    padding: 15px;
 }
+
+@media (prefers-color-scheme: dark) {
+    .editor { background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.04), transparent 40%),
+        linear-gradient(180deg, var(--panel), var(--panel-2)); }
+}
+
+:root[data-theme="dark"] .editor { background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.04), transparent 40%),
+    linear-gradient(180deg, var(--panel), var(--panel-2)); }
 
 .editor-head {
     display: flex;
     flex-direction: column;
     gap: 3px;
-    padding-bottom: 10px;
-    margin-bottom: 12px;
-    border-bottom: 1px solid var(--edge);
-    font-weight: 600;
+    padding-bottom: 11px;
+    margin-bottom: 13px;
+    border-bottom: 1px solid var(--hairline);
+    font-weight: 700;
+    letter-spacing: 0.05em;
 }
 
-.hint { color: var(--dim); font-weight: 400; font-size: 11px; }
+.hint { color: var(--dim); font-weight: 400; font-size: 10px; letter-spacing: 0.02em; }
 
 .editor h3 {
-    margin: 16px 0 8px;
-    font-size: 11px;
+    margin: 17px 0 9px;
+    font-size: 9px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: var(--dim);
+    letter-spacing: 0.24em;
+    color: var(--hot);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+/* Futurism: the label runs out into a hairline, the way a technical drawing annotates. */
+.editor h3::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    background: linear-gradient(90deg, var(--hot), transparent);
 }
 
 .knobs { display: flex; flex-direction: column; gap: 9px; }
@@ -264,9 +526,10 @@ main {
 .control.compact { grid-template-columns: 58px 96px 34px; gap: 7px; }
 
 .control label {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--dim);
-    letter-spacing: 0.05em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -276,39 +539,30 @@ main {
     font-family: ui-monospace, Menlo, monospace;
     font-size: 11px;
     text-align: right;
-    color: var(--text);
+    color: var(--hot);
     font-variant-numeric: tabular-nums;
 }
 
 input[type="range"] {
     width: 100%;
-    accent-color: var(--accent);
+    accent-color: var(--hot);
     min-height: 22px;
 }
 
 select {
-    background: var(--panel-2);
-    color: var(--text);
+    background: linear-gradient(180deg, var(--panel-edge), var(--panel-2));
+    color: var(--ink);
     border: 1px solid var(--edge);
-    border-radius: 4px;
-    padding: 4px 6px;
+    border-radius: 2px;
+    padding: 5px 7px;
     font: inherit;
     font-size: 11px;
     width: 100%;
 }
 
-/* ---- footer ---------------------------------------------------------- */
-
-footer {
-    padding: 12px 18px 22px;
-    color: var(--dim);
-    font-size: 11px;
-    border-top: 1px solid var(--edge);
-}
-
 /* ---- sound picker ------------------------------------------------------ */
-/* The five named sounds a track offers. Deliberately reads as a row of keys rather than a
-   dropdown: choosing a drum is something you do while listening, not a settings change. */
+/* The five named sounds a track offers. A row of keys rather than a dropdown: choosing a drum is
+   something you do while listening, not a settings change. */
 
 .sounds {
     display: flex;
@@ -321,52 +575,119 @@ footer {
     flex: 1 1 auto;
     min-width: 64px;
     min-height: 34px;
-    padding: 7px 10px;
-    background: var(--panel-2);
+    padding: 8px 10px;
+    background: linear-gradient(180deg, var(--panel-edge), var(--panel-2));
     color: var(--dim);
     border: 1px solid var(--edge);
-    border-radius: 6px;
+    border-radius: 2px;
+    clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
     font: inherit;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.13em;
     cursor: pointer;
+    transition: color 110ms, box-shadow 110ms;
 }
 
-.sound:hover { border-color: var(--dim); color: var(--text); }
+.sound:hover { border-color: var(--hot); color: var(--ink); }
 
 .sound.on {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #241800;
+    background: linear-gradient(180deg, var(--ember), var(--hot) 48%, var(--hotter));
+    border-color: var(--hotter);
+    color: var(--on-hot);
+    box-shadow: 0 0 16px var(--glow);
 }
 
-.sound:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sound:focus-visible { outline: 2px solid var(--hot); outline-offset: 2px; }
 
 @media (pointer: coarse) {
-    .sound { min-height: 44px; font-size: 12px; }
+    .sound { min-height: 44px; font-size: 11px; }
 }
 
 /* ---- preset picker ----------------------------------------------------- */
 
 .presets {
     width: auto;
-    min-width: 132px;
-    min-height: 34px;
-    background: var(--panel-2);
-    color: var(--text);
+    min-width: 138px;
+    min-height: 40px;
+    background: linear-gradient(180deg, var(--panel-edge), var(--panel-2));
+    color: var(--ink);
     border: 1px solid var(--edge);
-    border-radius: 6px;
-    padding: 7px 9px;
+    border-left: 2px solid var(--hot);
+    border-radius: 2px;
+    padding: 8px 10px;
     font: inherit;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
     cursor: pointer;
 }
 
-.presets:hover { border-color: var(--dim); }
+.presets:hover { border-color: var(--hot); }
+.presets:focus-visible { outline: 2px solid var(--hot); outline-offset: 2px; }
 
 @media (pointer: coarse) {
-    .presets { min-height: 46px; font-size: 12px; }
+    .presets { min-height: 46px; font-size: 11px; }
+}
+
+/* ---- footer ---------------------------------------------------------- */
+
+footer {
+    padding: 13px 20px 24px;
+    color: var(--dim);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    border-top: 1px solid var(--hairline);
+    background: linear-gradient(180deg, transparent, rgba(255, 90, 31, 0.05));
+}
+
+/* ---- motion ------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+}
+
+/* ---- sliders ----------------------------------------------------------- */
+/* Left to the browser these render a dark default track that belongs to neither ground. */
+
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--hairline);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+input[type="range"]::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--hairline);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 13px;
+    height: 13px;
+    margin-top: -5px;
+    border-radius: 2px;
+    border: 1px solid var(--hotter);
+    background: linear-gradient(180deg, var(--ember), var(--hot));
+    box-shadow: 0 0 8px var(--glow);
+    cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 13px;
+    height: 13px;
+    border-radius: 2px;
+    border: 1px solid var(--hotter);
+    background: linear-gradient(180deg, var(--ember), var(--hot));
+    cursor: pointer;
 }
