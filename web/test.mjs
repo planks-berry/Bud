@@ -221,6 +221,42 @@ await page.waitForTimeout(200);
 const restored = await page.evaluate(() => document.querySelectorAll('.step.on').length);
 check('DEMO reloads a pattern', restored > 8, `${restored} steps on`);
 
+// ---- the playhead on an empty pattern ------------------------------------
+// The progression has to be visible on every track, including instruments with nothing
+// programmed on them. It used to be latched when a trigger fired, so an empty track sat on
+// step 1 for ever and the sequencer looked like it had stopped there.
+
+await page.click('#clear');
+await page.click('#play');
+await page.waitForTimeout(500);
+
+const empty = await page.evaluate(() => ({
+    lit: document.querySelectorAll('.step.on').length,
+    playing: document.querySelectorAll('.step.playing').length,
+    column: document.querySelectorAll('.ruler-cell.at').length,
+    head: window.bud.heads[0],
+}));
+
+check('nothing is programmed', empty.lit === 0, `${empty.lit} lit`);
+check('every track still shows the playhead', empty.playing === 11, `${empty.playing} of 11`);
+check('the ruler marks the column', empty.column === 1);
+
+// And it moves, rather than sitting on one step.
+const positions = await page.evaluate(async () => {
+    const seen = new Set();
+    for (let i = 0; i < 40; i++) {
+        seen.add(window.bud.heads[0]);
+        await new Promise((r) => setTimeout(r, 60));
+    }
+    return [...seen].length;
+});
+
+check('and it advances on an empty track', positions > 3, `${positions} positions`);
+
+await page.click('#stop');
+await page.click('#demo');
+await page.waitForTimeout(200);
+
 // ---- sound selection -----------------------------------------------------
 // Five named sounds per instrument, generated from the engine's own menu.
 

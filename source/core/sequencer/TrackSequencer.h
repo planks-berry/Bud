@@ -85,7 +85,13 @@ public:
     int currentChain()    const noexcept { return chainIndex_; }
     long long stepCount() const noexcept { return absoluteStep_; }
 
-    /// Step position most recently played, for the UI playhead.
+    /** Where this track's sequence has reached, for the UI playhead.
+
+        A position rather than a record of the last hit, so a track with nothing on it still
+        shows the sequence running across it, and every track advances together. Each keeps its
+        own note length and step length, so a polymetric track legitimately reads differently
+        from its neighbours rather than being forced into a shared column.
+    */
     int playheadStep() const noexcept { return playheadStep_; }
 
 private:

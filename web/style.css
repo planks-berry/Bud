@@ -197,7 +197,22 @@ main {
 
 .step.on.hard { box-shadow: inset 0 0 0 2px #fff; }
 .step.on.soft { opacity: 0.55; }
-.step.playing { box-shadow: 0 0 0 2px var(--accent); }
+
+/* The playhead has to read on an *empty* step too — a track with nothing programmed still shows
+   the sequence crossing it, which is how the progression stays legible across all eleven. */
+.step.playing {
+    box-shadow: 0 0 0 2px var(--accent);
+    background: rgba(255, 176, 0, 0.18);
+}
+
+.step.on.playing { background: var(--led, var(--accent)); }
+
+.ruler-cell.at {
+    color: #241800;
+    background: var(--accent);
+    border-radius: 3px;
+    font-weight: 700;
+}
 
 /* Touch devices get larger keys — 34px is comfortable with a mouse and too small for a finger,
    and an iPad has the room to spare. */

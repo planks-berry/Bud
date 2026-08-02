@@ -235,6 +235,25 @@ void TrackSequencer::collectEvents (const Transport& transport, const Groove& gr
         reanchor (quarterNotesPerStep (anchorDivision_), division);
     }
 
+    // The playhead is a *position*, not a record of the last thing that sounded. Deriving it
+    // from the transport is what lets a track with no notes on it — or a sparse one between
+    // hits — still show the sequence moving across it.
+    //
+    // It has to come from the block position rather than from stepIndex_, because consumption
+    // runs a lookahead ahead of playback: stepIndex_ is where scheduling has reached, which is
+    // not where the music is.
+    {
+        const auto stepLength = std::clamp (parameters.get (ParamKind::TrackStepLength, track_),
+                                            1, kStepsPerVariation);
+
+        const auto elapsed = (blockStart - originPpq_) / stepQn;
+        const auto steps = static_cast<long long> (std::floor (elapsed));
+
+        // Negative only if the origin sits ahead of the block, which a re-anchor can leave
+        // momentarily true; the second modulo keeps the result a valid step either way.
+        playheadStep_ = static_cast<int> (((steps % stepLength) + stepLength) % stepLength);
+    }
+
     // Look far enough ahead that any step whose drift or swing could pull it into this block has
     // already become a pending event.
     const auto lookahead = groove.maxTimingDriftQuarterNotes() + stepQn;
@@ -272,7 +291,6 @@ void TrackSequencer::collectEvents (const Transport& transport, const Groove& gr
         e.sampleOffset = std::clamp (offset, 0.0, maxOffset);
 
         out.push_back (e);
-        playheadStep_ = e.stepIndex;
 
         it = pending_.erase (it);
     }

@@ -393,6 +393,31 @@ function paintPlayhead() {
             if (cell) cell.classList.toggle('playing', state.playing && step === head);
         }
     }
+
+    paintRuler();
+}
+
+/// Mark the column the sequencer as a whole has reached.
+///
+/// Tracks can run at different note lengths and step lengths, so there is not always a single
+/// shared position — the ruler shows where most of them are, which is the bar position you hear.
+/// With everything at its default the tracks agree and it is simply the column they all share.
+function paintRuler() {
+    const tally = new Map();
+
+    if (state.playing)
+        for (const head of state.heads) tally.set(head, (tally.get(head) || 0) + 1);
+
+    let column = -1;
+    let best = 0;
+
+    for (const [step, count] of tally) {
+        if (count > best) { best = count; column = step; }
+    }
+
+    document.querySelectorAll('.ruler-cell').forEach((cell, step) => {
+        cell.classList.toggle('at', step === column);
+    });
 }
 
 function paintControls() {

@@ -1,5 +1,6 @@
 #include "TestFramework.h"
 
+#include "core/Engine.h"
 #include "core/Transport.h"
 #include "core/params/ParameterSet.h"
 #include "core/sequencer/Groove.h"
@@ -7,6 +8,7 @@
 #include "core/sequencer/TrackSequencer.h"
 
 #include <algorithm>
+#include <set>
 #include <vector>
 
 using namespace bud;
@@ -608,4 +610,93 @@ BUD_TEST (Sequencer, longRunKeepsExactStepCount)
 
     const auto expected = static_cast<double> (64 * 16 - 1) * kSamplesPerSixteenth;
     CHECK_NEAR (h.hits.back().globalSample, expected, 0.5);
+}
+
+//==============================================================================
+// The playhead
+
+namespace
+{
+    /// Run the engine forward and record where each track's playhead reaches.
+    std::vector<std::set<int>> playheadPositions (Engine& engine, int blocks, int blockSize)
+    {
+        std::vector<float> left (static_cast<std::size_t> (blockSize));
+        std::vector<float> right (static_cast<std::size_t> (blockSize));
+
+        std::vector<std::set<int>> seen (static_cast<std::size_t> (kNumTracks));
+
+        for (int block = 0; block < blocks; ++block)
+        {
+            engine.process (left.data(), right.data(), blockSize);
+
+            for (int track = 0; track < kNumTracks; ++track)
+                seen[static_cast<std::size_t> (track)].insert (engine.playheadStep (track));
+        }
+
+        return seen;
+    }
+}
+
+BUD_TEST (Playhead, everyTrackAdvancesEvenWithNothingOnIt)
+{
+    Engine engine;
+    engine.prepare (48000.0, 512);
+    engine.parameters().set (ParamKind::Tempo, 120);
+
+    // Nothing is programmed anywhere: no track has a single gate.
+    engine.initialisePattern (0);
+    engine.start();
+
+    // Two bars at 120 bpm.
+    const auto seen = playheadPositions (engine, 375, 512);
+
+    for (int track = 0; track < kNumTracks; ++track)
+    {
+        // The playhead used to be latched when a trigger fired, so a track with no notes never
+        // moved off step 0 — the sequence appeared to stop dead on empty instruments.
+        CHECK_EQ (static_cast<int> (seen[static_cast<std::size_t> (track)].size()),
+                  kStepsPerVariation);
+    }
+}
+
+BUD_TEST (Playhead, tracksMoveTogetherAtTheSameSettings)
+{
+    Engine engine;
+    engine.prepare (48000.0, 512);
+    engine.parameters().set (ParamKind::Tempo, 120);
+    engine.initialisePattern (0);
+    engine.start();
+
+    std::vector<float> left (512), right (512);
+
+    // At the default note length and step length every track is on the same grid, so they have
+    // to read the same step as each other at every instant — one column crossing the whole
+    // sequencer rather than eleven independent ones.
+    for (int block = 0; block < 200; ++block)
+    {
+        engine.process (left.data(), right.data(), 512);
+
+        const auto first = engine.playheadStep (0);
+
+        for (int track = 1; track < kNumTracks; ++track)
+            CHECK_EQ (engine.playheadStep (track), first);
+    }
+}
+
+BUD_TEST (Playhead, aPolymetricTrackKeepsItsOwnPosition)
+{
+    Engine engine;
+    engine.prepare (48000.0, 512);
+    engine.parameters().set (ParamKind::Tempo, 120);
+    engine.initialisePattern (0);
+
+    // A shorter track wraps sooner, so it must be allowed to disagree with its neighbours —
+    // forcing one shared column would misreport what the sequencer is actually doing.
+    engine.parameters().set (ParamKind::TrackStepLength, 3, 5);
+    engine.start();
+
+    const auto seen = playheadPositions (engine, 375, 512);
+
+    CHECK_EQ (static_cast<int> (seen[3].size()), 5);
+    CHECK_EQ (static_cast<int> (seen[0].size()), kStepsPerVariation);
 }

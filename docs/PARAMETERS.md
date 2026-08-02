@@ -480,3 +480,29 @@ character rather than naming a machine.
   load or a turn of the knob all still work and none of them has to know the menu exists. Move the
   knob off a named slot and the interface simply shows nothing selected, rather than relabelling
   the nearest entry.
+
+---
+
+## The playhead
+
+`TrackSequencer::playheadStep()` is a **position**, derived from the transport:
+
+```
+steps   = floor((blockStart - originPpq) / stepQuarterNotes)
+playhead = steps mod stepLength
+```
+
+It used to be latched from the last emitted trigger, which meant a track with no notes on it
+never left step 1 and a sparse track's marker stuck on its last hit — the sequencer looked like
+it had stopped on those instruments. Position is the honest definition and costs nothing: every
+track shows the sequence crossing it whether or not it has anything to play.
+
+It cannot come from `stepIndex_`, which is where *scheduling* has reached. Consumption runs a
+lookahead ahead of playback so that a step drifting backwards over a block boundary is not lost,
+so `stepIndex_` is ahead of the music by design.
+
+Each track keeps its own note length and step length, so tracks at the same settings read the
+same step — one column crossing the whole sequencer — while a polymetric track legitimately
+disagrees with its neighbours rather than being forced into a shared column. `tests/SequencerTests.cpp`
+asserts all three: that an empty track advances, that identical settings agree at every instant,
+and that a five-step track wraps on its own.
