@@ -65,10 +65,11 @@ enum class SoundBank : std::uint8_t
     S2,       ///< User samples, 2 s mono
     S4,       ///< User samples, 4 s mono
     S8,       ///< User samples, 8 s stereo (track 10)
-    BASS      ///< Bass synth (track 11)
+    BASS,     ///< Bass synth (track 11)
+    WT        ///< Wavetable synthesis. Not on the device; see docs/PARAMETERS.md
 };
 
-inline constexpr int kNumSoundBanks = 13;
+inline constexpr int kNumSoundBanks = 14;
 
 /// How much extra timing offset a bank takes on top of the FEEL offset (p. 61).
 enum class FeelClass : std::uint8_t
@@ -112,6 +113,7 @@ inline constexpr std::array<SoundBankInfo, kNumSoundBanks> kSoundBankTable { {
     { "S4",   "Sample 4s",    FeelClass::None,        RandomClass::Subtle,     true  },
     { "S8",   "Sample 8s",    FeelClass::None,        RandomClass::Subtle,     true  },
     { "BASS", "Bass Synth",   FeelClass::None,        RandomClass::Aggressive, false },
+    { "WT",   "Wavetable",    FeelClass::None,        RandomClass::Subtle,     false },
 } };
 
 constexpr const SoundBankInfo& bankInfo (SoundBank bank) noexcept
@@ -124,7 +126,8 @@ constexpr const SoundBankInfo& bankInfo (SoundBank bank) noexcept
 constexpr bool bankHasSynthEngine (SoundBank bank, int track) noexcept
 {
     return (bank == SoundBank::BD && track == 0)
-        || (bank == SoundBank::SD && track == 2);
+        || (bank == SoundBank::SD && track == 2)
+        || bank == SoundBank::WT;
 }
 
 //==============================================================================

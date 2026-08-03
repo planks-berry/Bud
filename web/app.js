@@ -134,6 +134,9 @@ function refreshValues() {
         ...state.knobKinds.bass,
     ];
 
+    const bank = state.byId.get('bank');
+    if (bank) wanted.push({ kind: bank.kind, track: state.selectedTrack });
+
     for (const kind of editorKinds) wanted.push({ kind, track: state.selectedTrack });
 
     // Track mute is drawn on every row, so every track's copy is needed.
@@ -331,6 +334,15 @@ function buildPresets() {
 /// nothing about what you are choosing. This sits in front of it without replacing it: picking an
 /// entry writes BANK and SOUND, and moving the knob past them simply shows nothing selected.
 function buildSoundPicker() {
+    // The bank sits above the five, because it decides what the five *are* — and because it is
+    // the only way to reach the engines that are not on the micro knobs, WT among them.
+    const bankHost = $('bank');
+    bankHost.innerHTML = '';
+
+    const bank = state.byId.get('bank');
+
+    if (bank) bankHost.appendChild(makeControl(bank, state.selectedTrack));
+
     const host = $('sounds');
     host.innerHTML = '';
 

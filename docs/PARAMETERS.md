@@ -552,3 +552,66 @@ original synthesis as the rest of the instrument.
 
 `everyPresetActuallyPlays` renders a bar of each from a fresh engine and requires real output:
 silence would mean a part pointing at an empty slot, which nothing else would catch.
+
+---
+
+## The wavetable engine
+
+A fourteenth bank, **WT**, selectable on any track. It is not on the modelled device — the manual
+has nothing to be faithful to here — so its knob assignments are chosen rather than derived:
+
+| Knob | Meaning |
+|---|---|
+| SOUND | which wavetable |
+| TUNE | pitch, ±5 semitones around the step's note |
+| TONE | the track filter, as on every sampled bank |
+| MOVE | **position across the frames** — the control the engine exists for |
+| ATTACK | attack, 0–500 ms |
+| DECAY | decay, 20–4000 ms |
+
+MOVE reads as a signed *rate* rather than a position: centre holds still, either side sweeps
+across the table over the note. A wavetable held still is only a waveform, and the movement is
+what separates the engine from an oscillator with more shapes.
+
+### Tables are described, not sampled
+
+`dsp::HarmonicSpec` gives a cycle as harmonic amplitudes and phases. That is what makes
+band-limiting exact: to play safely at a given pitch you stop summing at the last harmonic that
+fits below Nyquist. Starting from a buffer means filtering something that has already aliased,
+which cannot be undone.
+
+Band-limiting is by **mip level**. Level *k* keeps half the harmonics of level *k−1* and half as
+many samples — the right trade, since a table with fewer harmonics needs fewer points to
+represent it. The whole pyramid costs about a third more than the base level rather than ten
+times as much. `mipForFrequency` picks the coarsest level whose highest harmonic still fits, and
+`tests/WaveTableTests.cpp` asserts that directly rather than by ear.
+
+Two interpolations happen per sample: along the cycle, and between frames. The second is the
+point.
+
+### Adding your own
+
+```cpp
+// From harmonic content — you know what you want it to contain.
+dsp::HarmonicSpec frames[2];
+frames[0].amplitude = { 1.0f };                       // a sine
+frames[1].amplitude = { 1.0f, 0.5f, 0.33f, 0.25f };   // a saw
+
+engine.waveTables().addHarmonic ("MINE", frames);
+
+// Or from audio — a recording, a drawing, something generated elsewhere. Each cycle is
+// analysed into harmonics first, which is what lets it play an octave up without aliasing.
+const std::span<const float> cycles[] = { myCycle };
+engine.waveTables().addCycles ("SAMPLED", cycles);
+```
+
+Either returns the index to set `SOUND` to. Cycles may be any length and need not match each
+other. `generateFactory()` replaces only its own entries, so a table you added survives a sample
+rate change.
+
+### Factory tables
+
+`BASIC` (sine→triangle→saw→square), `PULSE` (width narrowing), `FORMANT` (peaks sliding up the
+series), `HOLLOW` (odd harmonics thinning), `GLASS` (sparse, slow roll-off), `DIGITAL` (phase
+twisted across the harmonics — the hard edge amplitudes alone will not give you), `GROWL` (bass
+with a moving upper formant).

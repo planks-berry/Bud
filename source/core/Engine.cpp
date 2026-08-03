@@ -6,6 +6,7 @@
 #include "voices/BassVoice.h"
 #include "voices/DrumVoices.h"
 #include "voices/SampleVoices.h"
+#include "voices/WaveTableVoice.h"
 
 #include <algorithm>
 #include <cmath>
@@ -44,12 +45,19 @@ void Engine::buildVoices()
             slot.synth = std::make_unique<KickVoice>();
         else if (track == 2)
             slot.synth = std::make_unique<SnareVoice>();
+
+        // Unlike BD and SD synthesis, which the device fixes to two tracks, the wavetable bank
+        // can be selected anywhere — so every track carries one.
+        slot.wavetable = std::make_unique<WaveTableVoice>();
     }
 }
 
 Voice* Engine::voiceFor (int track, SoundBank bank) noexcept
 {
     auto& slot = voices_[static_cast<std::size_t> (track)];
+
+    if (bank == SoundBank::WT)
+        return slot.wavetable.get();
 
     if (slot.synth != nullptr && bankHasSynthEngine (bank, track))
         return slot.synth.get();
@@ -83,6 +91,10 @@ void Engine::prepare (double sampleRate, int maxBlockSize)
     // sample rate so nothing has to be resampled on playback.
     factory::generate (sounds_, sampleRate_);
 
+    // Rebuilt here rather than in the constructor because the mip pyramid is chosen against the
+    // sample rate. Custom tables survive: generateFactory only replaces its own entries.
+    waveTables_.generateFactory();
+
     for (int track = 0; track < kNumTracks; ++track)
     {
         const auto t = static_cast<std::size_t> (track);
@@ -94,7 +106,8 @@ void Engine::prepare (double sampleRate, int maxBlockSize)
         filterLeft_[t].prepare (sampleRate_);
         filterRight_[t].prepare (sampleRate_);
 
-        for (auto* voice : { voices_[t].sampler.get(), voices_[t].synth.get() })
+        for (auto* voice : { voices_[t].sampler.get(), voices_[t].synth.get(),
+                             voices_[t].wavetable.get() })
         {
             if (voice == nullptr)
                 continue;
@@ -102,6 +115,9 @@ void Engine::prepare (double sampleRate, int maxBlockSize)
             voice->prepare (sampleRate_);
             voice->setLibrary (&sounds_);
         }
+
+        if (auto* wt = dynamic_cast<WaveTableVoice*> (voices_[t].wavetable.get()))
+            wt->setBank (&waveTables_);
     }
 
     for (auto* bus : { &drumBus_, &directBus_, &reverbSend_, &delaySend_ })
@@ -127,7 +143,8 @@ void Engine::reset()
         sequencers_[t].reset();
         activeLocks_[t] = nullptr;
 
-        for (auto* voice : { voices_[t].sampler.get(), voices_[t].synth.get() })
+        for (auto* voice : { voices_[t].sampler.get(), voices_[t].synth.get(),
+                             voices_[t].wavetable.get() })
             if (voice != nullptr)
                 voice->reset();
 
@@ -152,7 +169,8 @@ void Engine::start()
         sequencers_[t].reset();
         activeLocks_[t] = nullptr;
 
-        for (auto* voice : { voices_[t].sampler.get(), voices_[t].synth.get() })
+        for (auto* voice : { voices_[t].sampler.get(), voices_[t].synth.get(),
+                             voices_[t].wavetable.get() })
             if (voice != nullptr)
                 voice->reset();
 
@@ -350,7 +368,7 @@ void Engine::syncFromParameters()
     groove_.setDepth (1.0f);
 
     for (auto& slot : voices_)
-        for (auto* voice : { slot.sampler.get(), slot.synth.get() })
+        for (auto* voice : { slot.sampler.get(), slot.synth.get(), slot.wavetable.get() })
             if (voice != nullptr)
                 voice->setTempo (tempo);
 
@@ -433,7 +451,7 @@ void Engine::renderTrack (int track, int numSamples)
         if (target <= cursor)
             return;
 
-        for (auto* voice : { slot.sampler.get(), slot.synth.get() })
+        for (auto* voice : { slot.sampler.get(), slot.synth.get(), slot.wavetable.get() })
             if (voice != nullptr)
                 voice->render (left + cursor, right + cursor, target - cursor);
 
@@ -460,7 +478,7 @@ void Engine::renderTrack (int track, int numSamples)
         if (action.event == nullptr)
         {
             // A partner trigger: choke whatever this track is playing.
-            for (auto* voice : { slot.sampler.get(), slot.synth.get() })
+            for (auto* voice : { slot.sampler.get(), slot.synth.get(), slot.wavetable.get() })
                 if (voice != nullptr)
                     voice->choke();
 

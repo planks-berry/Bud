@@ -19,7 +19,8 @@ namespace labels
                                                        "8", "8D", "8T", "16", "32" };
     inline constexpr std::string_view swingRes[]   = { "8TH", "16TH" };
     inline constexpr std::string_view bank[]       = { "BD", "SD", "HH", "CP", "ST", "TT", "PC",
-                                                       "SY", "FX", "S2", "S4", "S8", "BASS" };
+                                                       "SY", "FX", "S2", "S4", "S8", "BASS",
+                                                       "WT" };
     inline constexpr std::string_view loopMode[]   = { "O.OFF", "O.MLD", "O.RHY",
                                                        ">.OFF", ">.MLD", ">.RHY" };
     inline constexpr std::string_view snappy[]     = { "N88", "N99", "NT1", "NT2", "NT3", "NT4" };
@@ -106,7 +107,7 @@ static const std::array<ParamDescriptor, kNumParamKinds> kParamTable { {
     { ParamKind::SamplerSource,        "smp_source",     "SMP.SRC", S::Global,   0,    1,   0, U::Enum,         false, lab (labels::extSource) },
     { ParamKind::SamplerBank,          "smp_bank",       "SMP.BNK", S::Global,   0,    2,   0, U::Enum,         false, lab (labels::sampleBank) },
 
-    { ParamKind::TrackSoundBank,       "bank",           "BANK",    S::Track,    0,   12,   0, U::Enum,         false, lab (labels::bank) },
+    { ParamKind::TrackSoundBank,       "bank",           "BANK",    S::Track,    0,   13,   0, U::Enum,         false, lab (labels::bank) },
     { ParamKind::TrackSound,           "sound",          "SOUND",   S::Track,    0,  127,   0, U::Raw,          true,  noLabels },
     { ParamKind::TrackTune,            "tune",           "TUNE",    S::Track,    0,  127,  64, U::Bipolar,      true,  noLabels },
     { ParamKind::TrackTone,            "tone",           "TONE",    S::Track,    0,  127,  64, U::Tone,         true,  noLabels },

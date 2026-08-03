@@ -16,8 +16,10 @@ add_library(BudCore STATIC
     sequencer/NoteInput.cpp
     sequencer/Groove.cpp
     dsp/TimeStretch.cpp
+    dsp/WaveTable.cpp
     factory/FactoryContent.cpp
     factory/SoundMenu.cpp
+    factory/WaveTables.cpp
     factory/Presets.cpp
     kit/DrumKit.cpp
     fx/Isolator.cpp
@@ -30,6 +32,7 @@ add_library(BudCore STATIC
     voices/DrumVoices.cpp
     voices/SampleVoices.cpp
     voices/BassVoice.cpp
+    voices/WaveTableVoice.cpp
 )
 
 target_include_directories(BudCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)

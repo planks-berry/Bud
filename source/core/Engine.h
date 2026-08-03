@@ -7,6 +7,7 @@
 #include "fx/MasterFx.h"
 #include "fx/Reverb.h"
 #include "fx/TapeEcho.h"
+#include "factory/WaveTables.h"
 #include "kit/DrumKit.h"
 #include "params/ParameterSet.h"
 #include "sampler/SampleBank.h"
@@ -98,6 +99,15 @@ public:
     SoundLibrary& sounds() noexcept { return sounds_; }
     const SoundLibrary& sounds() const noexcept { return sounds_; }
 
+    /** The wavetables the WT bank plays.
+
+        Exposed non-const so custom tables can be added at run time — that is the point of the
+        engine rather than an extra. A table added here is playable immediately: select the WT
+        bank on a track and turn SOUND to it.
+    */
+    factory::WaveTableBank& waveTables() noexcept { return waveTables_; }
+    const factory::WaveTableBank& waveTables() const noexcept { return waveTables_; }
+
     PatternBank& patterns() noexcept { return patterns_; }
     const PatternBank& patterns() const noexcept { return patterns_; }
 
@@ -182,6 +192,7 @@ private:
     {
         std::unique_ptr<Voice> sampler;   ///< Sample playback, or the loop / bass voice
         std::unique_ptr<Voice> synth;     ///< BD on track 1, SD on track 3; null elsewhere
+        std::unique_ptr<Voice> wavetable; ///< The WT bank, available on every track
     };
 
     void buildVoices();
@@ -235,6 +246,7 @@ private:
     Sampler sampler_;
     ParameterSet parameters_;
     SoundLibrary sounds_;
+    factory::WaveTableBank waveTables_;
     PatternBank patterns_;
     KitBank kits_;
 

@@ -47,6 +47,8 @@ moment `-O3` asks for it, which is why CI installs the SDK proper.
   somewhere the menu does not name.
 - **PRESET** — thirty genre starting points, grouped by family. Loading one sets the tempo,
   FEEL, swing, each track's sound and its part.
+- **BANK** — which engine the track plays. Includes **WT**, the wavetable synth, which is
+  available on every track; see [the wavetable engine](PARAMETERS.md#the-wavetable-engine).
 - **DEMO / CLR PTN** — load the demo pattern, or initialise the current one.
 
 ---
