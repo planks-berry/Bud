@@ -35,3 +35,8 @@ web/*.png
 # The single-file bundles, folded from the sources above by web/bundle.mjs.
 web/bud-standalone.html
 web/bud-fragment.html
+
+# Little Kitchen's browser test installs Playwright into its own directory, the same way web/ does.
+kitchen/node_modules/
+kitchen/package.json
+kitchen/package-lock.json

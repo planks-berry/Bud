@@ -29,6 +29,7 @@ specification and [`docs/PARAMETERS.md`](docs/PARAMETERS.md) for the parameter r
 | M9 | macOS packaging | pending |
 | M10 | iPad AUv3 | pending |
 | — | [Browser build](docs/WEB.md) (wasm + AudioWorklet) | playable |
+| — | [Little Kitchen](docs/KITCHEN.md), a cooking game for toddlers, in `kitchen/` | playable |
 
 ## Architecture
 

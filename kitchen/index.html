@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Pinch-zoom is off: a toddler's second finger should not zoom the kitchen away. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#F7F1E6">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Little Kitchen">
+<title>Little Kitchen</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<main class="stage">
+    <svg id="scene" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 750"
+         preserveAspectRatio="none" role="application" aria-label="Little Kitchen"></svg>
+</main>
+
+<!-- Opened by pressing and holding the small mark in the corner: nothing a toddler does by
+     accident reaches it. -->
+<div class="sheet" id="sheet" hidden role="dialog" aria-labelledby="sheet-title" aria-modal="true">
+    <div class="sheet-card">
+        <h2 id="sheet-title">For grown-ups</h2>
+        <p>Little Kitchen has no timers, scores or wrong answers. Every ingredient goes in, every dish gets eaten.</p>
+        <label><span>Music</span><input type="checkbox" id="opt-music" checked></label>
+        <label><span>Sounds</span><input type="checkbox" id="opt-sounds" checked></label>
+        <div class="sheet-actions">
+            <button type="button" id="opt-fullscreen" hidden>Full screen</button>
+            <button type="button" class="primary" id="opt-close">Back to the kitchen</button>
+        </div>
+    </div>
+</div>
+
+<noscript>Little Kitchen needs JavaScript to run.</noscript>
+
+<script type="module" src="game.js"></script>
+</body>
+</html>

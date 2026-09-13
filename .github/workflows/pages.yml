@@ -96,10 +96,16 @@ jobs:
           cp web/app.js web/worklet.js web/style.css web/bud.js _site/
           cp web/index.html _site/multi-file.html
 
+          # Little Kitchen is served alongside, at /kitchen/. It is static files with no build,
+          # so this is a copy: everything the page needs and nothing the test does.
+          mkdir -p _site/kitchen
+          cp kitchen/index.html kitchen/style.css kitchen/game.js kitchen/art.js kitchen/audio.js \
+             kitchen/sw.js kitchen/manifest.webmanifest kitchen/icon.svg kitchen/*.png _site/kitchen/
+
           # Pages serves from a subdirectory, and everything is loaded relatively, so no
           # rewriting is needed. A .nojekyll stops Pages ignoring files it thinks are partials.
           touch _site/.nojekyll
-          ls -la _site
+          ls -la _site _site/kitchen
 
       - uses: actions/upload-pages-artifact@v3
         with:

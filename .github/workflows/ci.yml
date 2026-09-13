@@ -97,6 +97,28 @@ jobs:
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
         run: ctest --test-dir build --output-on-failure
 
+  # Little Kitchen, the toddlers' cooking game in kitchen/, is plain HTML, SVG and Web Audio with
+  # no build step, so the only thing to check is that it plays — and only a real browser can
+  # check that. Also run under a strict CSP, which proves it is self-contained.
+  kitchen:
+    name: Little Kitchen (browser)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Test in a real browser
+        working-directory: kitchen
+        run: |
+          npm install --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+          node test.mjs
+          node test.mjs --csp
+
   # Placeholder for the Apple targets. It runs as soon as BUD_BUILD_PLUGIN exists and produces
   # something; until then it reports that there is nothing to build rather than failing, so the
   # workflow is already in place when the JUCE targets land.
