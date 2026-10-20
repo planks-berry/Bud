@@ -3,7 +3,8 @@
 
 import { Stage } from './stage.js';
 import * as audio from './audio.js';
-import { settings, level } from './settings.js';
+import { settings, level as levelOf } from './settings.js';
+import * as usage from './usage.js';
 import { StartScene, startSounds } from './start.js';
 import { ShelfScene } from './shelf.js';
 import { TOYS } from './toys/index.js';
@@ -20,7 +21,12 @@ const app = {
     toys: TOYS,
     shelf: null,
     current: null,
-    level,
+
+    // A toy's stage as a number, 0 to 2. Toys ask while they are being created, which is after
+    // `current` names them.
+    level(id = this.current) {
+        return levelOf(id);
+    },
 
     // The toys the grown-up has put out. Never none: an empty shelf would be a dead end.
     visibleToys() {
@@ -38,6 +44,7 @@ const app = {
         const toy = TOYS.find((t) => t.id === id);
         if (!toy || stage.busy || this.current) return;
         this.current = id;
+        usage.begin(id);
         audio.play('whoosh', { variant: 'up' }, { gain: 1, wet: 0.25 });
         toy.signature();
         stage.show(toy.create(this), {
@@ -54,13 +61,14 @@ const app = {
         if (!this.current || stage.busy) return;
         const rect = this.shelf.rectOf(this.current);
         this.current = null;
+        usage.end();
         audio.play('whoosh', { variant: 'down' }, { gain: 0.9, wet: 0.25 });
         stage.show(this.shelf, { kind: 'close', rect, duration: 0.45 });
         home.hidden = true;
         gate.hidden = false;
     },
 
-    // After the grown-up changes the stage or the shelf.
+    // After the grown-up changes a stage or the shelf.
     refreshShelf() {
         if (!this.shelf) return;
         this.shelf.invalidate();
@@ -73,7 +81,7 @@ const app = {
     // Render the toys' sounds a few at a time while the child is looking at the shelf, so the first
     // touch in a toy does not wait for synthesis.
     warmUp() {
-        for (const toy of TOYS) audio.prepare(toy.sounds(level()));
+        for (const toy of TOYS) audio.prepare(toy.sounds(levelOf(toy.id)));
     },
 };
 
@@ -132,6 +140,12 @@ function pressable(button, action) {
 }
 
 pressable(home, () => app.goHome());
+
+// Time with a hand on a toy, for the grown-ups' corner. Passive: these only listen.
+for (const type of ['touchstart', 'touchmove', 'touchend', 'mousedown'])
+    stage.canvas.addEventListener(type, usage.touch, { passive: true });
+document.addEventListener('visibilitychange', () => (document.hidden ? usage.pause() : usage.resume()));
+window.addEventListener('pagehide', usage.pause);
 
 audio.setVolume(settings.volume);
 audio.setThroughSilent(settings.throughSilent);

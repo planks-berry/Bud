@@ -934,6 +934,7 @@ export const toy = {
     id: 'pour',
     title: 'Pouring',
     about: 'Pitchers of coloured water, glasses, a bowl and a sponge. Colours mix; spills wipe up.',
+    stages: ['1 colour, 2 glasses', '2 colours, 3 glasses', '3 colours, 4 glasses'],
     mat: '#DDEBE6',
     icon,
     create: (app) => new PourScene(app),

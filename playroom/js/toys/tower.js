@@ -2,10 +2,10 @@
 //
 // In a Montessori room the tower is built largest at the bottom, and the material corrects itself:
 // a big cube on a small one looks wrong and wobbles. This playroom chose open-ended play, so
-// nothing here says right or wrong. The order is still in the material. Every cube has a wooden
-// note, and the note goes with the size, so a tower built largest-first plays a scale from the
-// bottom up when its lowest cube is tapped. Built any other way it plays something else, which is
-// also fine.
+// nothing here says right or wrong, and no order sounds better than another. A cube's note is its
+// height, not its size: on the rug it plays the lowest note and each tier up plays the next, so a
+// tower built in any order climbs the same scale from its base when its lowest cube is tapped.
+// Size shows only in how full the knock is.
 //
 //   touch  - tap a cube: it hops and sounds, and so does every cube stacked on it, in turn.
 //   move   - carry cubes and stack them; they settle with a knock. Pull one from the middle and
@@ -43,7 +43,6 @@ class TowerScene extends Scene {
         for (let rank = 0; rank < this.count; rank++) {
             this.cubes.push({
                 rank,
-                degree: Math.round((rank * 9) / (this.count - 1)),
                 x: 0,
                 y: 0,
                 s: 0,
@@ -82,6 +81,7 @@ class TowerScene extends Scene {
         const byWidth = (w * 0.92 - gaps) / (this.count * meanRatio);
         const byHeight = (this.floor - 100 * u) / (this.count * meanRatio * 1.05);
         const largest = Math.min(byWidth, byHeight, 170 * u);
+        this.largest = largest;
         for (const c of this.cubes) {
             const t = this.count > 1 ? c.rank / (this.count - 1) : 0;
             c.s = largest * (1 - t * (1 - minRatio));
@@ -199,11 +199,36 @@ class TowerScene extends Scene {
         o.below = null;
     }
 
+    // The tier `c` stands on where it is now: 0 on the rug, otherwise one above the highest cube
+    // under it. Its note is that many steps up the scale, whatever size it and its neighbours are.
+    tierOf(c) {
+        let tier = 0;
+        for (const o of this.cubes) {
+            if (o === c || o.state !== 'rest') continue;
+            if (this.overlapX(c, o) <= 1 || Math.abs(this.surface(o, c) - c.y) >= 1.5) continue;
+            tier = Math.max(tier, this.tierOf(o) + 1);
+        }
+        return tier;
+    }
+
+    // A big cube knocks fuller than a small one; that, and the thud on the rug, is all size does.
+    fullness(c) {
+        return 0.55 + 0.45 * (c.s / this.largest);
+    }
+
+    sound(c, gain, wet) {
+        audio.note('wood', this.tierOf(c), 60, {
+            gain: gain * this.fullness(c),
+            pan: (c.x / this.w) * 2 - 1,
+            wet,
+        });
+    }
+
     land(c, impact, onFloor) {
         // Harder landings knock louder, from a soft settle to a little above a tap.
         const strength = clamp(impact / (1400 * this.u), 0.2, 1.4);
         c.squash.kick(clamp(impact / (300 * this.u), 1, 9));
-        audio.note('wood', c.degree, 60, { gain: strength * 0.85, pan: (c.x / this.w) * 2 - 1, wet: 0.15 });
+        this.sound(c, strength * 0.85, 0.15);
         if (onFloor && impact > 700 * this.u && c.rank < this.count / 2) {
             audio.play('thud', { f: 85 }, { gain: strength * 0.5, pan: (c.x / this.w) * 2 - 1 });
         }
@@ -256,8 +281,8 @@ class TowerScene extends Scene {
             const dir = c.x < o.x ? -1 : 1;
             c.x += dir * ox;
             if (Math.abs(c.vx) > 320 * u) {
+                this.sound(o, 0.7, 0.15);
                 this.knock(o, c.vx * 0.55 * Math.sqrt(c.s / o.s));
-                audio.note('wood', o.degree, 60, { gain: 0.7, pan: (o.x / this.w) * 2 - 1 });
             }
             c.vx = dir * Math.abs(c.vx) * 0.3;
         }
@@ -366,7 +391,12 @@ class TowerScene extends Scene {
             c.alignTo = null;
             c.angle = 0;
             c.settle.set(0);
-            audio.play('tick', { f: noteHz(c.degree, 72) }, { gain: 0.25, pan: (c.x / this.w) * 2 - 1 });
+            // Lifted off the tier it stood on: a light tick at that height.
+            audio.play(
+                'tick',
+                { f: noteHz(this.tierOf(c), 72) },
+                { gain: 0.25, pan: (c.x / this.w) * 2 - 1 }
+            );
         }
         c.x = clamp(p.x + o.dx, this.left + c.s / 2, this.right - c.s / 2);
         c.y = clamp(p.y + o.dy, c.s + c.d + 4 * u, this.floor);
@@ -377,8 +407,8 @@ class TowerScene extends Scene {
                 if (other === c || other.state !== 'rest') continue;
                 const overlapY = Math.min(c.y, other.y) - Math.max(c.y - c.s, other.y - other.s);
                 if (this.overlapX(c, other) > 4 * u && overlapY > 4 * u) {
+                    this.sound(other, 0.75, 0.15);
                     this.knock(other, p.vx * 0.5);
-                    audio.note('wood', other.degree, 60, { gain: 0.75, pan: (other.x / this.w) * 2 - 1 });
                 }
             }
         }
@@ -448,7 +478,7 @@ class TowerScene extends Scene {
         while (this.sequence.length && this.sequence[0].at <= this.time) {
             const c = this.sequence.shift().cube;
             c.squash.kick(7);
-            audio.note('wood', c.degree, 60, { gain: 1, pan: (c.x / this.w) * 2 - 1, wet: 0.2 });
+            this.sound(c, 1, 0.2);
         }
         return busy;
     }
@@ -535,17 +565,19 @@ function icon(ctx, x, y, w, h) {
 export const toy = {
     id: 'tower',
     title: 'Pink tower',
-    about: 'Wooden cubes to stack and topple. Each sounds its size, so a tower in order plays a scale.',
+    about: 'Wooden cubes to stack and topple, in any order. The higher a cube sits, the higher its note.',
+    stages: ['5 cubes', '7 cubes', '10 cubes, the smallest a tenth the size'],
     mat: '#F6DDE0',
     icon,
     create: (app) => new TowerScene(app),
-    sounds() {
+    // A tower of every cube is the tallest there can be: one note per tier.
+    sounds(level) {
         const list = [['thud', { f: 85 }]];
-        for (let d = 0; d <= 9; d++)
+        for (let d = 0; d < COUNTS[level]; d++)
             list.push(['wood', { f: noteHz(d, 60) }], ['tick', { f: noteHz(d, 72) }]);
         return list;
     },
     signature() {
-        [0, 2, 4].forEach((d, i) => audio.note('wood', d, 60, { gain: 0.6, delay: 0.05 + i * 0.1 }));
+        [0, 1, 2].forEach((d, i) => audio.note('wood', d, 60, { gain: 0.6, delay: 0.05 + i * 0.1 }));
     },
 };

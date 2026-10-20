@@ -147,6 +147,11 @@ body {
     color: #7A6758;
 }
 
+.hint.note {
+    margin: 10px 0 0;
+    font-size: 13px;
+}
+
 .sheet button {
     font: inherit;
     color: inherit;
@@ -208,23 +213,50 @@ body {
     text-align: left;
 }
 
-.toggle .label {
+.label {
     -webkit-flex: 1;
     flex: 1;
     margin-right: 14px;
 }
 
-.toggle strong {
+.label strong {
     display: block;
     font-size: 16px;
 }
 
-.toggle .label span {
+.label span {
     display: block;
     margin-top: 2px;
     font-size: 13px;
     line-height: 1.35;
     color: #7A6758;
+}
+
+.label .usage {
+    margin-top: 6px;
+    font-weight: 700;
+    color: #8B7766;
+}
+
+/* A toy's row: what it is, whether it is out, and its stage. A div rather than a button, so the
+   switch and the stage buttons inside it can be buttons of their own. */
+.toy {
+    margin: 0 0 8px;
+    padding: 12px 14px 14px;
+    border-radius: 14px;
+    background: #FFFDF8;
+}
+
+.toy .head {
+    display: -webkit-flex;
+    display: flex;
+    -webkit-align-items: flex-start;
+    align-items: flex-start;
+}
+
+.toy.off .label,
+.toy.off .segments {
+    opacity: 0.5;
 }
 
 .switch {
@@ -237,6 +269,13 @@ body {
     background: #E2D6C6;
     -webkit-transition: background 0.2s;
     transition: background 0.2s;
+}
+
+button.switch {
+    margin: 2px 0 0;
+    padding: 0;
+    border: 0;
+    outline: none;
 }
 
 .switch:after {
@@ -253,13 +292,56 @@ body {
     transition: transform 0.2s;
 }
 
-.toggle[aria-pressed="true"] .switch {
+.toggle[aria-pressed="true"] .switch,
+.switch[aria-pressed="true"] {
     background: #98B985;
 }
 
-.toggle[aria-pressed="true"] .switch:after {
+.toggle[aria-pressed="true"] .switch:after,
+.switch[aria-pressed="true"]:after {
     -webkit-transform: translateX(20px);
     transform: translateX(20px);
+}
+
+.segments {
+    display: -webkit-flex;
+    display: flex;
+    margin-top: 12px;
+}
+
+.segments button {
+    -webkit-flex: 1;
+    flex: 1;
+    min-width: 0;
+    margin: 0 8px 0 0;
+    padding: 8px 10px;
+    border: 2px solid #E7D8C2;
+    border-radius: 12px;
+    background: #FFFDF8;
+    text-align: left;
+}
+
+.segments button:last-child {
+    margin-right: 0;
+}
+
+.segments strong {
+    display: block;
+    font-size: 14px;
+}
+
+/* Two lines for every detail, for the same reason as the stage cards above. */
+.segments span {
+    display: block;
+    min-height: 2.6em;
+    font-size: 12px;
+    line-height: 1.3;
+    color: #7A6758;
+}
+
+.segments button[aria-pressed="true"] {
+    border-color: #98B985;
+    background: #EEF4E7;
 }
 
 .slider {

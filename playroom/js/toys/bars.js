@@ -473,6 +473,7 @@ export const toy = {
     id: 'bars',
     title: 'Tone bars',
     about: 'A pentatonic marimba: no wrong notes. The shell plays back the last tune.',
+    stages: ['5 bars', '8 bars', '10 bars, which lift and move'],
     mat: shade(PALETTE.lavender, 0.35),
     icon,
     create: (app) => new BarsScene(app),

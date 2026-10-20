@@ -28,6 +28,7 @@ const FILES = [
     'js/draw.js',
     'js/util.js',
     'js/settings.js',
+    'js/usage.js',
     'js/parent.js',
     'js/start.js',
     'js/shelf.js',

@@ -663,6 +663,7 @@ export const toy = {
     id: 'easel',
     title: 'Easel',
     about: 'Watercolour that mixes on the paper, and Montessori metal insets to paint through.',
+    stages: ['3 paints, a broad brush', '6 paints, 4 insets', '6 paints, 8 insets, a finer brush'],
     mat: '#F1E8DA',
     icon,
     create: (app) => new EaselScene(app),

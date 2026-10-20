@@ -301,6 +301,47 @@ check(
     shapeFaults.join('; ')
 );
 
+// ---- the usage record counts play, not time left open --------------------------------------
+
+{
+    const store = new Map([
+        ['playroom.usage.v1', JSON.stringify({ since: '2000-1-1', days: { '2000-1-1': { pond: 99999 } } })],
+    ]);
+    Object.defineProperty(globalThis, 'localStorage', {
+        configurable: true,
+        writable: true,
+        value: { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v) },
+    });
+    const realNow = Date.now;
+    let clock = realNow();
+    Date.now = () => clock;
+    const usage = await import(pathToFileURL(join(here, 'js/usage.js')).href);
+    usage.begin('pond');
+    clock += 10000; // ten seconds of play
+    usage.touch();
+    clock += 5 * 60000; // five minutes untouched, which count as one
+    usage.touch();
+    usage.pause();
+    clock += 30 * 60000; // half an hour in the background, which counts as nothing
+    usage.resume();
+    clock += 5000;
+    usage.end();
+    Date.now = realNow;
+    const r = usage.recent('pond');
+    const kept = JSON.parse(store.get('playroom.usage.v1'));
+    delete globalThis.localStorage;
+    check(
+        'the usage record counts play, not time left open or away',
+        r.week === 75000 && r.before === 0 && r.covered === 14,
+        `${r.week} ms this week, ${r.before} before, ${r.covered} days`
+    );
+    check(
+        'and keeps two weeks of it',
+        !('2000-1-1' in kept.days) && Object.values(kept.days).some((day) => day.pond === 75000),
+        JSON.stringify(kept.days)
+    );
+}
+
 //==============================================================================
 // The browser
 
@@ -608,6 +649,45 @@ async function suite(mode) {
         landed.state === 'rest' && landed.y < landed.floor - 20,
         `${landed.state} at ${Math.round(landed.y)}`
     );
+    const tiers = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            return s.cubes.map((c) => ({
+                rank: c.rank,
+                tier: s.tierOf(c),
+                state: c.state,
+                x: c.x,
+                y: c.y,
+                s: c.s,
+            }));
+        });
+    let stack = await tiers();
+    const top = stack.find((c) => c.rank === small.rank);
+    check(
+        'its note is one tier above the cube under it',
+        top.tier === 1 && stack.find((c) => c.rank === 0).tier === 0,
+        `tiers ${top.tier} on ${stack.find((c) => c.rank === 0).tier}`
+    );
+    // No order is the right one: a big cube goes on the smallest, and is the third note.
+    const second = stack.find((c) => c.rank === 1);
+    const carry = top.y - top.s - 70 - second.s / 2;
+    await touch.drag(
+        [
+            ...line(second.x, second.y - second.s / 2, second.x, carry, 12),
+            ...line(second.x, carry, top.x, carry, 16).slice(1),
+            ...line(top.x, carry, top.x, carry + 30, 4).slice(1),
+        ],
+        16,
+        300
+    );
+    await page.waitForTimeout(1200);
+    stack = await tiers();
+    const third = stack.find((c) => c.rank === 1);
+    check(
+        'a big cube stacks on a small one, and sounds the third tier',
+        third.state === 'rest' && third.tier === 2,
+        `${third.state}, tier ${third.tier}`
+    );
     await touch.tap(big.x, big.y - big.s / 2);
     check('tapping the base plays the stack', (await peak(500)) > 0.02);
     await shot('tower');
@@ -760,21 +840,70 @@ async function suite(mode) {
         await page.evaluate(() => !document.getElementById('parent').hidden)
     );
     await shot('parent');
+    const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem('playroom.settings.v1')));
+    const sharedShown = () =>
+        page.evaluate(() => ({
+            pressed: document.querySelectorAll('[data-stages] [aria-pressed="true"]').length,
+            mixed: !document.querySelector('[data-mixed]').hidden,
+        }));
     await page.click('[data-stages] button:nth-child(1)');
+    check('every toy can be set to Seed at once, and it is remembered', (await stored()).stage === 'seed');
+    await page.click('[data-toy="busy"] [data-stage="bloom"]');
+    let saved = await stored();
     check(
-        'the stage can be set to Seed, and is remembered',
-        await page.evaluate(() => JSON.parse(localStorage.getItem('playroom.settings.v1')).stage === 'seed')
+        'one toy can be moved on by itself',
+        saved.stage === 'seed' && saved.stages.busy === 'bloom',
+        JSON.stringify(saved.stages)
     );
-    await page.click('[data-shelf] button:nth-child(2)');
+    let shared = await sharedShown();
+    check('and the shared stage then shows as mixed', shared.pressed === 0 && shared.mixed);
+    await page.click('[data-stages] button:nth-child(2)');
+    saved = await stored();
+    shared = await sharedShown();
+    check(
+        'setting every toy clears the one set by itself',
+        saved.stage === 'sprout' &&
+            Object.keys(saved.stages).length === 0 &&
+            shared.pressed === 1 &&
+            !shared.mixed
+    );
+    await page.click('[data-stages] button:nth-child(1)');
+    await page.click('[data-toy="busy"] [data-stage="bloom"]');
+    check(
+        'the letters, which have no stages, offer none',
+        (await page.$$('[data-toy="letters"] [data-stage]')).length === 0
+    );
+
+    const played = await page.evaluate(() => {
+        const d = new Date();
+        const record = JSON.parse(localStorage.getItem('playroom.usage.v1'));
+        const day = record.days[`${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`];
+        return { pond: day.pond, line: document.querySelector('[data-toy="pond"] .usage').textContent };
+    });
+    check(
+        'each toy shows the time it has been played',
+        played.pond > 3000 && /^Today: /.test(played.line) && played.line !== 'Today: 0 min',
+        `${played.pond} ms, "${played.line}"`
+    );
+
+    await page.click('[data-toy="busy"] .switch');
     check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 7);
-    await page.click('[data-shelf] button:nth-child(2)');
+    await page.click('[data-toy="busy"] .switch');
     check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 8);
+    await shot('parent-toys');
     await page.click('[data-close]');
     check('Done closes the settings', await page.evaluate(() => document.getElementById('parent').hidden));
     await open('busy');
+    const board = await scene(() => {
+        const widgets = window.playroom.stage.scene.widgets;
+        return { count: widgets.length, latch: widgets.find((w) => w.constructor.name === 'Door').hasLatch };
+    });
+    check('the busy board, moved on by itself, opens at Bloom', board.count === 6 && board.latch);
+    await home();
+    await open('tower');
     check(
-        'Seed puts out a smaller busy board',
-        (await scene(() => window.playroom.stage.scene.widgets.length)) === 4
+        'while the others stay at Seed',
+        (await scene(() => window.playroom.stage.scene.cubes.length)) === 5
     );
     await home();
 
@@ -792,7 +921,10 @@ async function suite(mode) {
     await page.waitForTimeout(500);
 
     // Every toy has been opened and put away: nothing it was sounding should still be running.
-    check('leaving a toy stops its sounds', (await scene(() => window.playroom.audio.stats().textures)) === 0);
+    check(
+        'leaving a toy stops its sounds',
+        (await scene(() => window.playroom.audio.stats().textures)) === 0
+    );
 
     // ---- nothing went wrong along the way ----------------------------------------------------------
 

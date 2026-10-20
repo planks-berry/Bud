@@ -832,6 +832,7 @@ export const toy = {
     id: 'pond',
     title: 'Pond',
     about: 'Tap the water, push the lily pads, feed the fish. Fish come to a finger held still.',
+    stages: ['3 fish, 2 lily pads', '4 fish, 3 lily pads', '5 fish, 4 lily pads'],
     mat: shade(PALETTE.mint, 0.3),
     icon,
     create: (app) => new PondScene(app),

@@ -33,13 +33,23 @@ grown-ups' corner.
 On the shelf, **press and hold the leaf in the top-right corner for three seconds**. A child taps;
 an adult can hold still. The panel has words in it, because it is for someone who reads:
 
-- **Stage: Seed, Sprout or Bloom.** How much each toy puts out. Nothing is locked; moving the stage
-  on simply puts more out, the way a guide adds to a shelf. Sprout is the default.
-- **On the shelf.** Which toys are out. Fewer choices help a young child settle into one; the
-  Montessori habit is to put a few out and rotate them every week or two.
+- **Stage: Seed, Sprout or Bloom.** How much a toy puts out. Nothing is locked; moving a stage on
+  simply puts more out, the way a guide adds to a shelf. The three cards set every toy at once
+  (Sprout is the default). Each toy can then be moved on, or back, by itself, and its row says what
+  each of its stages puts out. A guide moves one material on when a child starts pushing at what
+  it can do, not the whole shelf at once. The sandpaper letters and numerals have no stages.
+- **The toys.** Which are out, and each one's stage. Fewer choices help a young child settle into
+  one; the Montessori habit is to put a few out and rotate them every week or two.
+- **Time with each toy.** Each toy's row shows its minutes over the last seven days against the
+  seven before, because a child drifting away from a toy does it over days, and that is easy to
+  miss. Only time with a hand on the toy counts: each touch adds the time since the one before, up
+  to a minute, so a toy left open on the table does not look loved, and time with the playroom in
+  the background counts for nothing. Until the record is a week old, the row says how long it has
+  been counting instead.
 - **Sound.** Whether to play through the silent switch, and an overall volume.
 
-Settings live in the iPad's local storage for this site and survive restarts.
+Settings and the record of time live in the iPad's local storage for this site and survive
+restarts. The record keeps two weeks and never leaves the iPad.
 
 ---
 
@@ -59,7 +69,7 @@ Every toy has three layers, which are found by playing, never unlocked:
 | **Pond** | Nature, care of animals | Tap the water: a ripple and a water drop, pitched left-low to right-high | Push lily pads; open and close a lotus | Hold a finger still and the fish come to nibble; scatter food from the pot and they gather to eat | 3 / 4 / 5 fish, 2 / 3 / 4 pads |
 | **Busy board** | Practical life (dressing frames, bolt boards) | Lamp switch; a little door with a different picture behind it each time | A colour dial that clicks up the scale; a sun on a slider with a slide whistle; a zip | Crank a music box (Twinkle, Twinkle) at any speed; at Bloom the door has a bolt to slide first | 4 controls at Seed, 6 after; bolt at Bloom |
 | **Tone bars** | Music, auditory sense | Tap a bar; sweep for a glissando; chords with several fingers | Choose a wooden or a metal mallet | The shell plays back the last phrase; at Bloom, hold a bar to lift it and move it | 5 / 8 / 10 bars |
-| **Pink tower** | Sensorial: dimension | Tap a cube: it sounds, then every cube stacked on it, bottom to top | Carry, stack, pull one from the middle, throw one at a tower | Each cube's note goes with its size, so a tower built largest-first plays a rising scale | 5 / 7 / 10 cubes, the smallest down to Montessori's 1 : 10 |
+| **Pink tower** | Sensorial: dimension | Tap a cube: it sounds, then every cube stacked on it, bottom to top | Carry, stack, pull one from the middle, throw one at a tower | A cube's note is its height: the rug is the lowest note and each tier up the next, so a tower in any order climbs the same scale; a big cube knocks fuller | 5 / 7 / 10 cubes, the smallest down to Montessori's 1 : 10 |
 | **Pouring** | Practical life | Tap a glass: it rings lower the fuller it is | Carry a pitcher over a glass and it tilts and pours | Colours mix as paint does; glasses overflow onto the tray and the sponge wipes it up; a pitcher put back in its place fills again | 1 / 2 / 3 pitchers, 2 / 3 / 4 glasses |
 | **Easel** | Art; metal insets for the hand | Paint with a finger, or several | Choose a pot; lay a metal inset frame on the paper | Paint through the frame and lift it to leave a clean shape; watercolour glazes, so colours mix on the paper | 3 / 6 / 6 paints; 0 / 4 / 8 insets; brush smaller as it grows |
 | **Sandpaper letters** | Language | Choose a board from the box; trace it | A guide's finger shows how each is written, once, and again on request | Only the sand makes a sound; the smooth board is silent | – |
@@ -77,11 +87,15 @@ What is kept from Montessori is the honesty of the materials. Where an order exi
 **physical property**, not a verdict:
 
 - A tone bar's length goes with its pitch, as it does on a real instrument.
-- A pink cube's note goes with its size. A tower built in order plays a scale *because it is in
-  order*, and nothing announces it.
 - A sandpaper letter is rough and the board is smooth, so only the letter makes a sound. That is
   how a finger knows, as on the real board.
 - A glass rings lower as it fills, and the pouring sound rises, as real water does.
+
+The pink tower goes further. Montessori's tower has one right order, largest at the bottom, and a
+material that shows a mistake. Here the cubes are still graduated, so the order is there to be
+found by eye, but the sound favours no order at all. A cube's note is its height in the stack, not
+its size: every tower, built any way, climbs the same scale from its base, and a big cube balanced
+on the smallest is simply the next note up. Size shows only in how full the knock is.
 
 Montessori's other principles are here too:
 
@@ -173,7 +187,8 @@ In Node:
 - the offline copy is complete;
 - all 78 recipe variants render finite, unclipped, click-free and DC-free at 44.1 and 48 kHz;
 - every sound sits in its band of the mix;
-- all 36 glyphs stay on the writing lines.
+- all 36 glyphs stay on the writing lines;
+- the record of time counts touches, not time left open or in the background, and keeps two weeks.
 
 Then in Chromium, as an iPad (1024 × 768 at 2×, touch), the suite drives every toy with real touch
 events. It measures the audio that reaches the speaker through an analyser after the compressor.
@@ -181,8 +196,10 @@ It also checks:
 
 - that the first touch is what starts sound;
 - that the frame loop sleeps when nothing moves;
+- that a cube's note is its tier, whichever cube is under it;
 - that leaving a toy stops its sounds;
 - that the grown-ups' gate needs a three-second hold;
+- that one toy's stage can be moved on by itself, and the shared stage clears it again;
 - that a rotation is followed;
 - that the page opens with no connection.
 
@@ -214,6 +231,7 @@ playroom/
     draw.js, util.js        palette, shapes, layers, springs, colour, paint mixing
     start.js, shelf.js      the bud, and the shelf
     settings.js, parent.js  the grown-ups' corner
+    usage.js                time with each toy, for the grown-ups' corner
     toys/                   one file per toy; glyphs.js holds the letters and numerals
   icons/                    generated by tools/icons.mjs
   test.mjs                  the suite

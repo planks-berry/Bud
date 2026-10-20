@@ -1132,6 +1132,7 @@ export const toy = {
     id: 'busy',
     title: 'Busy board',
     about: 'Switch, dial, sliding sun, a door with something behind it, a zip and a music box to crank.',
+    stages: ['4 controls', '6 controls', '6 controls, and a bolt on the door'],
     mat: '#F3E6CF',
     icon,
     create: (app) => new BusyScene(app),
