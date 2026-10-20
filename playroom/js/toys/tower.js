@@ -1,19 +1,21 @@
-// The colour tower: wooden cubes in graduated sizes and a few colours, on a work rug.
+// The colour tower: wooden cubes in graded sizes and a few colours, on a work rug.
 //
 // It began as the Montessori pink tower, which is built largest at the bottom and corrects itself:
 // a big cube on a small one looks wrong and wobbles. This playroom chose open-ended play, so the
-// sizes stay graduated but no order is the right one. What a cube sounds is its colour. Each colour
+// sizes stay graded but no order is the right one. What a cube sounds is its colour. Each colour
 // has its own note, the note it has as a paint on the easel, and the colours are mixed across the
-// sizes, so building by size plays nothing special. A tower or a row of colours is a pattern, and a
-// tapped cube plays the pattern from there: itself, what stands on it, then each column standing
-// against it on the right.
+// sizes, so building by size plays nothing special. There are two orders to find, by size and by
+// colour, and a new set of both each time the tower comes off the shelf (see cubes.js).
 //
-//   touch  - tap a cube: it hops and sounds, then everything stacked on it, then the columns
-//            touching on its right, in turn.
+// A tower or a row of colours is a pattern. A tap anywhere on it plays the whole of it: each column
+// from the left, bottom to top, every cube lighting up as it sounds, over a pale band on the rug
+// that marks what is playing.
+//
+//   touch  - tap a cube: its whole row plays, column by column.
 //   move   - carry cubes and stack them or line them up; they settle with a knock, and one set
 //            down beside another slides up against it. Pull one from the middle and the ones above
 //            it drop.
-//   make   - build a pattern in colour and hear it played; or throw a cube at a tower.
+//   make   - build a pattern in colour, or in size, and hear it played; or throw a cube at a tower.
 
 import { Scene } from '../stage.js';
 import {
@@ -27,39 +29,30 @@ import {
     stitches,
     woodPanel,
 } from '../draw.js';
-import { Spring, clamp, shade, shuffle, rng, approach } from '../util.js';
+import { Spring, clamp, shade, shuffle, rng, approach, hexToRgb, mixRgb, rgbString } from '../util.js';
 import { noteHz } from '../synth.js';
 import * as audio from '../audio.js';
+import { COLOURS, makeSet, colourKey } from './cubes.js';
 
-// Each colour's note is the one it has as a paint on the easel: red C, yellow E, green G, blue A,
-// purple the C above.
-const RED = { colour: '#E79A98', degree: 0 };
-const YELLOW = { colour: '#F1CF5E', degree: 2 };
-const GREEN = { colour: '#8EBF7A', degree: 3 };
-const BLUE = { colour: '#7FB2DE', degree: 4 };
-const PURPLE = { colour: '#AE93D6', degree: 5 };
-
-// Largest first, for each stage: 2 colours of 3 cubes, 3 of 3, then 5 of 2. Every colour comes both
-// large and small, and the sizes in order spell no repeating pattern, so a tower built by size
-// plays nothing that a tower built any other way does not.
-const SETS = [
-    [RED, BLUE, BLUE, RED, RED, BLUE],
-    [RED, BLUE, YELLOW, YELLOW, RED, BLUE, BLUE, YELLOW, RED],
-    [RED, BLUE, YELLOW, GREEN, PURPLE, PURPLE, YELLOW, GREEN, RED, BLUE],
-];
-const SMALLEST = [0.42, 0.26, 0.1];
-
-// The time between two cubes of a pattern playing back, in seconds.
+// The time between two cubes of a pattern playing back, and how long a cube stays lit, in seconds.
 const STEP = 0.18;
+const GLOW = 0.7;
+
+const tint = (name) => COLOURS.find((kind) => kind.name === name);
+
+// The last set's colours, so the next outing brings different ones.
+let lastColours = '';
 
 class TowerScene extends Scene {
     constructor(app) {
         super(app);
         this.level = app.level();
-        const set = SETS[this.level];
+        const set = makeSet(this.level, (Math.random() * 4294967296) >>> 0, lastColours);
+        lastColours = colourKey(set);
         this.count = set.length;
         this.time = 0;
         this.sequence = [];
+        this.bands = [];
         this.cubes = [];
         for (let rank = 0; rank < this.count; rank++) {
             this.cubes.push({
@@ -81,8 +74,11 @@ class TowerScene extends Scene {
                 placing: false,
                 squash: new Spring(0, 520, 14),
                 settle: new Spring(0, 260, 12),
+                glow: 0,
+                name: set[rank].name,
                 colour: set[rank].colour,
                 degree: set[rank].degree,
+                size: set[rank].size,
             });
         }
         this.bg = null;
@@ -99,18 +95,17 @@ class TowerScene extends Scene {
 
         // The largest size that lets every cube stand on the rug side by side, and the whole tower
         // stand below the top of the screen.
-        const minRatio = SMALLEST[this.level];
-        const meanRatio = (1 + minRatio) / 2;
+        const sizes = this.cubes.reduce((sum, c) => sum + c.size, 0);
         const gaps = 18 * u * (this.count + 1);
-        const byWidth = (w * 0.92 - gaps) / (this.count * meanRatio);
-        const byHeight = (this.floor - 100 * u) / (this.count * meanRatio * 1.05);
+        const byWidth = (w * 0.92 - gaps) / sizes;
+        const byHeight = (this.floor - 100 * u) / (sizes * 1.05);
         const largest = Math.min(byWidth, byHeight, 170 * u);
         this.largest = largest;
         for (const c of this.cubes) {
-            const t = this.count > 1 ? c.rank / (this.count - 1) : 0;
-            c.s = largest * (1 - t * (1 - minRatio));
+            c.s = largest * c.size;
             c.d = c.s * 0.22;
         }
+        this.bands = [];
 
         // Laid out on the rug in no particular order, the way a child might find them.
         const order = this.placed
@@ -127,6 +122,8 @@ class TowerScene extends Scene {
             c.angle = 0;
             c.state = 'rest';
             c.below = null;
+            c.alignTo = null;
+            c.slideTo = null;
             x += c.s + gap;
         }
         this.placed = true;
@@ -227,7 +224,7 @@ class TowerScene extends Scene {
     // A big cube knocks fuller than a small one; that, and the thud on the rug, is all size does to
     // the sound. The note is the colour's.
     fullness(c) {
-        return 0.55 + 0.45 * (c.s / this.largest);
+        return 0.55 + 0.45 * c.size;
     }
 
     sound(c, gain, wet) {
@@ -376,29 +373,30 @@ class TowerScene extends Scene {
         return base;
     }
 
-    // The column standing against `base` on its right, on the rug, if there is one.
-    rightOf(base) {
+    // The column standing against `base` on the rug, on its right (`side` 1) or its left (-1).
+    beside(base, side) {
         if (base.y < this.floor - 0.5) return null;
-        const edge = base.x + base.s / 2;
         let best = null;
         for (const o of this.cubes) {
-            if (o === base || o.state !== 'rest' || o.y < this.floor - 0.5 || o.x <= base.x) continue;
-            if (o.x - o.s / 2 - edge > 3 * this.u) continue;
-            if (!best || o.x < best.x) best = o;
+            if (o === base || o.state !== 'rest' || o.y < this.floor - 0.5) continue;
+            if ((o.x - base.x) * side <= 0) continue;
+            if (Math.abs(o.x - base.x) - (o.s + base.s) / 2 > 3 * this.u) continue;
+            if (!best || Math.abs(o.x - base.x) < Math.abs(best.x - base.x)) best = o;
         }
         return best;
     }
 
-    // What a tap on `c` plays, in order: `c` and what stands on it, then each column standing
-    // against it on the right, bottom to top, until the row ends. A cube resting on two columns
-    // plays once.
+    // What a tap on `c` plays, in order: the whole row `c` is part of, wherever it was tapped. Each
+    // column from the left, bottom to top; a cube resting on two columns plays once.
     playOrder(c) {
+        let first = this.baseOf(c);
+        for (let prev = this.beside(first, -1); prev; prev = this.beside(prev, -1)) first = prev;
         const order = [];
-        const add = (cubes) => {
-            for (const o of cubes) if (order.indexOf(o) < 0) order.push(o);
-        };
-        add(this.above(c));
-        for (let next = this.rightOf(this.baseOf(c)); next; next = this.rightOf(next)) add(this.above(next));
+        for (let base = first; base; base = this.beside(base, 1)) {
+            for (const o of this.above(base)) if (order.indexOf(o) < 0) order.push(o);
+        }
+        // One tapped in mid-air, on nothing, still sounds.
+        if (order.indexOf(c) < 0) order.unshift(c);
         return order;
     }
 
@@ -488,9 +486,7 @@ class TowerScene extends Scene {
         const c = o.cube;
         const u = this.u;
         if (!o.lifted) {
-            // A tap plays the pattern from here. Taps can overlap, so the queue is kept in time order.
-            this.playOrder(c).forEach((cube, i) => this.sequence.push({ cube, at: this.time + i * STEP }));
-            this.sequence.sort((a, b) => a.at - b.at);
+            this.play(this.playOrder(c));
             return;
         }
         c.state = 'fall';
@@ -500,6 +496,23 @@ class TowerScene extends Scene {
         c.va = clamp(c.vx / (260 * u), -6, 6);
         // Set down, not thrown.
         c.placing = Math.abs(c.vx) < 500 * u && Math.abs(c.vy) < 500 * u;
+    }
+
+    // Play a row from its start. Tapped again while it plays, it starts again rather than echoing;
+    // two rows can play at once.
+    play(order) {
+        this.sequence = this.sequence.filter((e) => order.indexOf(e.cube) < 0);
+        let x0 = Infinity;
+        let x1 = -Infinity;
+        for (const c of order) {
+            x0 = Math.min(x0, c.x - c.s / 2);
+            x1 = Math.max(x1, c.x + c.s / 2);
+        }
+        this.bands = this.bands.filter((b) => b.x1 < x0 || b.x0 > x1);
+        const end = this.time + (order.length - 1) * STEP;
+        this.bands.push({ x0, x1, start: this.time, end });
+        order.forEach((cube, i) => this.sequence.push({ cube, at: this.time + i * STEP }));
+        this.sequence.sort((a, b) => a.at - b.at);
     }
 
     cancel(p) {
@@ -558,11 +571,18 @@ class TowerScene extends Scene {
             }
             if (c.squash.update(dt)) busy = true;
             if (c.settle.update(dt)) busy = true;
+            if (c.glow > 0) {
+                c.glow = Math.max(0, c.glow - dt / GLOW);
+                busy = true;
+            }
         }
+        this.bands = this.bands.filter((b) => this.time < b.end + 0.8);
+        if (this.bands.length) busy = true;
 
         while (this.sequence.length && this.sequence[0].at <= this.time) {
             const c = this.sequence.shift().cube;
             c.squash.kick(7);
+            c.glow = 1;
             this.sound(c, 1, 0.2);
         }
         return busy;
@@ -580,6 +600,32 @@ class TowerScene extends Scene {
         const u = this.u;
         ctx.drawImage(this.bg.canvas, 0, 0, this.w, this.h);
 
+        // A pale band on the rug under a row that is playing: in quickly, out slowly after its last
+        // note.
+        for (const b of this.bands) {
+            const fade =
+                clamp((this.time - b.start) / 0.12, 0, 1) * clamp(1 - (this.time - b.end - 0.3) / 0.5, 0, 1);
+            if (fade <= 0) continue;
+            const x = b.x0 - 12 * u;
+            fillRound(
+                ctx,
+                x,
+                this.floor - 8 * u,
+                b.x1 - b.x0 + 24 * u,
+                24 * u,
+                12 * u,
+                `rgba(255, 250, 232, ${0.9 * fade})`
+            );
+        }
+        // And under each cube as it sounds, a light in its colour, so the light runs along the row
+        // with the tune.
+        for (const c of this.cubes) {
+            if (c.glow <= 0) continue;
+            const half = c.s / 2 + 4 * u;
+            const light = rgbString(mixRgb(hexToRgb(c.colour), [255, 252, 246], 0.45), 0.95 * c.glow);
+            fillRound(ctx, c.x - half, this.floor - 8 * u, half * 2, 24 * u, 12 * u, light);
+        }
+
         // Shadows on the rug, shrinking as a cube rises.
         for (const c of this.cubes) {
             const height = this.floor - c.y;
@@ -589,19 +635,49 @@ class TowerScene extends Scene {
             ctx.fill();
         }
 
+        // A sounding cube glows in its own colour: two soft layers, for want of a blur that Safari 12
+        // can afford. All the glows go down before any cube, so none lies over a neighbour.
+        for (const c of this.cubes) {
+            if (c.glow <= 0) continue;
+            const rgb = mixRgb(hexToRgb(c.colour), [255, 252, 246], 0.2);
+            this.enter(ctx, c);
+            for (const [reach, alpha] of [
+                [20, 0.32],
+                [8, 0.55],
+            ]) {
+                const pad = reach * (0.5 + 0.5 * c.glow) * u;
+                fillRound(
+                    ctx,
+                    -c.s / 2 - pad,
+                    -c.s / 2 - c.d - pad,
+                    c.s + pad * 2,
+                    c.s + c.d + pad * 2,
+                    pad * 1.3,
+                    rgbString(rgb, alpha * c.glow)
+                );
+            }
+            ctx.restore();
+        }
+
         for (const c of this.drawOrder()) this.drawCube(ctx, c);
+    }
+
+    // Into a cube's own frame, centred on its front face, as it rocks and squashes. The caller
+    // restores.
+    enter(ctx, c) {
+        const squash = c.squash.value * 0.012;
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.rotate(c.angle + c.settle.value);
+        ctx.scale(1 + squash, 1 - squash * 1.3);
+        ctx.translate(0, -c.s / 2);
     }
 
     drawCube(ctx, c) {
         const s = c.s;
         const d = c.d;
         const r = Math.max(2, s * 0.06);
-        const squash = c.squash.value * 0.012;
-        ctx.save();
-        ctx.translate(c.x, c.y);
-        ctx.rotate(c.angle + c.settle.value);
-        ctx.scale(1 + squash, 1 - squash * 1.3);
-        ctx.translate(0, -s / 2);
+        this.enter(ctx, c);
         if (c.state === 'held') {
             fillRound(
                 ctx,
@@ -618,6 +694,9 @@ class TowerScene extends Scene {
         fillRound(ctx, -s / 2, s / 2 - s * 0.12, s, s * 0.12, r, shade(c.colour, -0.08));
         ctx.fillStyle = 'rgba(255,255,255,0.3)';
         ctx.fillRect(-s / 2 + r, -s / 2 + 1, s - r * 2, Math.max(1.5, s * 0.025));
+        // Lit while it sounds.
+        if (c.glow > 0)
+            fillRound(ctx, -s / 2, -s / 2 - d, s, s + d, r, `rgba(255, 250, 235, ${0.2 * c.glow})`);
         ctx.restore();
     }
 
@@ -630,7 +709,7 @@ class TowerScene extends Scene {
 function icon(ctx, x, y, w, h) {
     const base = y + h * 0.88;
     const sizes = [h * 0.32, h * 0.24, h * 0.17, h * 0.11];
-    const tower = [BLUE, RED, YELLOW, RED];
+    const tower = ['blue', 'red', 'yellow', 'red'].map(tint);
     let bottom = base;
     sizes.forEach((s, i) => {
         const d = s * 0.22;
@@ -642,7 +721,7 @@ function icon(ctx, x, y, w, h) {
         const next = sizes[i + 1] || 0;
         bottom = bottom - s - (d - next * 0.22) / 2;
     });
-    [RED, BLUE].forEach((kind, i) => {
+    ['red', 'blue'].map(tint).forEach((kind, i) => {
         const s = h * (0.14 - i * 0.04);
         const cx = x + w * (0.2 + i * 0.62);
         fillRound(ctx, cx - s / 2, base - s - s * 0.22, s, s * 0.22 + 4, s * 0.06, shade(kind.colour, 0.38));
@@ -653,21 +732,21 @@ function icon(ctx, x, y, w, h) {
 export const toy = {
     id: 'tower',
     title: 'Colour tower',
-    about: 'Graduated cubes in a few colours, each colour its own note. Build a pattern, then tap its first cube to hear it.',
+    about: 'A new set of cubes each time, every one a different size, and each colour its own note. Tap any cube to hear its whole row.',
     stages: ['6 cubes in 2 colours', '9 cubes in 3 colours', '10 cubes in 5 colours'],
     mat: '#E4ECF3',
     icon,
     create: (app) => new TowerScene(app),
-    sounds(level) {
+    // Any colour can come out, at any stage.
+    sounds() {
         const list = [['thud', { f: 85 }]];
-        const degrees = [];
-        for (const kind of SETS[level]) if (degrees.indexOf(kind.degree) < 0) degrees.push(kind.degree);
-        for (const d of degrees) list.push(['wood', { f: noteHz(d, 60) }], ['tick', { f: noteHz(d, 72) }]);
+        for (const kind of COLOURS)
+            list.push(['wood', { f: noteHz(kind.degree, 60) }], ['tick', { f: noteHz(kind.degree, 72) }]);
         return list;
     },
     signature() {
-        [RED, BLUE, RED].forEach((kind, i) =>
-            audio.note('wood', kind.degree, 60, { gain: 0.6, delay: 0.05 + i * 0.12 })
+        ['red', 'blue', 'red'].forEach((name, i) =>
+            audio.note('wood', tint(name).degree, 60, { gain: 0.6, delay: 0.05 + i * 0.12 })
         );
     },
 };

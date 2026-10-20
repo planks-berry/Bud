@@ -38,6 +38,7 @@ const FILES = [
     'js/toys/tower.js',
     'js/toys/pour.js',
     'js/toys/easel.js',
+    'js/toys/cubes.js',
     'js/toys/glyphs.js',
     'js/toys/sandpaper.js',
     'icons/icon-32.png',
