@@ -6,7 +6,6 @@
 
 import { settings, save, STAGES, stageOf, setStage, setAllStages } from './settings.js';
 import * as audio from './audio.js';
-import * as usage from './usage.js';
 
 const HOLD_MS = 3000;
 
@@ -15,27 +14,6 @@ const STAGE_TEXT = {
     sprout: ['Sprout', 'The everyday set.'],
     bloom: ['Bloom', 'More pieces, more tools, finer work.'],
 };
-
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-function minutes(ms) {
-    if (ms <= 0) return '0 min';
-    if (ms < 60000) return 'under 1 min';
-    return `${Math.round(ms / 60000)} min`;
-}
-
-// The last seven days against the days before. Until the record is a week old, there is nothing to
-// set against, so it says how long it has been keeping count.
-function usageLine(id) {
-    const r = usage.recent(id);
-    if (r.covered === 1) return `Today: ${minutes(r.week)}`;
-    if (r.covered === 2) return `Since yesterday: ${minutes(r.week)}`;
-    if (r.covered <= 7)
-        return `Since ${DAY_NAMES[usage.daysAgo(r.covered - 1).getDay()]}: ${minutes(r.week)}`;
-    const days = r.covered - 7;
-    const span = days === 1 ? 'the day before' : `the ${days} days before`;
-    return `Last 7 days: ${minutes(r.week)} · ${span}: ${minutes(r.before)}`;
-}
 
 export function setupParent(app, gate) {
     const panel = document.getElementById('parent');
@@ -107,7 +85,7 @@ export function setupParent(app, gate) {
             row.setAttribute('data-toy', toy.id);
             row.innerHTML =
                 `<div class="head"><span class="label"><strong>${toy.title}</strong>` +
-                `<span>${toy.about}</span><span class="usage">${usageLine(toy.id)}</span></span>` +
+                `<span>${toy.about}</span></span>` +
                 `<button class="switch" aria-pressed="${shown}" aria-label="On the shelf"></button></div>`;
             row.querySelector('.switch').addEventListener('click', () => {
                 const index = settings.hidden.indexOf(toy.id);

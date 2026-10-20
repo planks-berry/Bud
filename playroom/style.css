@@ -232,12 +232,6 @@ body {
     color: #7A6758;
 }
 
-.label .usage {
-    margin-top: 6px;
-    font-weight: 700;
-    color: #8B7766;
-}
-
 /* A toy's row: what it is, whether it is out, and its stage. A div rather than a button, so the
    switch and the stage buttons inside it can be buttons of their own. */
 .toy {

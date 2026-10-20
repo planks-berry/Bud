@@ -4,7 +4,6 @@
 import { Stage } from './stage.js';
 import * as audio from './audio.js';
 import { settings, level as levelOf } from './settings.js';
-import * as usage from './usage.js';
 import { StartScene, startSounds } from './start.js';
 import { ShelfScene } from './shelf.js';
 import { TOYS } from './toys/index.js';
@@ -44,7 +43,6 @@ const app = {
         const toy = TOYS.find((t) => t.id === id);
         if (!toy || stage.busy || this.current) return;
         this.current = id;
-        usage.begin(id);
         audio.play('whoosh', { variant: 'up' }, { gain: 1, wet: 0.25 });
         toy.signature();
         stage.show(toy.create(this), {
@@ -61,7 +59,6 @@ const app = {
         if (!this.current || stage.busy) return;
         const rect = this.shelf.rectOf(this.current);
         this.current = null;
-        usage.end();
         audio.play('whoosh', { variant: 'down' }, { gain: 0.9, wet: 0.25 });
         stage.show(this.shelf, { kind: 'close', rect, duration: 0.45 });
         home.hidden = true;
@@ -140,12 +137,6 @@ function pressable(button, action) {
 }
 
 pressable(home, () => app.goHome());
-
-// Time with a hand on a toy, for the grown-ups' corner. Passive: these only listen.
-for (const type of ['touchstart', 'touchmove', 'touchend', 'mousedown'])
-    stage.canvas.addEventListener(type, usage.touch, { passive: true });
-document.addEventListener('visibilitychange', () => (document.hidden ? usage.pause() : usage.resume()));
-window.addEventListener('pagehide', usage.pause);
 
 audio.setVolume(settings.volume);
 audio.setThroughSilent(settings.throughSilent);

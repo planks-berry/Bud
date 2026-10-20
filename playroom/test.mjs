@@ -301,47 +301,6 @@ check(
     shapeFaults.join('; ')
 );
 
-// ---- the usage record counts play, not time left open --------------------------------------
-
-{
-    const store = new Map([
-        ['playroom.usage.v1', JSON.stringify({ since: '2000-1-1', days: { '2000-1-1': { pond: 99999 } } })],
-    ]);
-    Object.defineProperty(globalThis, 'localStorage', {
-        configurable: true,
-        writable: true,
-        value: { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, v) },
-    });
-    const realNow = Date.now;
-    let clock = realNow();
-    Date.now = () => clock;
-    const usage = await import(pathToFileURL(join(here, 'js/usage.js')).href);
-    usage.begin('pond');
-    clock += 10000; // ten seconds of play
-    usage.touch();
-    clock += 5 * 60000; // five minutes untouched, which count as one
-    usage.touch();
-    usage.pause();
-    clock += 30 * 60000; // half an hour in the background, which counts as nothing
-    usage.resume();
-    clock += 5000;
-    usage.end();
-    Date.now = realNow;
-    const r = usage.recent('pond');
-    const kept = JSON.parse(store.get('playroom.usage.v1'));
-    delete globalThis.localStorage;
-    check(
-        'the usage record counts play, not time left open or away',
-        r.week === 75000 && r.before === 0 && r.covered === 14,
-        `${r.week} ms this week, ${r.before} before, ${r.covered} days`
-    );
-    check(
-        'and keeps two weeks of it',
-        !('2000-1-1' in kept.days) && Object.values(kept.days).some((day) => day.pond === 75000),
-        JSON.stringify(kept.days)
-    );
-}
-
 //==============================================================================
 // The browser
 
@@ -629,12 +588,41 @@ async function suite(mode) {
     await shot('bars');
     check('home from the bars', (await home()) === 'ShelfScene');
 
-    // ---- pink tower --------------------------------------------------------------
+    // ---- colour tower ------------------------------------------------------------
 
     await open('tower');
     const cubes = await scene(() =>
-        window.playroom.stage.scene.cubes.map((c) => ({ rank: c.rank, x: c.x, y: c.y, s: c.s }))
+        window.playroom.stage.scene.cubes.map((c) => ({
+            rank: c.rank,
+            x: c.x,
+            y: c.y,
+            s: c.s,
+            colour: c.colour,
+            degree: c.degree,
+        }))
     );
+    const byColour = {};
+    for (const c of cubes) (byColour[c.colour] = byColour[c.colour] || []).push(c);
+    const colours = Object.keys(byColour);
+    check(
+        'three colours of three cubes, each colour its own note',
+        colours.length === 3 &&
+            colours.every((k) => byColour[k].length === 3) &&
+            colours.every((k) => byColour[k].every((c) => c.degree === byColour[k][0].degree)) &&
+            new Set(colours.map((k) => byColour[k][0].degree)).size === 3,
+        colours.map((k) => `${k} x${byColour[k].length}`).join(', ')
+    );
+    check(
+        'and every colour comes both large and small, so size and note never line up',
+        colours.every(
+            (k) =>
+                byColour[k].some((c) => c.rank < cubes.length / 2) &&
+                byColour[k].some((c) => c.rank >= cubes.length / 2)
+        )
+    );
+    const towerNotes = {};
+    for (const c of cubes) towerNotes[c.colour] = c.degree;
+
     const big = cubes.find((c) => c.rank === 0);
     const small = cubes.find((c) => c.rank === cubes.length - 1);
     await touch.drag(line(small.x, small.y - small.s / 2, big.x, big.y - big.s - 80, 24), 16, 300);
@@ -649,27 +637,26 @@ async function suite(mode) {
         landed.state === 'rest' && landed.y < landed.floor - 20,
         `${landed.state} at ${Math.round(landed.y)}`
     );
-    const tiers = () =>
-        scene(() => {
-            const s = window.playroom.stage.scene;
-            return s.cubes.map((c) => ({
+    const state = () =>
+        scene(() =>
+            window.playroom.stage.scene.cubes.map((c) => ({
                 rank: c.rank,
-                tier: s.tierOf(c),
                 state: c.state,
                 x: c.x,
                 y: c.y,
                 s: c.s,
-            }));
-        });
-    let stack = await tiers();
-    const top = stack.find((c) => c.rank === small.rank);
-    check(
-        'its note is one tier above the cube under it',
-        top.tier === 1 && stack.find((c) => c.rank === 0).tier === 0,
-        `tiers ${top.tier} on ${stack.find((c) => c.rank === 0).tier}`
-    );
-    // No order is the right one: a big cube goes on the smallest, and is the third note.
-    const second = stack.find((c) => c.rank === 1);
+            }))
+        );
+    const playOrder = (rank) =>
+        scene((rank) => {
+            const s = window.playroom.stage.scene;
+            return s.playOrder(s.cubes.find((c) => c.rank === rank)).map((c) => c.rank);
+        }, rank);
+
+    // No order is the right one: a big cube goes on the smallest.
+    let now = await state();
+    const top = now.find((c) => c.rank === small.rank);
+    const second = now.find((c) => c.rank === 1);
     const carry = top.y - top.s - 70 - second.s / 2;
     await touch.drag(
         [
@@ -681,15 +668,54 @@ async function suite(mode) {
         300
     );
     await page.waitForTimeout(1200);
-    stack = await tiers();
-    const third = stack.find((c) => c.rank === 1);
+    const tower = await playOrder(0);
     check(
-        'a big cube stacks on a small one, and sounds the third tier',
-        third.state === 'rest' && third.tier === 2,
-        `${third.state}, tier ${third.tier}`
+        'a big cube stacks on a small one, and a tap plays the tower from the bottom up',
+        tower.join(' ') === [0, small.rank, 1].join(' '),
+        tower.join(' ')
     );
-    await touch.tap(big.x, big.y - big.s / 2);
-    check('tapping the base plays the stack', (await peak(500)) > 0.02);
+
+    // A row: a cube set down just short of another slides up against it, and the row plays on.
+    // Two neighbours on the rug, with nothing between them and neither in the tower.
+    now = await state();
+    const rug = now.filter((c) => c.state === 'rest' && c.y >= landed.floor - 0.5).sort((a, b) => a.x - b.x);
+    const inTower = (c) => [0, 1, small.rank].indexOf(c.rank) >= 0;
+    const pair = rug.findIndex((c, i) => i + 1 < rug.length && !inTower(c) && !inTower(rug[i + 1]));
+    const first = rug[pair];
+    const next = rug[pair + 1];
+    const target = first.x + (first.s + next.s) / 2 + 8;
+    const lift = next.y - next.s / 2 - 50;
+    await touch.drag(
+        [
+            ...line(next.x, next.y - next.s / 2, next.x, lift, 6),
+            ...line(next.x, lift, target, lift, 12).slice(1),
+            ...line(target, lift, target, lift + 30, 4).slice(1),
+        ],
+        16,
+        300
+    );
+    await page.waitForTimeout(1200);
+    const row = await scene(
+        ([a, b]) => {
+            const s = window.playroom.stage.scene;
+            const ca = s.cubes.find((c) => c.rank === a);
+            const cb = s.cubes.find((c) => c.rank === b);
+            return { gap: cb.x - cb.s / 2 - (ca.x + ca.s / 2), order: s.playOrder(ca).map((c) => c.rank) };
+        },
+        [first.rank, next.rank]
+    );
+    check(
+        'a cube set down beside another slides against it',
+        Math.abs(row.gap) < 1,
+        `gap ${row.gap.toFixed(1)}`
+    );
+    check(
+        'and a tap on the first plays the row',
+        row.order.join(' ') === [first.rank, next.rank].join(' '),
+        row.order.join(' ')
+    );
+    await touch.tap(first.x, first.y - first.s / 2);
+    check('tapping a cube plays its pattern', (await peak(600)) > 0.02);
     await shot('tower');
     check('home from the tower', (await home()) === 'ShelfScene');
 
@@ -753,6 +779,15 @@ async function suite(mode) {
         await touch.tap(stencils[0].x, stencils[0].y);
         check('and lifts off again', await scene(() => !window.playroom.stage.scene.plate));
     }
+    const paints = await scene(() =>
+        window.playroom.stage.scene.paints.map((p) => ({ colour: p.colour, degree: p.degree }))
+    );
+    const common = paints.filter((p) => p.colour in towerNotes);
+    check(
+        'a colour is the same note as a paint and as a cube',
+        common.length === 3 && common.every((p) => p.degree === towerNotes[p.colour] + 5),
+        common.map((p) => `${p.colour} ${p.degree}/${towerNotes[p.colour]}`).join(', ')
+    );
     await shot('easel');
     check('home from the easel', (await home()) === 'ShelfScene');
     await open('easel');
@@ -874,18 +909,6 @@ async function suite(mode) {
         (await page.$$('[data-toy="letters"] [data-stage]')).length === 0
     );
 
-    const played = await page.evaluate(() => {
-        const d = new Date();
-        const record = JSON.parse(localStorage.getItem('playroom.usage.v1'));
-        const day = record.days[`${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`];
-        return { pond: day.pond, line: document.querySelector('[data-toy="pond"] .usage').textContent };
-    });
-    check(
-        'each toy shows the time it has been played',
-        played.pond > 3000 && /^Today: /.test(played.line) && played.line !== 'Today: 0 min',
-        `${played.pond} ms, "${played.line}"`
-    );
-
     await page.click('[data-toy="busy"] .switch');
     check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 7);
     await page.click('[data-toy="busy"] .switch');
@@ -901,9 +924,11 @@ async function suite(mode) {
     check('the busy board, moved on by itself, opens at Bloom', board.count === 6 && board.latch);
     await home();
     await open('tower');
+    const seed = await scene(() => window.playroom.stage.scene.cubes.map((c) => c.colour));
     check(
-        'while the others stay at Seed',
-        (await scene(() => window.playroom.stage.scene.cubes.length)) === 5
+        'while the others stay at Seed: two colours of three cubes in the tower',
+        seed.length === 6 && new Set(seed).size === 2,
+        `${seed.length} cubes, ${new Set(seed).size} colours`
     );
     await home();
 
