@@ -1,0 +1,317 @@
+/* The playroom is one canvas; this file styles the two corner buttons and the grown-up's panel.
+
+   Written for Safari 12: no flex `gap`, no `inset`, no `aspect-ratio`, no `clamp()`. Spacing is
+   margins, and `test.mjs` greps for the rest. */
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #F3EADC;
+}
+
+body {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    color: #5E4E42;
+    font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+    touch-action: manipulation;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+#stage {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+}
+
+/* ---- corner buttons --------------------------------------------------------------------------- */
+
+.corner {
+    position: fixed;
+    z-index: 2;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-align-items: center;
+    align-items: center;
+    -webkit-justify-content: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 20px;
+    outline: none;
+    -webkit-appearance: none;
+    background: rgba(251, 246, 238, 0.9);
+    box-shadow: 0 4px 0 rgba(112, 84, 58, 0.14);
+    -webkit-transition: -webkit-transform 0.12s ease-out, box-shadow 0.12s ease-out;
+    transition: transform 0.12s ease-out, box-shadow 0.12s ease-out;
+}
+
+.corner.pressed {
+    -webkit-transform: translateY(3px) scale(0.95);
+    transform: translateY(3px) scale(0.95);
+    box-shadow: 0 1px 0 rgba(112, 84, 58, 0.14);
+}
+
+.home {
+    top: 16px;
+    left: 16px;
+}
+
+.gate {
+    top: 12px;
+    right: 12px;
+    background: transparent;
+    box-shadow: none;
+}
+
+.gate .ring {
+    stroke-dasharray: 164;
+    stroke-dashoffset: 164;
+    -webkit-transition: stroke-dashoffset 0.25s ease-out;
+    transition: stroke-dashoffset 0.25s ease-out;
+}
+
+.gate.holding .ring {
+    stroke-dashoffset: 0;
+    -webkit-transition: stroke-dashoffset 3s linear;
+    transition: stroke-dashoffset 3s linear;
+}
+
+/* ---- the grown-up's panel --------------------------------------------------------------------- */
+
+.parent {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 3;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: rgba(94, 74, 60, 0.32);
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+.sheet {
+    position: relative;
+    box-sizing: border-box;
+    width: 92%;
+    max-width: 660px;
+    margin: 28px auto;
+    padding: 28px 32px 32px;
+    border-radius: 26px;
+    background: #FBF6EE;
+    box-shadow: 0 8px 0 rgba(112, 84, 58, 0.14);
+}
+
+.sheet h1 {
+    margin: 0 0 8px;
+    font-size: 26px;
+    font-weight: 700;
+    color: #5E4E42;
+}
+
+.sheet h2 {
+    margin: 26px 0 4px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #8B7766;
+}
+
+.hint {
+    margin: 0 0 12px;
+    font-size: 15px;
+    line-height: 1.4;
+    color: #7A6758;
+}
+
+.sheet button {
+    font: inherit;
+    color: inherit;
+    -webkit-appearance: none;
+}
+
+.choices {
+    display: -webkit-flex;
+    display: flex;
+}
+
+.choice {
+    -webkit-flex: 1;
+    flex: 1;
+    margin: 0 10px 0 0;
+    padding: 14px 12px;
+    border: 2px solid #E7D8C2;
+    border-radius: 16px;
+    background: #FFFDF8;
+    text-align: left;
+}
+
+.choice:last-child {
+    margin-right: 0;
+}
+
+.choice strong {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 17px;
+}
+
+/* Two lines' height for every description, so the three cards line up: WebKit centres a button's
+   contents vertically, and a one-line description would otherwise sit lower than its neighbours. */
+.choice span {
+    display: block;
+    min-height: 2.7em;
+    font-size: 13px;
+    line-height: 1.35;
+    color: #7A6758;
+}
+
+.choice[aria-pressed="true"] {
+    border-color: #98B985;
+    background: #EEF4E7;
+}
+
+.toggle {
+    display: -webkit-flex;
+    display: flex;
+    -webkit-align-items: center;
+    align-items: center;
+    width: 100%;
+    margin: 0 0 8px;
+    padding: 12px 14px;
+    border: 0;
+    border-radius: 14px;
+    background: #FFFDF8;
+    text-align: left;
+}
+
+.toggle .label {
+    -webkit-flex: 1;
+    flex: 1;
+    margin-right: 14px;
+}
+
+.toggle strong {
+    display: block;
+    font-size: 16px;
+}
+
+.toggle .label span {
+    display: block;
+    margin-top: 2px;
+    font-size: 13px;
+    line-height: 1.35;
+    color: #7A6758;
+}
+
+.switch {
+    position: relative;
+    -webkit-flex: none;
+    flex: none;
+    width: 50px;
+    height: 30px;
+    border-radius: 15px;
+    background: #E2D6C6;
+    -webkit-transition: background 0.2s;
+    transition: background 0.2s;
+}
+
+.switch:after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 24px;
+    height: 24px;
+    border-radius: 12px;
+    background: #FFFFFF;
+    box-shadow: 0 2px 0 rgba(112, 84, 58, 0.15);
+    -webkit-transition: -webkit-transform 0.2s;
+    transition: transform 0.2s;
+}
+
+.toggle[aria-pressed="true"] .switch {
+    background: #98B985;
+}
+
+.toggle[aria-pressed="true"] .switch:after {
+    -webkit-transform: translateX(20px);
+    transform: translateX(20px);
+}
+
+.slider {
+    display: -webkit-flex;
+    display: flex;
+    -webkit-align-items: center;
+    align-items: center;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: #FFFDF8;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.slider input {
+    -webkit-flex: 1;
+    flex: 1;
+    margin-left: 16px;
+}
+
+.steps {
+    margin: 0;
+    padding-left: 22px;
+    font-size: 15px;
+    line-height: 1.45;
+    color: #6B5A4C;
+}
+
+.steps li {
+    margin-bottom: 8px;
+}
+
+.done {
+    display: block;
+    width: 100%;
+    margin-top: 24px;
+    padding: 16px;
+    border: 0;
+    border-radius: 16px;
+    background: #98B985;
+    color: #FFFFFF !important;
+    font-size: 18px !important;
+    font-weight: 700;
+}
+
+.fallback {
+    position: fixed;
+    top: 40%;
+    right: 0;
+    left: 0;
+    z-index: 4;
+    text-align: center;
+    font-size: 20px;
+    color: #6B5A4C;
+}

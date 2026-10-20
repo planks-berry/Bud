@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- user-scalable=no alone does not stop pinch-zoom since iOS 10; the stage also cancels Safari's
+     gesture events, and its touch handlers prevent the default everywhere a child can reach. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Playroom">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#F3EADC">
+<title>Playroom</title>
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<!-- Shown by iOS while a home-screen web app starts. Sized for the iPad Air 1 and mini 2/3 screen. -->
+<link rel="apple-touch-startup-image" href="icons/splash-1536x2048.png"
+      media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/splash-2048x1536.png"
+      media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)">
+<link rel="icon" type="image/png" href="icons/icon-32.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<canvas id="stage"></canvas>
+
+<button id="home" class="corner home" aria-label="Back to the shelf" hidden>
+    <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+        <path d="M5 16.5 L17 6 L29 16.5" fill="none" stroke="#6B5A4C" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M9 15 V27 a2 2 0 0 0 2 2 H23 a2 2 0 0 0 2 -2 V15" fill="#F3DE97" stroke="#6B5A4C" stroke-width="3.4" stroke-linejoin="round"/>
+        <rect x="14.5" y="20" width="5" height="9" rx="1.5" fill="#6B5A4C"/>
+    </svg>
+</button>
+
+<button id="gate" class="corner gate" aria-label="For grown-ups: press and hold for three seconds" hidden>
+    <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
+        <circle class="track" cx="32" cy="32" r="26" fill="none" stroke="rgba(107,90,76,0.12)" stroke-width="4"/>
+        <circle class="ring" cx="32" cy="32" r="26" fill="none" stroke="#98B985" stroke-width="4" stroke-linecap="round" transform="rotate(-90 32 32)"/>
+        <path d="M22 41 C22 28 30 21 43 21 C43 34 35 41 22 41 Z" fill="#BCD3A8"/>
+        <path d="M22 41 L36 27" stroke="#98B985" stroke-width="2.4" stroke-linecap="round"/>
+    </svg>
+</button>
+
+<div id="parent" class="parent" hidden>
+    <div class="sheet">
+        <h1>For grown-ups</h1>
+
+        <section>
+            <h2>Stage</h2>
+            <p class="hint">How much each toy puts out. Move it on as your child grows; nothing is ever locked.</p>
+            <div class="choices" data-stages></div>
+        </section>
+
+        <section>
+            <h2>On the shelf</h2>
+            <p class="hint">Fewer choices help a young child settle into one. Put a few out and rotate them every week or two.</p>
+            <div class="toggles" data-shelf></div>
+        </section>
+
+        <section>
+            <h2>Sound</h2>
+            <button class="toggle" data-silent aria-pressed="true">
+                <span class="label"><strong>Play through the silent switch</strong><span>Otherwise the side switch, or the bell in Control Center, mutes the playroom.</span></span>
+                <span class="switch"></span>
+            </button>
+            <label class="slider"><span>Volume</span><input type="range" min="0" max="1" step="0.05" data-volume></label>
+        </section>
+
+        <section>
+            <h2>Setting up the iPad</h2>
+            <ol class="steps">
+                <li>In Safari, tap <b>Share</b>, then <b>Add to Home Screen</b>. The playroom then opens full screen, and once opened it works without a connection.</li>
+                <li>Turn on <b>Guided Access</b> (Settings &rarr; General &rarr; Accessibility &rarr; Guided Access). Triple-click the Home button inside the playroom to keep the iPad in it.</li>
+                <li>Turn off multitasking <b>Gestures</b> (Settings &rarr; General &rarr; Multitasking &amp; Dock), so a whole hand on the glass cannot leave the app.</li>
+            </ol>
+        </section>
+
+        <button class="done" data-close>Done</button>
+    </div>
+</div>
+
+<div id="fallback" class="fallback" hidden>
+    <p>This playroom needs Safari on iOS 11 or later.</p>
+</div>
+
+<script>
+    // Deliberately old JavaScript: on an iPad too old for the modules below, nothing else would run,
+    // and a blank cream screen would be all anyone saw.
+    setTimeout(function () {
+        if (!window.__playroomBooted) document.getElementById('fallback').hidden = false;
+    }, 6000);
+</script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

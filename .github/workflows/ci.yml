@@ -72,6 +72,32 @@ jobs:
           path: demo-*.wav
           retention-days: 14
 
+  # The playroom (docs/PLAYROOM.md) is plain JavaScript with no build, so its checks are a Node
+  # script and a browser: the source read as Safari 12 would, every sound rendered and measured,
+  # and every toy driven by touch twice, once with the post-Safari-12 APIs taken away.
+  playroom:
+    name: Playroom
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: playroom
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install the test tools
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Test
+        run: node test.mjs
+
   # A release build with the sanitisers on. Kept separate because they slow the tests down enough
   # that running them on every matrix entry would not be worth it.
   sanitisers:

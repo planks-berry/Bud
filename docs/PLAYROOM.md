@@ -1,0 +1,228 @@
+# The playroom
+
+A shelf of quiet, open-ended toys for a child of about three, in the spirit of a Montessori room
+and of Pok Pok: no words to read, no goals, no scores, no rewards, nothing that can be done wrong,
+and toys that keep giving more the longer a child stays with them.
+
+It is a web page with no build step and no dependencies, written for an **iPad Air 1 or iPad mini
+2/3 on iOS 12.5**, and it works offline once it has been opened. It lives in
+[`playroom/`](../playroom), entirely separate from the groovebox, and is published next to it at
+**https://planks-berry.github.io/Bud/playroom/** whenever `main` deploys.
+
+---
+
+## Putting it on the iPad
+
+1. Open the address above in **Safari** (it has to be Safari: only Safari can add a web app to
+   the Home Screen on iOS 12).
+2. Tap **Share → Add to Home Screen**. The bud icon then opens the playroom full screen, without
+   Safari's bars, and from the second launch on it needs no connection at all.
+3. Optional, and worth it for a three-year-old:
+   - **Guided Access** (Settings → General → Accessibility → Guided Access), then triple-click the
+     Home button inside the playroom. The iPad stays in it until a grown-up triple-clicks again.
+   - Turn off **Gestures** (Settings → General → Multitasking & Dock), so a whole hand on the glass
+     cannot pinch its way out to the Home Screen.
+
+**Sound and the side switch.** iOS silences Web Audio when the iPad is set to silent, which looks
+exactly like a broken toy. By default the playroom asks for the playback audio session instead, so
+the volume buttons still work but the silent switch does not mute it. This is a setting in the
+grown-ups' corner.
+
+## The grown-ups' corner
+
+On the shelf, **press and hold the leaf in the top-right corner for three seconds**. A child taps;
+an adult can hold still. The panel has words in it, because it is for someone who reads:
+
+- **Stage: Seed, Sprout or Bloom.** How much each toy puts out. Nothing is locked; moving the stage
+  on simply puts more out, the way a guide adds to a shelf. Sprout is the default.
+- **On the shelf.** Which toys are out. Fewer choices help a young child settle into one; the
+  Montessori habit is to put a few out and rotate them every week or two.
+- **Sound.** Whether to play through the silent switch, and an overall volume.
+
+Settings live in the iPad's local storage for this site and survive restarts.
+
+---
+
+## The shelf
+
+Eight toys, ordered as a Montessori shelf is: simple to complex, left to right, top to bottom. The
+first row asks for nothing but a touch. The second asks for a steadier hand, and then for symbols.
+
+Every toy has three layers, which are found by playing, never unlocked:
+
+- **touch**: something happens at the first contact, always;
+- **move**: dragging, carrying, turning, combining;
+- **make**: structure that rewards staying a while: a tune, a tower, a mixed colour, a shape.
+
+| Toy | Montessori area | touch | move | make | What the stage changes |
+|---|---|---|---|---|---|
+| **Pond** | Nature, care of animals | Tap the water: a ripple and a water drop, pitched left-low to right-high | Push lily pads; open and close a lotus | Hold a finger still and the fish come to nibble; scatter food from the pot and they gather to eat | 3 / 4 / 5 fish, 2 / 3 / 4 pads |
+| **Busy board** | Practical life (dressing frames, bolt boards) | Lamp switch; a little door with a different picture behind it each time | A colour dial that clicks up the scale; a sun on a slider with a slide whistle; a zip | Crank a music box (Twinkle, Twinkle) at any speed; at Bloom the door has a bolt to slide first | 4 controls at Seed, 6 after; bolt at Bloom |
+| **Tone bars** | Music, auditory sense | Tap a bar; sweep for a glissando; chords with several fingers | Choose a wooden or a metal mallet | The shell plays back the last phrase; at Bloom, hold a bar to lift it and move it | 5 / 8 / 10 bars |
+| **Pink tower** | Sensorial: dimension | Tap a cube: it sounds, then every cube stacked on it, bottom to top | Carry, stack, pull one from the middle, throw one at a tower | Each cube's note goes with its size, so a tower built largest-first plays a rising scale | 5 / 7 / 10 cubes, the smallest down to Montessori's 1 : 10 |
+| **Pouring** | Practical life | Tap a glass: it rings lower the fuller it is | Carry a pitcher over a glass and it tilts and pours | Colours mix as paint does; glasses overflow onto the tray and the sponge wipes it up; a pitcher put back in its place fills again | 1 / 2 / 3 pitchers, 2 / 3 / 4 glasses |
+| **Easel** | Art; metal insets for the hand | Paint with a finger, or several | Choose a pot; lay a metal inset frame on the paper | Paint through the frame and lift it to leave a clean shape; watercolour glazes, so colours mix on the paper | 3 / 6 / 6 paints; 0 / 4 / 8 insets; brush smaller as it grows |
+| **Sandpaper letters** | Language | Choose a board from the box; trace it | A guide's finger shows how each is written, once, and again on request | Only the sand makes a sound; the smooth board is silent | – |
+| **Sandpaper numerals** | Mathematics | As the letters | As the letters | A bowl lays out that many counters in pairs, Montessori's cards and counters, one rising note each | – |
+
+### How Montessori and Pok Pok were reconciled
+
+The two traditions agree on most things: no extrinsic rewards, no failure states, beauty and
+calm, real-world objects, a child free to choose and to repeat. They differ on one point.
+Montessori builds **control of error** into a material (a cylinder fits only its own socket),
+while Pok Pok removes right and wrong altogether. This playroom chose the open-ended side, so
+**nothing here ever judges**: no success chime, no completion animation, no "try again".
+
+What is kept from Montessori is the honesty of the materials. Where an order exists, it is a
+**physical property**, not a verdict:
+
+- A tone bar's length goes with its pitch, as it does on a real instrument.
+- A pink cube's note goes with its size. A tower built in order plays a scale *because it is in
+  order*, and nothing announces it.
+- A sandpaper letter is rough and the board is smooth, so only the letter makes a sound. That is
+  how a finger knows, as on the real board.
+- A glass rings lower as it fills, and the pouring sound rises, as real water does.
+
+Montessori's other principles are here too:
+
+- **Isolation of a quality.** Each toy is about one thing.
+- **Order.** The shelf, the trays, and a toy that starts fresh each time it is taken out.
+- **The prepared environment.** The grown-up chooses what is out and how much.
+- **Concrete before abstract.** Counters beside numerals, metal insets before letters.
+
+### Symbols, and silence
+
+Letters and numerals appear only as objects to trace; nothing in the playroom needs reading to be
+used. They are **silent**: no voice says a letter's name or sound. Montessori introduces letters by
+their sound rather than their name, and a synthesised voice would say the name. The parent's
+panel is the only text.
+
+---
+
+## Sound design
+
+- **One tuning.** Every pitched sound in every toy is on C major pentatonic (A4 = 440 Hz). Any two
+  notes from any two toys are consonant, so nothing a child does can sound wrong, and the pond, the
+  tower and the bars can all be played at once.
+- **Synthesised, not recorded.** Each sound is rendered from a recipe in
+  [`js/synth.js`](../playroom/js/synth.js). Struck things (bars, bells, wood, glass, music-box tines)
+  use modal synthesis: a sum of damped sinusoids with the material's mode ratios, upper modes dying
+  faster than the fundamental. Water drops are the sweep of a shrinking bubble; the door's creak is
+  stick-slip; the sand is a crackle of individual grains. The whole sound set is a few hundred lines
+  of arithmetic rather than megabytes of audio.
+- **Rendered once, played cheaply.** Recipes render into buffers, ahead of need, a few at a time
+  while the shelf is showing. A note at play time is one buffer source and one gain node, which an
+  A7 can do by the dozen.
+- **A mix, written down.** Each recipe has one level in `MIX` (in `synth.js`), and the toys pass
+  only relative gain. The levels were set from a loudness estimate of every sound:
+  - musical notes sit near −17 dB;
+  - foley (clicks, latches, pats) near −21;
+  - air and paper near −24;
+  - a single zip tooth, which comes in streams, near −27.
+
+  `test.mjs` holds every sound to its band, so the mix cannot drift.
+- **Continuous textures.** The brush, the sand, the water, the pouring and the slide whistle follow
+  the finger: filtered noise loops, or an oscillator, whose level and pitch track its speed. The
+  pouring sound's band-pass rises with the receiving glass's fill: the air column above the water,
+  shortening.
+- **A room.** A short, warm, generated reverb, darkening as it decays, behind everything; a gentle
+  high shelf and a compressor in front of the speaker so eight fingers do not sum into distortion.
+
+---
+
+## Built for an old iPad
+
+An iPad Air 1 or mini 2/3 stops at iOS 12.5.7, which is Safari 12. Most of what is unusual in the
+code follows from that, and `test.mjs` holds the code to it.
+
+| Safari 12 constraint | What the playroom does |
+|---|---|
+| ES2017 at most: no `?.`, `??`, class fields | Plain ES2017 modules; every file is parsed at ES2017 by the tests |
+| No pointer events (13) | Touch events, tracked per finger; mouse for desktop testing |
+| Document touch listeners are passive (11.3+) | Listeners on the canvas, `{ passive: false }`, `preventDefault` everywhere a child can reach, and Safari's `gesturestart` cancelled: no scrolling, rubber-banding, zooming or callouts |
+| Only `webkitAudioContext`, created suspended | Created and resumed inside the first `touchend` (the gesture iOS accepts), which is the bud on the first screen; re-woken by the first touch after the app returns from the background |
+| iOS can report a stale sample rate | Jam3's workaround: play a buffer at the expected rate, close, recreate |
+| The silent switch mutes Web Audio | A looping silent `<audio>` element moves the page into the playback session (`navigator.audioSession` on newer iOS); a parent setting |
+| No StereoPanner (14.1) | Five fixed pan buses built from gains and a channel merger |
+| Automation events accumulate in old WebKit | Continuous controls are a constant signal through a low-pass into the parameter; nothing is scheduled per frame |
+| `disconnect(node)` disconnects everything | Every control owns its source; nothing shares an output it might need to unplug |
+| ConvolverNode needs the context's rate | The room is rendered after the context exists, a moment after the first sound |
+| No `ctx.roundRect` (16), no `ctx.filter` (18), slow `shadowBlur` | Rounded paths from arcs; flat offset shadows, which also suit the look |
+| No `ResizeObserver` (13.1), stale sizes after rotation | `resize` and `orientationchange`, measured again after a short delay |
+| No flex `gap` (14.1), `inset`, `aspect-ratio`, `clamp()` | Margins and explicit offsets in the CSS |
+| 1 GB of RAM, a retina screen | Static backgrounds drawn once into layers and freed on exit; frames drawn only while something moves; the canvas resolution steps down if frames run long |
+| Offline | A service worker (11.3+) precaches every file; `test.mjs` checks the list against the directory, and that the page opens offline |
+
+Two things a desktop cannot show, and only the iPad itself can confirm: how the speakers render the
+mix, and the A7's frame rate. The adaptive resolution is the hedge for the second.
+
+---
+
+## Testing
+
+```bash
+cd playroom
+npm install                 # playwright and acorn, nothing else
+node test.mjs               # or: node test.mjs --shots DIR  to save every scene
+```
+
+In Node:
+
+- every module parses as ES2017;
+- no API or CSS newer than Safari 12;
+- the offline copy is complete;
+- all 78 recipe variants render finite, unclipped, click-free and DC-free at 44.1 and 48 kHz;
+- every sound sits in its band of the mix;
+- all 36 glyphs stay on the writing lines.
+
+Then in Chromium, as an iPad (1024 × 768 at 2×, touch), the suite drives every toy with real touch
+events. It measures the audio that reaches the speaker through an analyser after the compressor.
+It also checks:
+
+- that the first touch is what starts sound;
+- that the frame loop sleeps when nothing moves;
+- that leaving a toy stops its sounds;
+- that the grown-ups' gate needs a three-second hold;
+- that a rotation is followed;
+- that the page opens with no connection.
+
+All of that runs a second time with everything Safari 12 lacks removed from the page and an iPad's
+user agent: no unprefixed `AudioContext`, no StereoPanner, no `roundRect`, no float analyser, and
+so on. That run also proves the prefixed audio path and the silent-switch workaround.
+
+It runs in CI on every push, and before every deploy.
+
+## Icons
+
+`node tools/icons.mjs` renders the home-screen icons and the iPad launch images from the playroom's
+own drawing code. The icon is the same bud the playroom opens on, and the launch image is the
+opening screen itself, so launching changes nothing on screen. The PNGs are committed, encoded by
+the tool's own small PNG writer at a quarter of the size the browser's encoder produces.
+
+## Files
+
+```
+playroom/
+  index.html, style.css     the page: one canvas, two corner buttons, the grown-ups' panel
+  manifest.webmanifest      Home Screen metadata
+  sw.js                     the offline copy (VERSION stamped at deploy)
+  js/
+    main.js                 start-up and wiring
+    stage.js                canvas, touch, frame loop, transitions, adaptive resolution
+    audio.js                the Web Audio engine
+    synth.js                every sound, as a recipe; the tuning; the mix
+    draw.js, util.js        palette, shapes, layers, springs, colour, paint mixing
+    start.js, shelf.js      the bud, and the shelf
+    settings.js, parent.js  the grown-ups' corner
+    toys/                   one file per toy; glyphs.js holds the letters and numerals
+  icons/                    generated by tools/icons.mjs
+  test.mjs                  the suite
+```
+
+## Not yet done
+
+- **A garden.** Seeds, a watering can, flowers that open with a chime: the shelf's natural ninth
+  tray, and the bud's own story.
+- **A drying line** for the easel, to keep the last few paintings.
+- **The movable alphabet**, the next step after the sandpaper letters, once a child is building
+  words.

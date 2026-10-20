@@ -80,6 +80,15 @@ jobs:
           node test.mjs --bundle
           node test.mjs --bundle --csp
 
+      # The playroom is published alongside, so it gets the same treatment: nothing goes up that
+      # the browser suite has not passed.
+      - name: Test the playroom
+        working-directory: playroom
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          node test.mjs
+
       - name: Assemble the site
         run: |
           mkdir -p _site
@@ -95,6 +104,15 @@ jobs:
           # deployed can be inspected without cloning.
           cp web/app.js web/worklet.js web/style.css web/bud.js _site/
           cp web/index.html _site/multi-file.html
+
+          # The playroom, at /playroom/: the page and what it loads, not its tests or tools. Its
+          # service worker is stamped with the commit, so every deploy gets a fresh offline copy
+          # and an iPad picks it up on its next launch.
+          mkdir -p _site/playroom
+          cp -R playroom/index.html playroom/style.css playroom/sw.js playroom/manifest.webmanifest \
+                playroom/js playroom/icons _site/playroom/
+          sed -i "s/__VERSION__/${GITHUB_SHA::12}/" _site/playroom/sw.js
+          grep -q "${GITHUB_SHA::12}" _site/playroom/sw.js
 
           # Pages serves from a subdirectory, and everything is loaded relatively, so no
           # rewriting is needed. A .nojekyll stops Pages ignoring files it thinks are partials.

@@ -35,3 +35,8 @@ web/*.png
 # The single-file bundles, folded from the sources above by web/bundle.mjs.
 web/bud-standalone.html
 web/bud-fragment.html
+
+# The playroom has no build; its package.json exists only for the test and icon tools, and what
+# npm installs for them is not part of the playroom.
+playroom/node_modules/
+playroom/package-lock.json
