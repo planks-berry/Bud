@@ -534,7 +534,8 @@ export function dumpTruck(ctx, cx, by, k, o = {}) {
         }
         poly(ctx, side, SITE.body);
         fillRound(ctx, -0.05, -H - 0.015, L + 0.08, 0.04, 0.015, SITE.bodyDeep);
-        for (let i = 1; i < 4; i++) line(ctx, (L * i) / 4, -H + 0.05, (L * i) / 4, -0.03, 0.014, SITE.bodyDeep);
+        for (let i = 1; i < 4; i++)
+            line(ctx, (L * i) / 4, -H + 0.05, (L * i) / 4, -0.03, 0.014, SITE.bodyDeep);
         ctx.restore();
         // The wheels, under arches.
         for (const wx of TRUCK.wheels) {

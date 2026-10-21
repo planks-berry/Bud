@@ -1232,18 +1232,364 @@ async function suite(mode) {
     await home();
 
     // ---- dig -----------------------------------------------------------------------------------
+    //
+    // A finger drives the digger's bucket: the sand it takes is the sand the ground loses, and every
+    // grain digPoured lands somewhere. Volumes are compared to a hundredth of a unit.
 
     await open('dig');
-    check('the dig opens', (await sceneName()) === 'DigScene');
+    const digStart = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return {
+            name: s.constructor.name,
+            truck: !!s.truck,
+            dozer: !!s.dozer,
+            volume: s.volume(),
+            cup: s.joints().cup,
+            heap: s.surfaceY(s.w * 0.44),
+        };
+    });
+    check(
+        'the dig opens with a digger, a truck and a heap of sand',
+        digStart.name === 'DigScene' && digStart.truck && !digStart.dozer
+    );
+    const digState = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            return {
+                volume: s.volume(),
+                ground: s.groundVolume(),
+                bucket: s.bucketLoad(),
+                truck: s.truckLoad(),
+                found: s.found.size,
+                motor: s.motorLevel,
+            };
+        });
+    const digInto = { x: 1024 * 0.44, y: digStart.heap + 60 };
+    await touch.down(digStart.cup.x, digStart.cup.y);
+    for (const [x, y] of line(digStart.cup.x, digStart.cup.y, digInto.x, digInto.y, 20).slice(1)) {
+        await page.waitForTimeout(30);
+        await touch.move(x, y);
+    }
+    await page.waitForTimeout(600);
+    const digScooped = await digState();
+    check(
+        'a finger in the sand fills the bucket, and the ground gives up exactly what it takes',
+        digScooped.bucket > 0 && Math.abs(digScooped.ground + digScooped.bucket - digStart.volume) < 0.01,
+        `bucket ${digScooped.bucket.toFixed(1)}, ground ${digScooped.ground.toFixed(1)} of ${digStart.volume.toFixed(1)}`
+    );
+    check('and the first proper bite always turns something up', digScooped.found >= 1);
+    const digTruckAt = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { x: s.truck.x, by: s.truck.by, k: s.k, facing: s.truck.facing };
+    });
+    const digOver = {
+        x: digTruckAt.x - digTruckAt.facing * digTruckAt.k * 0.15,
+        y: digTruckAt.by - digTruckAt.k * 1.05,
+    };
+    for (const [x, y] of line(digInto.x, digInto.y, digOver.x, digOver.y, 30).slice(1)) {
+        await page.waitForTimeout(30);
+        await touch.move(x, y);
+    }
+    const digMoving = await scene(() => window.playroom.stage.scene.motorLevel);
+    await page.waitForTimeout(900);
+    await touch.up();
+    const digSettled = () =>
+        page
+            .waitForFunction(
+                () => {
+                    const s = window.playroom.stage.scene;
+                    return s.bucketLoad() === 0 && s.grains.length === 0 && (!s.truck || s.truck.tip < 0.05);
+                },
+                null,
+                { timeout: 8000 }
+            )
+            .then(
+                () => true,
+                () => false
+            );
+    await digSettled();
+    await page.waitForTimeout(700);
+    const digPoured = await digState();
+    check(
+        'carried over the truck and let go, it pours into the bed, and not a grain is lost',
+        digPoured.truck > 0 && Math.abs(digPoured.volume - digStart.volume) < 0.01,
+        `truck ${digPoured.truck.toFixed(1)}, all ${digPoured.volume.toFixed(2)} of ${digStart.volume.toFixed(2)}`
+    );
+    check(
+        "the arm's motor sings while the arm moves, and is quiet once it stops",
+        digMoving > 0.05 && digPoured.motor === 0,
+        `${digMoving.toFixed(2)} then ${digPoured.motor.toFixed(2)}`
+    );
+    const digBed = await scene(() => {
+        const s = window.playroom.stage.scene;
+        const t = s.truck;
+        return { x: t.x - t.facing * s.k * 0.2, y: t.by - s.k * 0.3 };
+    });
+    await touch.tap(digBed.x, digBed.y);
+    await page.waitForTimeout(400);
+    await digSettled();
+    await page.waitForFunction(() => window.playroom.stage.scene.truckLoad() === 0, null, { timeout: 6000 });
+    const digTipped = await digState();
+    check(
+        'tapped on its bed, the truck tips its load out onto the sand',
+        digTipped.truck === 0 && Math.abs(digTipped.ground - digStart.volume) < 0.01,
+        `ground ${digTipped.ground.toFixed(2)}`
+    );
+    const digCab = await scene(() => {
+        const s = window.playroom.stage.scene;
+        const t = s.truck;
+        return { x: t.x + t.facing * s.k * 0.28, y: t.by - s.k * 0.35, from: t.x, k: s.k };
+    });
+    await touch.drag(line(digCab.x, digCab.y, digCab.x - 170, digCab.y, 24), 30, 300);
+    await page.waitForTimeout(700);
+    const digDrove = await scene(() => {
+        const s = window.playroom.stage.scene;
+        const t = s.truck;
+        return { x: t.x, by: t.by, ground: s.surfaceY(t.x) };
+    });
+    check(
+        'dragged, the truck drives over the sand, riding its shape',
+        digDrove.x < digCab.from - 60 && Math.abs(digDrove.by - digDrove.ground) < digCab.k * 0.25,
+        `from ${Math.round(digCab.from)} to ${Math.round(digDrove.x)}`
+    );
     await shot('dig');
     check('home from the dig', (await home()) === 'ShelfScene');
+    await open('dig');
+    const digAgain = await digState();
+    check(
+        'and the dig starts fresh when it comes off the shelf again',
+        digAgain.bucket === 0 &&
+            digAgain.truck === 0 &&
+            digAgain.found === 0 &&
+            Math.abs(digAgain.volume - digStart.volume) < 0.01
+    );
+    await home();
 
     // ---- crane ---------------------------------------------------------------------------------
+    //
+    // Parts rest on a grid of half-blocks: a part's height above the ground is a whole number of
+    // half-blocks, `g`, and it lands a note higher for each.
 
     await open('crane');
-    check('the crane opens', (await sceneName()) === 'CraneScene');
+    const craneLook = () =>
+        scene(() =>
+            window.playroom.stage.scene.parts
+                .map(
+                    (p) =>
+                        `${p.kind}:${p.name}@${p.col}:${Math.round(window.playroom.stage.scene.ground - p.y)}`
+                )
+                .join(' ')
+        );
+    const craneStart = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return {
+            name: s.constructor.name,
+            parts: s.parts.length,
+            g: s.g,
+            x0: s.x0,
+            ground: s.ground,
+            pile: s.pileCols,
+        };
+    });
+    const craneFresh = await craneLook();
+    check(
+        'the crane opens with its parts on the pile',
+        craneStart.name === 'CraneScene' && craneStart.parts === 8,
+        `${craneStart.parts} parts`
+    );
+    await scene(() => {
+        window.playroom.stage.scene.rand = () => 0.99;
+    });
+    // A drag that starts on the hook, wherever it is, through `points`, pausing where asked.
+    const hookDrag = async (points, release = true) => {
+        const tip = await scene(() => window.playroom.stage.scene.hookTip());
+        let [px, py] = [tip.x, tip.y - 8];
+        await touch.down(px, py);
+        for (const [x, y, pause = 0] of points) {
+            for (const [mx, my] of line(
+                px,
+                py,
+                x,
+                y,
+                Math.max(1, Math.round(Math.hypot(x - px, y - py) / 12))
+            ).slice(1)) {
+                await page.waitForTimeout(16);
+                await touch.move(mx, my);
+            }
+            [px, py] = [x, y];
+            if (pause) await page.waitForTimeout(pause);
+        }
+        if (release) await touch.up();
+    };
+    // The highest block on the pile with nothing resting on it, and the hook's way down onto it:
+    // across above everything, then straight down, so it meets no other part on the way.
+    const craneFree = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            const tops = s.tops();
+            const free = s.parts.filter((p) => {
+                if (p.kind !== 'block' || p.state !== 'rest' || p.col + p.cols > s.pileCols) return false;
+                const top = s.ground - p.y + s.height(p);
+                for (let i = 0; i < p.cols; i++) if (tops[p.col + i] > top + 0.5) return false;
+                return true;
+            });
+            free.sort((a, b) => a.y - s.height(a) - (b.y - s.height(b)));
+            const p = free[0];
+            return p && { id: p.id, x: p.x, top: p.y - s.height(p), base: s.ground - p.y, col: p.col };
+        });
+    const craneOnto = async (part) => {
+        const { tip, highest } = await scene(() => {
+            const s = window.playroom.stage.scene;
+            const tops = s.parts.filter((p) => p.state === 'rest').map((p) => p.y - s.height(p));
+            return { tip: s.hookTip(), highest: Math.min(...tops) };
+        });
+        const high = Math.min(tip.y - 8, highest - craneStart.g * 2);
+        // A pause above the part lets the swing from the run across die down before the drop.
+        return [
+            [tip.x, high],
+            [part.x, high, 1200],
+            [part.x, part.top + 6, 700],
+        ];
+    };
+    const partById = (id) =>
+        scene((id) => {
+            const s = window.playroom.stage.scene;
+            const p = s.parts.find((q) => q.id === id);
+            return { state: p.state, base: Math.round(s.ground - p.y), col: p.col, x: p.x };
+        }, id);
+    const restAll = () =>
+        page
+            .waitForFunction(() => window.playroom.stage.scene.parts.every((p) => p.state === 'rest'), null, {
+                timeout: 8000,
+            })
+            .then(
+                () => true,
+                () => false
+            );
+
+    const craneFirst = await craneFree();
+    const craneBuildX = craneStart.x0 + (craneStart.pile + 6) * craneStart.g;
+    const craneTrolleyFrom = await scene(() => window.playroom.stage.scene.hook.tx);
+    await hookDrag(await craneOnto(craneFirst), false);
+    const craneCaught = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { carrying: s.hook.carrying && s.hook.carrying.id, tx: s.hook.tx, winch: s.winchLevel };
+    });
+    check(
+        'dragging the hook runs the trolley along the jib and winds the cable down to the finger',
+        Math.abs(craneCaught.tx - craneFirst.x) < craneStart.g &&
+            Math.abs(craneTrolleyFrom - craneFirst.x) > craneStart.g
+    );
+    check('lowered onto a part, the hook takes it', craneCaught.carrying === craneFirst.id);
+    for (const [x, y] of line(
+        craneFirst.x,
+        craneFirst.top + 6,
+        craneBuildX,
+        craneStart.ground - 260,
+        20
+    ).slice(1)) {
+        await page.waitForTimeout(16);
+        await touch.move(x, y);
+    }
+    const craneWinching = await scene(() => window.playroom.stage.scene.winchLevel);
+    await page.waitForTimeout(900);
+    await touch.up();
+    await restAll();
+    const craneLanded = await partById(craneFirst.id);
+    const craneFirstNote = await scene(() => window.playroom.stage.scene.lastLanding);
+    check(
+        'carried over the slab and let go, it drops onto the ground',
+        craneLanded.state === 'rest' && craneLanded.base === 0 && craneLanded.col >= craneStart.pile,
+        JSON.stringify(craneLanded)
+    );
+
+    const craneSecond = await craneFree();
+    await hookDrag([...(await craneOnto(craneSecond)), [craneBuildX, craneStart.ground - 300, 900]]);
+    await restAll();
+    const craneStacked = await partById(craneSecond.id);
+    const craneSecondNote = await scene(() => window.playroom.stage.scene.lastLanding);
+    check(
+        'and a second let go above it lands on top of it, a note higher',
+        craneStacked.col === craneLanded.col &&
+            craneStacked.base === Math.round(craneStart.g * 2) &&
+            craneSecondNote.degree > craneFirstNote.degree,
+        `${JSON.stringify(craneStacked)}, notes ${craneFirstNote.degree} then ${craneSecondNote.degree}`
+    );
+    await page.waitForTimeout(700);
+    check(
+        'the winch sings while the hook moves, and is quiet once it stops',
+        craneWinching > 0.05 && (await scene(() => window.playroom.stage.scene.winchLevel)) === 0,
+        craneWinching.toFixed(2)
+    );
+
+    const craneThird = await craneFree();
+    const craneByHandTo = craneBuildX + craneStart.g * 6;
+    await touch.drag(
+        line(craneThird.x, craneThird.top + craneStart.g, craneByHandTo, craneStart.ground - 200, 24),
+        20,
+        300
+    );
+    await restAll();
+    const craneCarried = await partById(craneThird.id);
+    check(
+        'a part carried by hand goes where the finger takes it, the hook following',
+        craneCarried.state === 'rest' && Math.abs(craneCarried.x - craneByHandTo) < craneStart.g * 1.6,
+        JSON.stringify(craneCarried)
+    );
+
+    await touch.tap(craneLanded.x, craneStart.ground + 10);
+    const craneLit = await page.evaluate(
+        async ([a, b]) => {
+            const s = window.playroom.stage.scene;
+            const order = [];
+            const end = Date.now() + 1500;
+            while (Date.now() < end) {
+                for (const id of [a, b]) {
+                    const p = s.parts.find((q) => q.id === id);
+                    if (p.glow > 0.9 && order.indexOf(id) < 0) order.push(id);
+                }
+                await new Promise((r) => setTimeout(r, 30));
+            }
+            return order;
+        },
+        [craneFirst.id, craneSecond.id]
+    );
+    check(
+        "a tap at a building's foot plays it from the bottom up, each part lit as it sounds",
+        craneLit.join(' ') === `${craneFirst.id} ${craneSecond.id}`,
+        craneLit.join(' ')
+    );
+    const craneNested = await page
+        .waitForFunction(
+            () => {
+                const b = window.playroom.stage.scene.bird;
+                return b && (b.state === 'nesting' || b.state === 'building');
+            },
+            null,
+            { timeout: 8000 }
+        )
+        .then(
+            () => true,
+            () => false
+        );
+    check('a bird comes to nest on the very top, the first time whatever chance says', craneNested);
+
+    const craneSun = await scene(() => window.playroom.stage.scene.sunButton);
+    await touch.tap(craneSun.x, craneSun.y);
+    await page.waitForTimeout(2600);
+    check(
+        'at night the windows light',
+        (await scene(() => window.playroom.stage.scene.night)) > 0.9 &&
+            (await scene(() => window.playroom.stage.scene.windowsLit())) > 0
+    );
+    await shot('crane-night');
+    await touch.tap(craneSun.x, craneSun.y);
+    await page.waitForTimeout(2600);
     await shot('crane');
     check('home from the crane', (await home()) === 'ShelfScene');
+    await open('crane');
+    check('and the crane starts fresh when it comes off the shelf again', (await craneLook()) === craneFresh);
+    await home();
 
     // ---- building site ---------------------------------------------------------------------------
     //
@@ -1493,6 +1839,69 @@ async function suite(mode) {
         'while the others stay at Seed: two colours of three cubes in the tower',
         seed.length === 6 && new Set(seed).size === 2,
         `${seed.length} cubes, ${new Set(seed).size} colours`
+    );
+    await home();
+
+    // The dig at Bloom: a bulldozer, and earth under the sand.
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('dig', 'bloom'));
+    await open('dig');
+    const digBloom = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { dozer: !!s.dozer, earth: s.pit.cols.some((col) => col.some((layer) => layer[0] === 1)) };
+    });
+    check('the dig at Bloom: a bulldozer, and earth under the sand', digBloom.dozer && digBloom.earth);
+    await home();
+
+    // The crane at Bloom: arches, a roof, and a wrecking ball that knocks things down, after which
+    // the parts go home to the pile.
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('crane', 'bloom'));
+    await open('crane');
+    const craneBall = await scene(() => {
+        const s = window.playroom.stage.scene;
+        const b = s.parts.find((p) => p.kind === 'ball');
+        return { x: b.x, top: b.y - s.height(b), ground: s.ground, g: s.g };
+    });
+    const craneTipNow = await scene(() => window.playroom.stage.scene.hookTip());
+    await touch.down(craneTipNow.x, craneTipNow.y - 8);
+    for (const [x, y] of line(craneTipNow.x, craneTipNow.y - 8, craneBall.x, craneBall.top, 30).slice(1)) {
+        await page.waitForTimeout(16);
+        await touch.move(x, y);
+    }
+    await page.waitForTimeout(900);
+    const craneSwing = [
+        [craneBall.x, craneBall.ground - 330],
+        [700, craneBall.ground - 340],
+        [300, craneBall.ground - 120],
+        [200, craneBall.ground - 120],
+    ];
+    let craneFrom = [craneBall.x, craneBall.top];
+    let craneKnocked = false;
+    for (const to of craneSwing) {
+        for (const [x, y] of line(craneFrom[0], craneFrom[1], to[0], to[1], 18).slice(1)) {
+            await page.waitForTimeout(16);
+            await touch.move(x, y);
+            if (!craneKnocked)
+                craneKnocked = await scene(() =>
+                    window.playroom.stage.scene.parts.some(
+                        (p) => p.state === 'tumble' || p.state === 'scatter'
+                    )
+                );
+        }
+        craneFrom = to;
+    }
+    await page.waitForTimeout(400);
+    await touch.up();
+    const craneHome2 = await page
+        .waitForFunction(() => window.playroom.stage.scene.parts.every((p) => p.state === 'rest'), null, {
+            timeout: 10000,
+        })
+        .then(
+            () => true,
+            () => false
+        );
+    check(
+        'the crane at Bloom: the wrecking ball knocks a stack down, and the parts go home to the pile',
+        craneKnocked && craneHome2
     );
     await home();
 

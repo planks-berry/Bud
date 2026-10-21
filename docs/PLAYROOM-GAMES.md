@@ -6,8 +6,9 @@ revised. The technical side (the old iPad, the audio engine, the tests) is in
 "toys".
 
 **Status, 21 October 2026.**
-- **Built:** nine games, tested in two simulated iPad browsers (one with everything Safari 12
-  lacks removed).
+- **Built:** twelve games, tested in two simulated iPad browsers (one with everything Safari 12
+  lacks removed). The newest three are the builders' games: the dig, the crane and the building
+  site.
 - **Where:** live at https://planks-berry.github.io/Bud/playroom/, published from `main`. Work
   continues on branch `claude/montessori-playroom`.
 - **Not yet checked on a real iPad:** the speaker mix and the iPad Air's frame rate can only be
@@ -36,9 +37,10 @@ What was asked, and the answers that have shaped everything since.
 
 - **The bud.** The first screen is a closed bud. Touching it makes it bloom with a soft chord, then
   the shelf opens. It also starts the sound, which iOS allows only after a touch.
-- **The shelf.** Nine games on a low wooden shelf, one to a tray, in two rows. They are ordered
-  simple to complex, left to right. There are no words anywhere: each tray is a picture of its game.
-  Touching a tray opens the game, and the house button in the corner puts it back.
+- **The shelf.** Twelve games on a low wooden shelf, one to a tray, in three rows. They are ordered
+  simple to complex, left to right and top to bottom; the bottom row is the builders': the dig, the
+  crane, the farm and the building site. There are no words anywhere: each tray is a picture of its
+  game. Touching a tray opens the game, and the house button in the corner puts it back.
 - **Layers, found by playing, never unlocked.** Every game has three:
   - **touch**: something happens at the first contact, always;
   - **move**: dragging, carrying, turning, combining;
@@ -441,6 +443,195 @@ morning, with a rooster if there is a hen house.
 
 ---
 
+### 10. Dig
+
+**What it is:** a sandpit seen from the side, the way a child watches a real one through the site
+fence, and a digger whose bucket goes wherever a finger goes.
+
+**Roots:** sand and water play, and the practical-life idea of real work done with a real tool. The
+finger is the bucket, so there are no levers to learn: the arm folds and reaches by itself, the
+digger crawls along on its tracks when the finger goes further than the arm can, and turns round
+when it goes behind.
+
+**Layers**
+- Touch: tap the sand and a little of it jumps up and patters down. Tap a machine and it answers:
+  the digger's horn, the truck's beep, the bulldozer's blade going up or down.
+- Move: the bucket follows a finger. Down into the sand it fills; lifted, it holds what it took;
+  let go, it tips and pours where it is. A tap in the air sends the arm there. Drag the truck and
+  it drives over the sand, riding its shape; drag the bulldozer and its blade pushes.
+- Make: the ground itself: heaps, holes, ramps, a truck-load tipped out somewhere new. At Bloom a
+  darker earth lies under the sand, so a heap built from both is striped.
+
+**Stages**
+- Seed: a digger and a heap of sand, with a longer reach. Nothing is buried.
+- Sprout: adds a dump truck to fill, drive and tip, and three things buried.
+- Bloom: adds a bulldozer, earth under the sand, and four things buried.
+
+**Sand behaves like sand:** it heaps, and slides until it rests at its own slope. None of it is ever
+made or lost: what the bucket takes is what it carries, and what it pours is what lands.
+
+**Buried things:** a bone, a shell, a worm, a mole, a fossil, a toy car. The first proper bite of the
+bucket always finds one, every time the dig comes out; after that it is luck. A find hops out of
+its hole with two notes of its own. Tapped, the bone knocks, the shell and the fossil chime, the
+worm squeaks (and wriggles away after a while), the mole squeaks and blinks before ducking back
+down its own hole, and the car beeps and rolls. Sand poured over a find buries it again.
+
+**Sound:**
+- the arm's hydraulic motor, a continuous voice that sings while the arm moves and is quiet when it
+  stops;
+- the bucket's crunch as it bites, a hiss as it pours, a rumble as the truck tips;
+- the digger's horn, the truck's beeps (and reversing beeps), the bulldozer's engine.
+
+**Decisions so far**
+- The bucket digs only while a finger drives it: left resting in the sand, it waits.
+- A fresh sandpit every time it comes off the shelf, and the first find certain, as on the farm.
+- No night here, unlike the crane, the farm and the site.
+
+**Questions**
+-
+
+**Ideas**
+-
+
+---
+
+### 11. Crane
+
+**What it is:** a tower crane, a pile of building parts, and open ground to build on.
+
+**Roots:** the colour tower, with a tool in between. A child of three can carry a block with a
+finger; lifting it with a crane is the same work done at a distance, through a hook that swings.
+
+**Layers**
+- Touch: tap a part for its note, the ground at a building's foot to play the whole building from
+  the bottom up (each part lit as it sounds), the cab for the horn, the hook to set it swinging.
+  The sun in the corner turns day to night.
+- Move: drag the hook. The trolley runs along the jib after the finger and the cable winds to its
+  height. Lowered onto a part, the hook takes it; let go, the part drops and settles on whatever is
+  under it. A part can also be carried by hand, and the crane follows it.
+- Make: a building of any shape. Nothing is correct: a building is whatever stands.
+
+**Stages**
+- Seed: four big blocks, to lift or carry.
+- Sprout: eight parts: blocks, beams and windows.
+- Bloom: ten parts, adding an arch and a roof, and a wrecking ball.
+
+**How parts stand:** parts snap to a grid of half-blocks as they land, so a stack stands and a row
+is a row, and there is no physics to fight. A part rests on the highest thing beneath it; take
+something from under it and it drops.
+
+**What lives in a building:** whatever stands comes alive. Each shows itself the first time it can,
+every time the crane comes out, and often after that.
+
+| Who | Where | A tap |
+|---|---|---|
+| A bird | Comes to nest on the very top of a building at least two parts tall, and leaves if it is built over or taken down | A chirp |
+| A cat | Moves into a window | A meow and a stretch |
+| Plants | Appear on open ledges above the ground, up to three | – |
+| A worker | Walks out along a beam just landed, and waves | Waves again |
+
+**Bloom's wrecking ball:** hung on the hook and swung into a building, it knocks over what it hits
+and everything resting on that. The fallen parts pick themselves up and hop home to the pile, so
+knocking down never leaves a mess.
+
+**Night:** the windows light, and the crane's light at the top of the jib shines.
+
+**Sound:**
+- each part sounds its colour's note, the same note it has as a paint on the easel;
+- landing, a part clanks a step of the scale higher for every half-block it stands above the
+  ground, so a building going up rings up the scale;
+- the winch, a continuous voice that sings while the hook moves, a step higher the shorter the
+  cable; a latch and a rattle as the hook takes a part, a hiss as it lets go;
+- the cab's two-note horn, and chimes at dusk and dawn.
+
+**Decisions so far**
+- The hook swings for real, but nothing it carries can be dropped wrong: wherever a part is let
+  go, it lands square.
+- Carrying by hand is always allowed, for a child who does not get on with the hook.
+- A fresh pile every time it comes off the shelf; the bird, the cat, the plants and the worker are
+  certain the first time.
+
+**Questions**
+-
+
+**Ideas**
+-
+
+---
+
+### 12. Building site
+
+**What it is:** the farm's board, as a building site: a tray of roads, plots and machines to build
+with, where the machines work in chains.
+
+**Roots:** Pok Pok's builder, like the farm, which it shares its board with: pieces snap to tiles,
+join their neighbours, come alive when touched, and keep a few secrets.
+
+**Layers**
+- Touch: tap anything. Every piece answers, whatever stands beside it.
+- Move: drag a piece from the tray onto a tile. Drag one on the board to move it; dropped on
+  another piece it swaps places, and dropped on the tray it goes back.
+- Make: a site that works. A digger beside a marked-out plot digs it out and loads the earth into a
+  truck beside it; the truck drives the road and tips the earth onto a pile; a mixer beside the
+  hole fills it with concrete, which sets by itself; a crane beside the foundation lifts a building
+  onto it, a floor at a time, each floor a note higher and the next of the playroom's colours,
+  until it is topped out with a little tree. None of it has to happen in order, and none of it is a
+  goal.
+
+**Stages**
+- Seed: a 5 × 4 site with 6 kinds of piece: road, plot, digger, truck, mixer, crane. Buildings go
+  up to 3 floors.
+- Sprout: a 6 × 5 site with 9 kinds: adds the pile, the cones and the foreman's hut. Up to 4 floors.
+- Bloom: a 7 × 5 site with all 12 kinds: adds the roller, the bulldozer and the work lamp. Up to 5
+  floors.
+
+Each stage starts as a small site with the work half done (a plot marked, a hole dug, a building
+begun), so there is something to tap straight away.
+
+**Every piece: how it connects, what a tap does, what it hides**
+
+Hidden things are certain, not rare: each shows itself the first time it can, every time the site
+comes out, and half the time or more after that.
+
+| Piece | Connects | A tap | Hidden |
+|---|---|---|---|
+| Road | Joins the roads beside it; the trucks and the roller drive along them | A crunch of grit | Pigeons come down to peck, and fly off |
+| Plot | Joins the plots beside it at the same step, so two buildings of a height side by side are one wide building | Marked out: the string between the pegs is plucked. Dug: a crunch. Wet: a hand pressed in leaves its print. Set: a clank. A building: it plays its floors from the ground up, each lit as it sounds | A bone at the bottom of a hole; the first time a building plays, it turns out to be lived in, with plants at the windows and a meow |
+| Digger | Digs out the marked plot beside it (with none, it scoops from a pile), and loads the earth into a truck or onto a pile beside it | It digs | A bird perches on it, by day |
+| Truck | Drives the road beside it and tips its load onto a pile beside the road | Two beeps, and off it goes, beeping as it reverses; with nowhere to go, it tips where it stands | The site dog runs behind it |
+| Mixer | Fills the dug hole beside it with concrete, which sets by itself into a foundation | The drum turns and sloshes | A cat walks across the wet concrete, leaving paw prints |
+| Crane | Lifts a floor onto the foundation or building beside it; the mast climbs when the building needs it; at the top floor, a little tree | It lifts; with nothing to build on, it swings round and back | A bird lands on the end of the jib, by day |
+| Pile | Takes what the trucks and the digger tip on it, and grows | It slides, with a rumble | A worm pokes out |
+| Cones | Join the cones beside them | A line of them wobbles, one after another, climbing the scale | A hedgehog behind them |
+| Foreman's hut | – | The door creaks, the foreman steps out and blows the whistle, and every machine on the site has a go, one after another, in the order a building's work goes | A radio playing a tune |
+| Roller | Rolls the whole road beside it, leaving it fresh | A toot, and off it goes, its drum playing the scale; with no road, it putters on the spot | A cat rides on the roof |
+| Bulldozer | Pushes the pile beside it down, or fills a hole back in | Blade down, and a push | A lost ball under the sand |
+| Work lamp | – | On and off | At night it lights the ground around it, and moths come |
+| Bare ground | – | A little dust | – |
+
+**Night:** the windows and the hut light, the machines' beacons turn, the work lamps light the
+ground around them, and the stars come out. At dusk the foreman goes in; at dawn he comes out with
+his whistle.
+
+**Sound:**
+- the machines' engines, beeps, rumbles and clanks, the mixer's slosh, and the foreman's whistle;
+- each floor of a building is its colour's note, so a building plays a rising tune;
+- the radio's tune, the roller's scale, the cones' climbing knocks.
+
+**Decisions so far**
+- The farm's board is shared, so the two builders' games play the same way: one piece to a tile,
+  moved, swapped and put back alike.
+- A fresh site every time it comes off the shelf, and hidden things certain, as on the farm.
+- The whistle lets one tap show the whole chain of work.
+
+**Questions**
+-
+
+**Ideas**
+-
+
+---
+
 ## Not built yet
 
 - **A garden:** seeds, a watering can, flowers that open with a chime, and the bud's own story.
@@ -453,12 +644,15 @@ morning, with a rooster if there is a hen house.
 - **Spotting lost interest:** no method chosen yet ("not sure yet"). The playroom will not record
   anything to help, by choice.
 - **The real iPad:** the speaker mix and the frame rate need checking on the iPad itself.
-- **Publishing:** merging the branch into `main` publishes the playroom at the address above. On
-  the iPad: open it in Safari, then Share, then Add to Home Screen.
+- **Publishing:** a push to `main` publishes the playroom at the address above; no other branch
+  does. On the iPad: open it in Safari, then Share, then Add to Home Screen. Opened online, it
+  picks up a new version by itself.
 
 ## Where things are
 
-- `playroom/`: the playroom itself. One file per game in `playroom/js/toys/`, and the colour
-  tower's sets in `cubes.js`.
+- `playroom/`: the playroom itself. One file per game in `playroom/js/toys/`, with its drawings
+  beside it (`farmart.js`, `digart.js`, `craneart.js`, `siteart.js`), the colour tower's sets in
+  `cubes.js`, the machines the dig and the site share in `machines.js`, and the board the farm and
+  the site share in `board.js`.
 - `docs/PLAYROOM.md`: how it is built, why, and how it is tested.
 - `docs/PLAYROOM-GAMES.md`: this file.

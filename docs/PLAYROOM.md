@@ -49,10 +49,11 @@ the child does: no reports, no history, nothing sent anywhere.
 
 ## The shelf
 
-Nine toys, ordered as a Montessori shelf is: simple to complex, left to right, top to bottom. The
-first row asks for nothing but a touch. The second asks for a steadier hand, and then for symbols.
-The farm comes last: it has no Montessori parallel, and is a world to build rather than a
-material.
+Twelve toys in three rows, ordered as a Montessori shelf is: simple to complex, left to right, top
+to bottom. The first toys ask for nothing but a touch; then a steadier hand, and then symbols. The
+bottom row is the builders': the dig, where a finger is a digger's bucket; the crane, which does
+the same work at a distance, through a hook; and the farm and the building site, worlds to build
+rather than materials, which hold a little of everything before them.
 
 Each toy also has its own section, written to be revised, in [PLAYROOM-GAMES.md](PLAYROOM-GAMES.md).
 
@@ -72,7 +73,10 @@ Every toy has three layers, which are found by playing, never unlocked:
 | **Easel** | Art; metal insets for the hand | Paint with a finger, or several | Choose a pot; lay a metal inset frame on the paper | Paint through the frame and lift it to leave a clean shape; watercolour glazes, so colours mix on the paper | 3 / 6 / 6 paints; 0 / 4 / 8 insets; brush smaller as it grows |
 | **Sandpaper letters** | Language | Choose a board from the box; trace it | A guide's finger shows how each is written, once, and again on request | Only the sand makes a sound; the smooth board is silent | – |
 | **Sandpaper numerals** | Mathematics | As the letters | As the letters | A bowl lays out that many counters in pairs, Montessori's cards and counters, one rising note each | – |
+| **Dig** | Practical life: transferring, with a material that keeps its shape | Tap the sand and it sprays; tap the digger for its horn, the truck for two beeps | The bucket follows a finger: down into the sand it fills, lifted it carries, let go it pours; the digger crawls after a finger beyond its reach. Drag the truck, and tap its bed to tip it | The ground itself: heaps, holes and ramps, of sand that slumps to its natural slope and is never made or lost; things buried in it, the first always found at the first bite | a digger and a heap / and a dump truck, and things buried / and a bulldozer, and earth under the sand |
+| **Crane** | Sensorial (building with shapes), and the work of the hand at a distance | Tap a part for its colour's note, the cab for the horn, the hook to set it swinging | Drag the hook: the trolley and cable follow, it takes the part it is lowered onto, and drops it where it is let go, onto a grid so a stack stands. A part can also be carried by hand, the crane following | A building of any shape, which moves in by itself: a cat in a window, plants on the ledges, a bird nesting on top; a tap at its foot plays it bottom to top, each part lit | 4 big blocks / blocks, beams and windows / and arches, a roof and a wrecking ball |
 | **Farm** | None: after Pok Pok's builder | Tap anything: every piece answers, and tapped grass grows a flower | Drag pieces from the tray onto the board; move them, swap them, put them back | A farm that joins up: paths for the tractor to drive, fields by water that grow on their own, a pond big enough for ducks; the sun turns it to night, when the lights come on and other things wake | 6 / 10 / 13 kinds of piece, on 5 × 4 / 6 × 5 / 7 × 5 tiles |
+| **Building site** | None: the farm's builder | Tap anything: every piece answers | As the farm | Machines that work in chains: the digger digs a plot and loads the truck, the truck tips onto the pile, the mixer fills the hole with concrete, the crane lifts a building onto the foundation a floor at a time, each floor a note higher, and tops it out with a tree; the foreman's whistle sets them all going | 6 / 9 / 12 kinds of piece, on 5 × 4 / 6 × 5 / 7 × 5 tiles |
 
 ### How Montessori and Pok Pok were reconciled
 
@@ -89,6 +93,10 @@ What is kept from Montessori is the honesty of the materials. Where an order exi
 - A sandpaper letter is rough and the board is smooth, so only the letter makes a sound. That is
   how a finger knows, as on the real board.
 - A glass rings lower as it fills, and the pouring sound rises, as real water does.
+- Sand in the dig is never made or lost: what the bucket takes is what the ground gives up, and
+  every grain poured lands somewhere. It heaps and slides to its own slope, as sand does.
+- A part the crane sets down clanks a step of the scale higher for every half-block it stands above
+  the ground, so a building going up rings up the scale.
 
 The colour tower goes further. It began as the pink tower, which has one right order, largest at
 the bottom, and a material that shows a mistake. Here the cubes still differ in size, so an order
@@ -128,7 +136,9 @@ panel is the only text.
 - **One tuning.** Every pitched sound in every toy is on C major pentatonic (A4 = 440 Hz). Any two
   notes from any two toys are consonant, so nothing a child does can sound wrong, and the pond, the
   tower and the bars can all be played at once. The farm's animals are on it too: the cow's moo is
-  a C, the sheep's baa an A, and a herd answering itself climbs the scale.
+  a C, the sheep's baa an A, and a herd answering itself climbs the scale. So is the building site:
+  a reversing truck beeps on the scale, a beam's clank is a note, and the floors of a building and
+  the parts of the crane's sound the playroom's colour-and-note pairs.
 - **Synthesised, not recorded.** Each sound is rendered from a recipe in
   [`js/synth.js`](../playroom/js/synth.js). Struck things (bars, bells, wood, glass, music-box tines)
   use modal synthesis: a sum of damped sinusoids with the material's mode ratios, upper modes dying
@@ -136,22 +146,28 @@ panel is the only text.
   stick-slip; the sand is a crackle of individual grains. The farm's voices are a buzzy source
   through a few formant filters, the shape of a vocal tract: the pitch, its wobble and the vowel
   are what make a moo a moo and a quack a quack. The whole sound set is a few hundred lines of
-  arithmetic rather than megabytes of audio.
+  arithmetic rather than megabytes of audio. The machines are the same idea: a steel beam's clank
+  is the inharmonic ring of a free bar, a load sliding out of a tipped truck is low noise with
+  grains pattering through it, and the foreman's whistle is a pea rattling a note thirty times a
+  second.
 - **Rendered once, played cheaply.** Recipes render into buffers, ahead of need, a few at a time
   while the shelf is showing. A note at play time is one buffer source and one gain node, which an
   A7 can do by the dozen.
 - **A mix, written down.** Each recipe has one level in `MIX` (in `synth.js`), and the toys pass
   only relative gain. The levels were set from a loudness estimate of every sound:
-  - musical notes sit near −17 dB;
-  - foley (clicks, latches, pats) near −21;
-  - air and paper near −24;
-  - a single zip tooth, which comes in streams, near −27.
+  - musical notes (and a beam's clank) sit near −17 dB;
+  - animal voices near −19;
+  - foley (clicks, latches, pats, a reversing beep, a chain, a crunch, a whistle) near −21;
+  - air and paper (a load sliding out, wet concrete, a brake's hiss) near −24;
+  - a single zip tooth or engine beat, which come in streams, near −27.
 
   `test.mjs` holds every sound to its band, so the mix cannot drift.
 - **Continuous textures.** The brush, the sand, the water, the pouring and the slide whistle follow
   the finger: filtered noise loops, or an oscillator, whose level and pitch track its speed. The
   pouring sound's band-pass rises with the receiving glass's fill: the air column above the water,
-  shortening.
+  shortening. The dig's sand on the move is a coarser grit, loud as fast as it moves; the digger's
+  hydraulics and the crane's winch are a motor voice whose pitch steps along the scale with the
+  arm's or the hook's height, so lifting sings rather than whines.
 - **A room.** A short, warm, generated reverb, darkening as it decays, behind everything; a gentle
   high shelf and a compressor in front of the speaker so eight fingers do not sum into distortion.
 
@@ -198,7 +214,7 @@ In Node:
 - every module parses as ES2017;
 - no API or CSS newer than Safari 12;
 - the offline copy is complete;
-- all 112 recipe variants render finite, unclipped, click-free and DC-free at 44.1 and 48 kHz;
+- all 140 recipe variants render finite, unclipped, click-free and DC-free at 44.1 and 48 kHz;
 - every sound sits in its band of the mix;
 - all 36 glyphs stay on the writing lines;
 - every set of cubes the colour tower can roll keeps its rules, over 2000 rolls a stage.
@@ -222,6 +238,25 @@ It also checks:
   tractor drives the path, harvests the field beside it and comes home; that the sun brings the
   night, when the cow jumps over the moon; and that the farm starts fresh when it comes off the
   shelf again;
+- in the dig: that a finger in the sand fills the bucket and the ground gives up exactly what it
+  takes; that the first proper bite always turns something up; that a load carried over the truck
+  pours into its bed with not a grain lost; that the motor sings while the arm moves and is quiet
+  when it stops; that the truck tips its load out and drives over the sand riding its shape; at
+  Bloom, a bulldozer and earth under the sand; and that the dig starts fresh;
+- at the crane: that dragging the hook runs the trolley and winds the cable; that the hook takes
+  the part it is lowered onto; that a part let go over the slab drops to the ground, and a second
+  lands on top of it a note higher; that the winch is quiet once the hook stops; that a part
+  carried by hand goes where the finger takes it; that a tap at a building's foot plays it bottom
+  to top; that a bird comes to nest on top the first time; that night lights the windows; at
+  Bloom, that the wrecking ball knocks a stack down and the parts go home; and that the crane
+  starts fresh;
+- on the building site: that pigeons come to the road the first time whatever chance says; that a
+  road from the tray joins the road beside it; each link of the chain, from the digger digging a
+  plot and loading the truck, through the truck tipping onto the pile and the mixer pouring
+  concrete that sets, to the crane lifting floors and topping the building out; that a building
+  plays its floors from the ground up; that the foreman's whistle sets the machines going; the
+  night; at Bloom, a roller that leaves the road fresh and a lamp that lights; and that the site
+  starts fresh;
 - that leaving a toy stops its sounds;
 - that the grown-ups' gate needs a three-second hold;
 - that one toy's stage can be moved on by itself, and the shared stage clears it again;
@@ -257,7 +292,10 @@ playroom/
     start.js, shelf.js      the bud, and the shelf
     settings.js, parent.js  the grown-ups' corner
     toys/                   one file per toy; glyphs.js holds the letters and numerals, cubes.js
-                            the colour tower's sets, farmart.js the farm's pictures
+                            the colour tower's sets, farmart.js the farm's pictures, board.js the
+                            board the farm and the building site are built on, machines.js the
+                            site's palette and machines, and digart.js, craneart.js and siteart.js
+                            the rest of the dig's, the crane's and the site's pictures
   icons/                    generated by tools/icons.mjs
   test.mjs                  the suite
 ```
