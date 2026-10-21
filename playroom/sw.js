@@ -9,6 +9,11 @@
 // when served from a working copy, the worker goes to the network first and uses the cache only
 // as a fallback, so a developer never sees yesterday's files.
 //
+// A new worker takes over as soon as it has its copy, but the page already open keeps running the
+// files it started with; main.js checks for a new worker whenever the playroom is opened or comes
+// back to the front, and changes the page over at a quiet moment. The copy is fetched past the
+// browser's own cache, so a deploy soon after another cannot be stored with the files it replaced.
+//
 // FILES must list everything the page loads; `test.mjs` checks it against the directory, because a
 // file missing here works perfectly online and breaks only on the iPad, offline, later.
 
@@ -28,6 +33,7 @@ const FILES = [
     'js/draw.js',
     'js/util.js',
     'js/settings.js',
+    'js/version.js',
     'js/parent.js',
     'js/start.js',
     'js/shelf.js',
@@ -65,7 +71,7 @@ self.addEventListener('install', (event) => {
     event.waitUntil(
         caches
             .open(CACHE)
-            .then((cache) => cache.addAll(FILES))
+            .then((cache) => cache.addAll(FILES.map((file) => new Request(file, { cache: 'reload' }))))
             .then(() => self.skipWaiting())
     );
 });

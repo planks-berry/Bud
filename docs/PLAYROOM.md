@@ -195,6 +195,7 @@ code follows from that, and `test.mjs` holds the code to it.
 | No flex `gap` (14.1), `inset`, `aspect-ratio`, `clamp()` | Margins and explicit offsets in the CSS |
 | 1 GB of RAM, a retina screen | Static backgrounds drawn once into layers and freed on exit; frames drawn only while something moves; the canvas resolution steps down if frames run long |
 | Offline | A service worker (11.3+) precaches every file; `test.mjs` checks the list against the directory, and that the page opens offline |
+| A Home Screen app is resumed far more often than started (always, under Guided Access), and a page keeps running the files it started with | The page asks for a newer worker every time it comes to the front, and changes over to it at a quiet moment: at once while the bud waits, otherwise the next time it is put away or woken. A service worker cannot reload a page itself before Safari 16 |
 
 Two things a desktop cannot show, and only the iPad itself can confirm: how the speakers render the
 mix, and the A7's frame rate. The adaptive resolution is the hedge for the second.
@@ -261,7 +262,10 @@ It also checks:
 - that the grown-ups' gate needs a three-second hold;
 - that one toy's stage can be moved on by itself, and the shared stage clears it again;
 - that a rotation is followed;
-- that the page opens with no connection.
+- that the page opens with no connection;
+- that a newly published copy is taken up by itself: at once while the bud waits, and mid-play
+  only once the playroom has been put away, when it opens again from the bud. Two copies are
+  published in turn, stamped as the deploy stamps them.
 
 All of that runs a second time with everything Safari 12 lacks removed from the page and an iPad's
 user agent: no unprefixed `AudioContext`, no StereoPanner, no `roundRect`, no float analyser, and
@@ -284,7 +288,8 @@ playroom/
   manifest.webmanifest      Home Screen metadata
   sw.js                     the offline copy (VERSION stamped at deploy)
   js/
-    main.js                 start-up and wiring
+    main.js                 start-up and wiring, and changing over to a newer copy
+    version.js              which copy this is (stamped at deploy), shown in the grown-ups' corner
     stage.js                canvas, touch, frame loop, transitions, adaptive resolution
     audio.js                the Web Audio engine
     synth.js                every sound, as a recipe; the tuning; the mix

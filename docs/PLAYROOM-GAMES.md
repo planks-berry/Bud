@@ -645,8 +645,9 @@ his whistle.
   anything to help, by choice.
 - **The real iPad:** the speaker mix and the frame rate need checking on the iPad itself.
 - **Publishing:** a push to `main` publishes the playroom at the address above; no other branch
-  does. On the iPad: open it in Safari, then Share, then Add to Home Screen. Opened online, it
-  picks up a new version by itself.
+  does. On the iPad: open it in Safari, then Share, then Add to Home Screen. Online, it fetches a
+  new version by itself and changes over to it the next time it is opened or the screen wakes,
+  never mid-play. The grown-ups' corner says which version the iPad is running.
 
 ## Where things are
 

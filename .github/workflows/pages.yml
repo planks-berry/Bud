@@ -106,13 +106,17 @@ jobs:
           cp web/index.html _site/multi-file.html
 
           # The playroom, at /playroom/: the page and what it loads, not its tests or tools. Its
-          # service worker is stamped with the commit, so every deploy gets a fresh offline copy
-          # and an iPad picks it up on its next launch.
+          # service worker and its version file are stamped with the commit, so every deploy gets
+          # a fresh offline copy, which an iPad fetches and changes over to by itself, and the
+          # grown-ups' corner can say which copy an iPad is running.
           mkdir -p _site/playroom
           cp -R playroom/index.html playroom/style.css playroom/sw.js playroom/manifest.webmanifest \
                 playroom/js playroom/icons _site/playroom/
-          sed -i "s/__VERSION__/${GITHUB_SHA::12}/" _site/playroom/sw.js
+          sed -i "s/__VERSION__/${GITHUB_SHA::12}/" _site/playroom/sw.js _site/playroom/js/version.js
+          sed -i "s/__PUBLISHED__/$(date -u '+%-d %B %Y')/" _site/playroom/js/version.js
           grep -q "${GITHUB_SHA::12}" _site/playroom/sw.js
+          grep -q "${GITHUB_SHA::12}" _site/playroom/js/version.js
+          if grep -q "__PUBLISHED__" _site/playroom/js/version.js; then exit 1; fi
 
           # Pages serves from a subdirectory, and everything is loaded relatively, so no
           # rewriting is needed. A .nojekyll stops Pages ignoring files it thinks are partials.

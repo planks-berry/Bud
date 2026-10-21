@@ -409,8 +409,18 @@ const TYPES = {
     '.webmanifest': 'application/manifest+json',
 };
 
+// Files the tests stand in for: a published copy's stamped worker and version file, replaced by a
+// newer copy's mid-test, as a deploy replaces them.
+const standIns = new Map();
+
 const server = createServer(async (request, response) => {
     const path = request.url.split('?')[0];
+    const standIn = standIns.get(path.slice(1));
+    if (standIn) {
+        response.writeHead(200, { 'Content-Type': 'text/javascript' });
+        response.end(standIn);
+        return;
+    }
     const file = join(here, path === '/' ? 'index.html' : path);
     try {
         if (!file.startsWith(here) || statSync(file).isDirectory()) throw new Error('no');
@@ -1784,6 +1794,12 @@ async function suite(mode) {
         'holding it for three seconds does',
         await page.evaluate(() => !document.getElementById('parent').hidden)
     );
+    check(
+        'and it says which copy of the playroom this is',
+        (await page.evaluate(() => document.querySelector('[data-version]').textContent)).indexOf(
+            'working copy'
+        ) >= 0
+    );
     await shot('parent');
     const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem('playroom.settings.v1')));
     const sharedShown = () =>
@@ -1969,6 +1985,105 @@ async function suite(mode) {
             );
         check('and the playroom opens with no connection', offline);
         await context.setOffline(false);
+    }
+
+    // ---- a newer copy --------------------------------------------------------------------------------
+    //
+    // A published copy is served from the iPad's own store, so a deploy reaches it only through a
+    // newer service worker, and a home-screen app is brought back to the front far more often than
+    // it is started. Copies are published here in turn, stamped as the deploy stamps them, and the
+    // page must change over by itself: straight away while the bud waits, and otherwise only once
+    // the playroom has been put away, never mid-play.
+
+    if (!safari) {
+        const versionFile = await readFile(join(here, 'js/version.js'), 'utf8');
+        const publish = (version) => {
+            standIns.set('sw.js', sw.replace("'__VERSION__'", `'${version}'`));
+            standIns.set(
+                'js/version.js',
+                versionFile.replace("'__VERSION__'", `'${version}'`).replace("'__PUBLISHED__'", "'today'")
+            );
+        };
+        const later = await browser.newContext({
+            viewport: { width: 1024, height: 768 },
+            hasTouch: true,
+            isMobile: true,
+        });
+        const iPad = await later.newPage();
+        const iPadTouch = await later.newCDPSession(iPad);
+        const copy = () => iPad.evaluate(() => window.playroom && window.playroom.version);
+        const changedTo = (version) =>
+            iPad
+                .waitForFunction((v) => window.playroom && window.playroom.version === v, version, {
+                    timeout: 20000,
+                })
+                .then(
+                    () => true,
+                    () => false
+                );
+        // Brought back to the front, or put away: the page cannot tell which from the event alone.
+        const toFront = () => iPad.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+
+        publish('copy-one');
+        await iPad.goto(url);
+        await iPad.waitForFunction(() => navigator.serviceWorker.controller !== null, null, {
+            timeout: 20000,
+        });
+        const first = await copy();
+        publish('copy-two');
+        await toFront();
+        check(
+            'a newly published copy is taken up by itself, straight away while the bud waits',
+            first === 'copy-one' && (await changedTo('copy-two')),
+            `${first} then ${await copy()}`
+        );
+
+        await iPad.waitForFunction(() => window.__playroomBooted === true);
+        await iPadTouch.send('Input.dispatchTouchEvent', {
+            type: 'touchStart',
+            touchPoints: [{ x: 512, y: 330, id: 1 }],
+        });
+        await iPad.waitForTimeout(50);
+        await iPadTouch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await iPad.waitForTimeout(2000);
+        await iPad.evaluate(() => {
+            window.__stillHere = true;
+        });
+        publish('copy-three');
+        await toFront();
+        const tookOver = await iPad
+            .waitForFunction(
+                async () => {
+                    const keys = await caches.keys();
+                    return keys.length === 1 && keys[0] === 'playroom-copy-three';
+                },
+                null,
+                { timeout: 20000 }
+            )
+            .then(
+                () => true,
+                () => false
+            );
+        await iPad.waitForTimeout(1000);
+        const midPlay = await iPad.evaluate(() => ({
+            still: window.__stillHere === true,
+            scene: window.playroom.stage.scene.constructor.name,
+            version: window.playroom.version,
+        }));
+        check(
+            'but mid-play, a newer copy waits',
+            tookOver && midPlay.still && midPlay.scene === 'ShelfScene' && midPlay.version === 'copy-two',
+            JSON.stringify(midPlay)
+        );
+        await toFront();
+        const changed = await changedTo('copy-three');
+        check(
+            'until the playroom is put away, and it opens again from the bud',
+            changed &&
+                (await iPad.evaluate(() => window.playroom.stage.scene.constructor.name)) === 'StartScene'
+        );
+        standIns.clear();
+        await later.close();
     }
 
     await context.close();

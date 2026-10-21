@@ -6,6 +6,7 @@
 
 import { settings, save, STAGES, stageOf, setStage, setAllStages } from './settings.js';
 import * as audio from './audio.js';
+import { VERSION, PUBLISHED, STAMPED } from './version.js';
 
 const HOLD_MS = 3000;
 
@@ -57,6 +58,11 @@ export function setupParent(app, gate) {
     }
 
     function render() {
+        // Which copy is running, so a grown-up can tell whether the iPad has the newest yet.
+        panel.querySelector('[data-version]').textContent = STAMPED
+            ? `This copy of the playroom was published on ${PUBLISHED} (${VERSION.slice(0, 7)}). A newer one arrives by itself while the iPad is online, and is used from the next time the playroom is opened or the screen wakes.`
+            : 'This is a working copy of the playroom, not a published one.';
+
         // The shared stage is shown as chosen only while every toy that has stages is at it.
         const staged = app.toys.filter((toy) => toy.stages);
         const shared = STAGES.find((id) => staged.every((toy) => stageOf(toy.id) === id));

@@ -8,6 +8,7 @@ import { StartScene, startSounds } from './start.js';
 import { ShelfScene } from './shelf.js';
 import { TOYS } from './toys/index.js';
 import { setupParent } from './parent.js';
+import { VERSION } from './version.js';
 
 const stage = new Stage(document.getElementById('stage'));
 const home = document.getElementById('home');
@@ -148,15 +149,51 @@ setTimeout(() => audio.prepare(startSounds()), 60);
 
 // Offline: once the playroom has loaded over the network, a service worker keeps a copy, and the
 // home-screen icon opens it with no connection at all. Service workers need a secure origin.
+//
+// A newer copy reaches the iPad by itself. A home-screen app is mostly brought back to the front
+// rather than started again (always, under Guided Access), so the worker is asked to look for a
+// newer copy whenever the playroom comes to the front, not only when it loads. Once a newer worker
+// has taken over, the page changes to it at the first quiet moment: straight away if the bud has
+// not been touched yet, and otherwise the next time the playroom is put away or brought back,
+// when it starts again from the bud as if newly opened. Nothing is ever swapped mid-play.
 const secure =
     location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 if ('serviceWorker' in navigator && secure) {
+    const workers = navigator.serviceWorker;
+    // Once a worker looks after this page, any worker that takes over from it is a newer copy. The
+    // very first one, on a first visit, takes over a page that is already the newest.
+    let looked = Boolean(workers.controller);
+    let registration = null;
+    let newer = false;
+    const quiet = () => stage.scene instanceof StartScene && !stage.scene.blooming;
+    const look = () => {
+        if (registration) registration.update().catch(() => {});
+    };
+    workers.addEventListener('controllerchange', () => {
+        if (!looked) {
+            looked = true;
+            return;
+        }
+        newer = true;
+        if (quiet()) location.reload();
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (newer) location.reload();
+        else if (!document.hidden) look();
+    });
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(() => {
-            /* no offline copy; online still works */
-        });
+        workers.register('sw.js', { updateViaCache: 'none' }).then(
+            (found) => {
+                registration = found;
+                look();
+            },
+            () => {
+                /* no offline copy; online still works */
+            }
+        );
     });
 }
 
+app.version = VERSION;
 window.playroom = app;
 window.__playroomBooted = true;
