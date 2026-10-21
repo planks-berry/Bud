@@ -214,12 +214,14 @@ It also checks:
 - that a tap anywhere plays the whole tower or row, from the left and the bottom, each cube lit in
   turn over a band on the rug;
 - that the tower brings different colours the next time it comes out;
-- on the farm: that a piece from the tray joins its neighbours; that a joined field grows as one, is
-  harvested ripe and hides a rabbit among the carrots; that a field by water grows on its own; that
-  a pond grown to three tiles brings ducks; that a sheep's neighbour answers it; that pieces move,
-  swap, and go back to the tray; that the tractor drives the path, harvests the field beside it and
-  comes home; that the sun brings the night, when the cow jumps over the moon; and that the farm is
-  as it was left when it comes off the shelf again;
+- on the farm: that a frog comes to the pond within seconds; that a hidden thing shows itself the
+  first time whatever chance says, and by chance after that; that a piece from the tray joins its
+  neighbours; that a joined field grows as one, is harvested ripe and hides a rabbit among the
+  carrots; that a field by water grows on its own; that a pond grown to three tiles brings ducks;
+  that a sheep's neighbour answers it; that pieces move, swap, and go back to the tray; that the
+  tractor drives the path, harvests the field beside it and comes home; that the sun brings the
+  night, when the cow jumps over the moon; and that the farm starts fresh when it comes off the
+  shelf again;
 - that leaving a toy stops its sounds;
 - that the grown-ups' gate needs a three-second hold;
 - that one toy's stage can be moved on by itself, and the shared stage clears it again;

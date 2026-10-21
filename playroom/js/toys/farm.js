@@ -129,9 +129,6 @@ const VOICES = {
 
 const FLOWERS = ['#F2BAC3', '#F3DE97', '#C9BBE3', '#FBF6EE', '#ABCDEA'];
 
-// The farm stays as it was built while the playroom is open, as a painting stays on the easel.
-let kept = null;
-
 function key(c, r) {
     return c * 100 + r;
 }
@@ -150,7 +147,7 @@ class FarmScene extends Scene {
         this.fx = [];
         this.ducks = [];
         this.frog = null;
-        this.frogClock = 4;
+        this.frogClock = 1.5;
         this.growClock = 0;
         this.drag = null;
         this.ground = null;
@@ -158,28 +155,24 @@ class FarmScene extends Scene {
         this.press = this.kinds.map(() => new Spring(0, 420, 18));
         this.sunPress = new Spring(0, 420, 18);
 
-        if (kept && kept.level === this.level) {
-            this.cells = kept.cells;
-            this.flowers = kept.flowers;
-            this.night = kept.night;
-            this.nightTarget = kept.night;
-            for (const row of this.cells) for (const p of row) if (p) this.settle(p);
-        } else {
-            this.cells = [];
-            for (let r = 0; r < this.rows; r++) {
-                const row = [];
-                for (let c = 0; c < this.cols; c++) {
-                    const code = plan.start[r][c];
-                    const piece = CODES[code] ? this.make(CODES[code]) : null;
-                    if (piece && piece.kind === 'field') piece.stage = 2;
-                    row.push(piece);
-                }
-                this.cells.push(row);
+        // A fresh farm every time it comes off the shelf: the building is the game, so nothing is
+        // kept, not even while the playroom is open.
+        this.cells = [];
+        for (let r = 0; r < this.rows; r++) {
+            const row = [];
+            for (let c = 0; c < this.cols; c++) {
+                const code = plan.start[r][c];
+                const piece = CODES[code] ? this.make(CODES[code]) : null;
+                if (piece && piece.kind === 'field') piece.stage = 2;
+                row.push(piece);
             }
-            this.flowers = {};
-            this.night = 0;
-            this.nightTarget = 0;
+            this.cells.push(row);
         }
+        this.flowers = {};
+        this.night = 0;
+        this.nightTarget = 0;
+        // Which hidden things have shown themselves this time out.
+        this.found = new Set();
         this.normalise(true);
     }
 
@@ -205,6 +198,7 @@ class FarmScene extends Scene {
         } else if (kind === 'barn' || kind === 'house') {
             p.door = new Spring(0, 80, 13);
             p.cat = 0;
+            p.catClock = 2 + this.rand() * 4;
             p.dark = false;
         } else if (kind === 'windmill') {
             p.angle = this.rand() * TAU;
@@ -217,6 +211,7 @@ class FarmScene extends Scene {
         } else if (kind === 'fence') {
             p.bird = 0;
             p.snail = 0;
+            p.snailClock = 3 + this.rand() * 4;
         } else if (ANIMALS.indexOf(kind) >= 0) {
             p.facing = this.rand() < 0.5 ? -1 : 1;
             p.act = new Spring(0, 240, 9);
@@ -232,15 +227,6 @@ class FarmScene extends Scene {
             p.act = new Spring(0, 260, 9);
         }
         return p;
-    }
-
-    // Back from the shelf: nothing is mid-way through anything.
-    settle(p) {
-        p.away = null;
-        if (p.door) p.door.set(0);
-        if (p.trip) p.trip = null;
-        if (p.shake) p.shake.set(0);
-        if (p.kind === 'coop') p.out = 0;
     }
 
     at(c, r) {
@@ -290,6 +276,16 @@ class FarmScene extends Scene {
 
     chance(p) {
         return this.rand() < p;
+    }
+
+    // A hidden thing shows itself the first time it can, each time the farm comes out, and half the
+    // time or more after that: a three-year-old should find them, not hope to.
+    surprise(name, p) {
+        if (!this.found.has(name)) {
+            this.found.add(name);
+            return true;
+        }
+        return this.chance(p);
     }
 
     // After any change to the board: joined fields share one crop and one stage, pigs by water are
@@ -735,10 +731,22 @@ class FarmScene extends Scene {
             }
         } else if (p.kind === 'barn' || p.kind === 'house') {
             if (p.cat > 0) p.cat -= dt;
-            else if (this.night < 0.3 && this.chance(dt / 40)) p.cat = 12;
+            else if (this.night < 0.3) {
+                p.catClock -= dt;
+                if (p.catClock <= 0) {
+                    p.cat = 14;
+                    p.catClock = 8 + this.rand() * 10;
+                }
+            }
         } else if (p.kind === 'fence') {
             if (p.snail > 0) p.snail += dt;
-            else if (this.chance(dt / 50)) p.snail = 0.01;
+            else {
+                p.snailClock -= dt;
+                if (p.snailClock <= 0) {
+                    p.snail = 0.01;
+                    p.snailClock = 10 + this.rand() * 10;
+                }
+            }
             if (p.snail > 30) p.snail = 0;
         }
     }
@@ -983,7 +991,7 @@ class FarmScene extends Scene {
         });
         this.later(0.3, () => this.drawGround());
         audio.note('tink', 8 + Math.floor(this.rand() * 4), 60, { gain: 0.4, pan: this.pan(p.x) });
-        if (this.chance(0.2) && this.night < 0.5) this.butterfly(p.x, p.y);
+        if (this.night < 0.5 && this.surprise('butterfly', 0.5)) this.butterfly(p.x, p.y);
     }
 
     //--------------------------------------------------------------------------
@@ -999,7 +1007,9 @@ class FarmScene extends Scene {
         const stage = this.at(cells[0][0], cells[0][1]).stage;
         if (stage >= 4) return;
         const giant =
-            stage === 3 && this.at(cells[0][0], cells[0][1]).crop === 'pumpkin' && this.chance(0.35);
+            stage === 3 &&
+            this.at(cells[0][0], cells[0][1]).crop === 'pumpkin' &&
+            this.surprise('giant', 0.5);
         const giantAt = Math.floor(this.rand() * cells.length);
         cells.forEach(([c, r], i) =>
             this.later(delay + i * 0.06, () => {
@@ -1054,7 +1064,7 @@ class FarmScene extends Scene {
             }
         });
         // Something lives among the carrots.
-        if (crop === 'carrot' && this.chance(0.4)) {
+        if (crop === 'carrot' && this.surprise('rabbit', 0.7)) {
             const [c, r] = cells[Math.floor(this.rand() * cells.length)];
             this.later(0.4, () => this.rabbit(c, r));
         }
@@ -1237,12 +1247,13 @@ class FarmScene extends Scene {
         });
     }
 
-    // The frog: sometimes on a lily pad, and off it with a ribbit and a splash when touched.
+    // The frog: on a lily pad within seconds of there being a pond, and off it with a ribbit and a
+    // splash when touched.
     updateFrog(dt) {
         if (this.frog) return;
         this.frogClock -= dt;
         if (this.frogClock > 0) return;
-        this.frogClock = 6 + this.rand() * 10;
+        this.frogClock = 3 + this.rand() * 4;
         const ponds = [];
         for (let r = 0; r < this.rows; r++)
             for (let c = 0; c < this.cols; c++) if (this.is(c, r, 'pond')) ponds.push([c, r]);
@@ -1257,7 +1268,7 @@ class FarmScene extends Scene {
     tapPath(c, r, x, y) {
         this.puff(x, y, 0.7);
         audio.play('pat', {}, { gain: 0.8, pan: this.pan(x) });
-        if (this.chance(0.3)) this.mouseRun(c, r);
+        if (this.surprise('mouse', 0.6)) this.mouseRun(c, r);
     }
 
     // A mouse darts out and runs along the path, turning where it turns, and is gone.
@@ -1337,7 +1348,7 @@ class FarmScene extends Scene {
                 if (t && t.kind === 'tree') this.tapTree(tc, tr, t, true);
             })
         );
-        if (this.chance(0.3) && this.night < 0.5) this.birdBurst(c, r);
+        if (this.night < 0.5 && this.surprise('bird', 0.6)) this.birdBurst(c, r);
     }
 
     appleFall(x, y0, ground, delay, degree) {
@@ -1640,7 +1651,7 @@ class FarmScene extends Scene {
                 this.growField(cells, 0.5, true);
             }
         }
-        if (p.rider <= 0 && this.chance(0.3) && this.night < 0.5) {
+        if (p.rider <= 0 && this.night < 0.5 && this.surprise('rider', 0.6)) {
             p.rider = 5;
             this.later(5, () => audio.play('chirp', {}, { gain: 0.6, pan: this.pan(rect.x) }));
             this.later(5, () =>
@@ -1650,8 +1661,8 @@ class FarmScene extends Scene {
     }
 
     //--------------------------------------------------------------------------
-    // The hen house: the hens come out to peck, at a field if there is one beside them, and
-    // sometimes leave an egg behind, which hatches when it is touched.
+    // The hen house: the hens come out to peck, at a field if there is one beside them, and leave
+    // an egg behind (always the first time), which hatches when it is touched.
 
     tapCoop(c, r, p) {
         const rect = this.cellRect(c, r);
@@ -1694,7 +1705,7 @@ class FarmScene extends Scene {
         );
         this.later(5.2, () => {
             p.out = 0;
-            if (!p.egg && this.chance(0.4)) p.egg = true;
+            if (!p.egg && this.surprise('egg', 0.7)) p.egg = true;
         });
     }
 
@@ -1777,7 +1788,7 @@ class FarmScene extends Scene {
             p.muddy = false;
             p.clean = this.time + 8;
             for (let i = 0; i < 8; i++) this.splat(rect.x + s / 2, rect.y + s * 0.6, i);
-        } else if (p.kind === 'pig' && this.chance(0.25)) {
+        } else if (p.kind === 'pig' && this.surprise('roll', 0.5)) {
             p.roll.target = 1;
             this.later(1.4, () => (p.roll.target = 0));
         }
@@ -1919,7 +1930,15 @@ class FarmScene extends Scene {
         }
         const route = this.tour(start);
         const points = [[c, r]].concat(route, [[c, r]]);
-        p.trip = { points, d: 0, load: 0, beat: 0, dog: this.chance(0.35), visited: new Set(), last: -1 };
+        p.trip = {
+            points,
+            d: 0,
+            load: 0,
+            beat: 0,
+            dog: this.surprise('dog', 0.6),
+            visited: new Set(),
+            last: -1,
+        };
         p.away = 'trip';
         if (p.trip.dog) audio.play('woof', {}, { gain: 0.8, pan: this.pan(rect.x), delay: 0.3 });
     }
@@ -2241,7 +2260,7 @@ class FarmScene extends Scene {
         const f = this.frog;
         if (!f) return;
         this.frog = null;
-        this.frogClock = 6 + this.rand() * 8;
+        this.frogClock = 3 + this.rand() * 4;
         const s = this.cell;
         const pad = this.padOf(f.c, f.r);
         const to = { x: pad.x + (this.rand() < 0.5 ? -1 : 1) * s * 0.35, y: pad.y + s * 0.05 };
@@ -2773,14 +2792,6 @@ class FarmScene extends Scene {
     }
 
     exit() {
-        // A piece still in a finger when the farm is put away goes back where it came from.
-        if (this.drag) {
-            const d = this.drag;
-            this.drag = null;
-            if (d.from && !this.at(d.from[0], d.from[1])) this.cells[d.from[1]][d.from[0]] = d.piece;
-        }
-        for (const row of this.cells) for (const p of row) if (p) this.settle(p);
-        kept = { level: this.level, cells: this.cells, flowers: this.flowers, night: this.nightTarget };
         freeLayer(this.ground);
         this.ground = null;
         this.freeSprites();

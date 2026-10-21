@@ -986,10 +986,25 @@ async function suite(mode) {
         'the farm opens with its pieces in the tray',
         (await sceneName()) === 'FarmScene' && farmKinds.length === 10
     );
-    // Chance always says yes, so every hidden thing shows itself; growth by water waits to be asked.
+    const layout = () =>
+        scene(() =>
+            window.playroom.stage.scene.cells
+                .map((row) => row.map((p) => (p ? p.kind.slice(0, 2) : '..')).join(' '))
+                .join(' / ')
+        );
+    const fresh = await layout();
+    const frog = await page
+        .waitForFunction(() => !!window.playroom.stage.scene.frog, null, { timeout: 3000 })
+        .then(
+            () => true,
+            () => false
+        );
+    check('within seconds a frog sits on a lily pad', frog);
+    // Chance says no to everything for now, so only certainty shows a hidden thing; growth by water
+    // waits to be asked.
     await scene(() => {
         const s = window.playroom.stage.scene;
-        s.rand = () => 0;
+        s.rand = () => 0.99;
         s.growClock = -1e9;
     });
     const cellCentre = (c, r) =>
@@ -1027,6 +1042,32 @@ async function suite(mode) {
             const s = window.playroom.stage.scene;
             return s.component(0, 2, 'field').map(([c, r]) => s.at(c, r).stage);
         });
+
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        const run = s.mouseRun;
+        s.mice = 0;
+        s.mouseRun = function (c, r) {
+            this.mice++;
+            return run.call(this, c, r);
+        };
+    });
+    const mice = () => scene(() => window.playroom.stage.scene.mice);
+    await tapCell(1, 1);
+    const firstMice = await mice();
+    await tapCell(4, 1);
+    const nextMice = await mice();
+    // From here chance always says yes, so every hidden thing shows itself.
+    await scene(() => {
+        window.playroom.stage.scene.rand = () => 0;
+    });
+    await tapCell(2, 1);
+    const thenMice = await mice();
+    check(
+        'a hidden thing shows itself the first time whatever chance says, and by chance after that',
+        firstMice === 1 && nextMice === 1 && thenMice === 2,
+        `mice ${firstMice}, ${nextMice}, ${thenMice}`
+    );
 
     await carryTo(await trayCentre('path'), await cellCentre(3, 2));
     const joined = await scene(() => {
@@ -1153,17 +1194,17 @@ async function suite(mode) {
     await page.waitForTimeout(2800);
     check('and the moon brings the morning', (await scene(() => window.playroom.stage.scene.night)) < 0.1);
 
-    const layout = () =>
-        scene(() =>
-            window.playroom.stage.scene.cells
-                .map((row) => row.map((p) => (p ? p.kind.slice(0, 2) : '..')).join(' '))
-                .join(' / ')
-        );
     const built = await layout();
     await shot('farm');
     check('home from the farm', (await home()) === 'ShelfScene');
     await open('farm');
-    check('and the farm is as it was left', (await layout()) === built, built);
+    const reopened = await layout();
+    const foundAgain = await scene(() => window.playroom.stage.scene.found.size);
+    check(
+        'and the farm starts fresh when it comes off the shelf again',
+        built !== fresh && reopened === fresh && foundAgain === 0,
+        `${reopened}; found ${foundAgain}`
+    );
     await home();
 
     // ---- the grown-up's corner ------------------------------------------------------------------
