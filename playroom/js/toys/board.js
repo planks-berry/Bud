@@ -1,19 +1,30 @@
-// The board: a grid of tiles to build on and a tray of pieces to build it with, shared by the farm
-// and the building site.
+// The board: land to build on, a tile at a time, and a tray of pieces to build it with, shared by
+// the farm and the building site.
 //
-// After Pok Pok's builder. Pieces are dragged from the tray onto the board, where they snap to a
-// tile; dragged again, they move, swap places, or go back to the tray. One piece to a tile. Flat
-// pieces (a path, a field, a road) join the neighbours of their own kind and are drawn into the
-// ground; standing pieces are drawn on top, row by row, like the cut-out figures of a board game.
-// The sun in the corner turns day to night and back.
+// After Pok Pok's builder, and seen the way a child sees a model on a table: from a corner and a
+// little above, so the land is an island of small blocks of earth, and whatever stands on it shows a
+// front and a side. The table is marked out in tiles. The island starts small and grows wherever a
+// tile from the tray is put down on the table, and any tile can be changed: a ground dropped on it
+// (a pond, a path, a road) takes the place of what was there, and a piece dropped on it stands
+// there. Dragged again, pieces move, swap places, or go back to the tray. One piece to a tile.
+//
+// What lies flat is drawn as if from straight above, into the plan of the island, and the plan is
+// laid at the island's angle by one transform, so a pond is drawn as a pond and comes out lying on
+// the land. What stands up is drawn upright, tile by tile from the back of the island to the front,
+// so a barn hides what is behind it. The sun in the corner turns day to night and back.
 //
 // A board game supplies its pieces and what they do, through the hooks at the end of this class:
 // `make` a piece, which kinds are ground, what a tap on each does, how each is drawn and how it
-// sounds. Everything about holding, carrying, dropping and joining is here, so a pond on the farm
-// and a road on the site are picked up, swapped and put back in exactly the same way.
+// sounds. Everything about the land, and about holding, carrying, dropping and joining, is here, so
+// a pond on the farm and a road on the site are put down, swapped and put back in the same way.
+//
+// Coordinates. A tile is (c, r): c runs down to the right on the screen, r down to the left, and
+// the plans' rows of letters read the same way. The plan of the island is a grid of squares of side
+// `cell`, from (0, 0); `iso` takes a point on the grid, in tiles, to the screen. `cellRect` is the
+// frame an upright piece is drawn in, a square of side `cell` whose ground is at FOOT of its height.
 
 import { Scene } from '../stage.js';
-import { SHADOW, makeLayer, freeLayer, grain, fillRound, disc, woodPanel, PALETTE } from '../draw.js';
+import { SHADOW_SOFT, makeLayer, freeLayer, grain, fillRound, disc, woodPanel, PALETTE } from '../draw.js';
 import { Spring, clamp, lerp, TAU, dist, rgbString, hexToRgb } from '../util.js';
 import { noteHz } from '../synth.js';
 import * as audio from '../audio.js';
@@ -40,20 +51,34 @@ export const AROUND = [
     [1, 1],
 ];
 
+// Where the ground is in an upright piece's frame, as a fraction of its height from the top.
+export const FOOT = 0.84;
+// An upright piece's frame, against the width of a tile.
+const ART = 0.92;
+// How thick the island is, and how far above the back of it the tallest pieces reach, in tile
+// widths.
+const DEPTH = 0.17;
+const HEADROOM = 0.45;
+// How many pictures of pieces are kept at most, beyond those on the board.
+const SPRITES = 48;
+
 export function key(c, r) {
     return c * 100 + r;
 }
 
 export class BoardScene extends Scene {
-    // `plans` has one entry a stage: { cols, rows, kinds, start }, where `start` is the board it
-    // begins as, a row of letter codes to a line.
-    constructor(app, plans) {
+    // `plans` has one entry a stage: { cols, rows, kinds, start }. The table is cols by rows; `start`
+    // is the island it begins as, a row of letter codes to a line: a letter is land with a piece on
+    // it, '.' bare land, and ' ' the table, still to build on. `plain` is the kind of the tile that
+    // is only land (the farm's grass, the site's earth); it is in the tray, never on the board.
+    constructor(app, plans, plain) {
         super(app);
         this.level = app.level();
         this.plan = plans[this.level];
         this.cols = this.plan.cols;
         this.rows = this.plan.rows;
         this.kinds = this.plan.kinds;
+        this.plain = plain;
         this.rand = Math.random;
         this.time = 0;
         this.queue = [];
@@ -68,35 +93,61 @@ export class BoardScene extends Scene {
         // Which hidden things have shown themselves this time out.
         this.found = new Set();
         this.cells = [];
+        this.land = [];
+        this.bx = 0;
+        this.by = 0;
     }
 
-    // Set out the board the stage begins as. A fresh one every time it comes off the shelf: the
+    // Set out the island the stage begins as. A fresh one every time it comes off the shelf: the
     // building is the game, so nothing is kept, not even while the playroom is open.
     begin(codes) {
         this.cells = [];
+        this.land = [];
         for (let r = 0; r < this.rows; r++) {
             const row = [];
+            const ground = [];
             for (let c = 0; c < this.cols; c++) {
-                const code = this.plan.start[r][c];
+                const code = this.plan.start[r][c] || ' ';
                 const piece = codes[code] ? this.make(codes[code]) : null;
                 if (piece) this.starting(piece);
                 row.push(piece);
+                ground.push(code !== ' ');
             }
             this.cells.push(row);
+            this.land.push(ground);
         }
     }
 
     //--------------------------------------------------------------------------
-    // Pieces and their neighbours
+    // The land, the pieces on it, and their neighbours
+
+    inside(c, r) {
+        return c >= 0 && r >= 0 && c < this.cols && r < this.rows;
+    }
+
+    isLand(c, r) {
+        return this.inside(c, r) && this.land[r][c];
+    }
+
+    landCount() {
+        let n = 0;
+        for (const row of this.land) for (const v of row) if (v) n++;
+        return n;
+    }
 
     at(c, r) {
-        if (!(c >= 0 && r >= 0 && c < this.cols && r < this.rows)) return null;
+        if (!this.inside(c, r)) return null;
         return this.cells[r][c];
     }
 
     is(c, r, kind) {
         const p = this.at(c, r);
         return !!p && p.kind === kind;
+    }
+
+    // Bare land with nothing on it.
+    bare(c, r) {
+        return this.isLand(c, r) && !this.cells[r][c];
     }
 
     // The sides on which a tile joins a neighbour of its own kind.
@@ -142,6 +193,17 @@ export class BoardScene extends Scene {
         return out;
     }
 
+    // Every tile of land, from the back of the island to the front.
+    tiles() {
+        const out = [];
+        for (let d = 0; d < this.cols + this.rows - 1; d++) {
+            for (let c = Math.max(0, d - this.rows + 1); c <= Math.min(d, this.cols - 1); c++) {
+                if (this.land[d - c][c]) out.push([c, d - c]);
+            }
+        }
+        return out;
+    }
+
     chance(p) {
         return this.rand() < p;
     }
@@ -157,7 +219,7 @@ export class BoardScene extends Scene {
     }
 
     //--------------------------------------------------------------------------
-    // Layout
+    // Layout, and the way from the grid to the screen
 
     layout() {
         freeLayer(this.ground);
@@ -173,15 +235,23 @@ export class BoardScene extends Scene {
         const gap = 10 * u;
         const trayH = trayRows * (item + gap) + 22 * u;
         this.trayTop = h - trayH;
-        const top = 92 * u;
-        const availH = this.trayTop - top - 18 * u;
+
+        const top = 78 * u;
+        const bottom = this.trayTop - 16 * u;
+        const span = this.cols + this.rows;
         const availW = w - margin * 2;
-        const s = Math.floor(Math.min(availW / this.cols, availH / this.rows, 170 * u));
-        this.cell = s;
-        this.bx = Math.round((w - s * this.cols) / 2);
-        this.by = Math.round(top + (availH - s * this.rows) / 2);
-        this.boardW = s * this.cols;
-        this.boardH = s * this.rows;
+        const availH = bottom - top;
+        const tw = Math.min(availW / (span / 2), availH / (span / 4 + HEADROOM + DEPTH), 230 * u);
+        this.tw = tw;
+        this.th = tw / 2;
+        this.depth = tw * DEPTH;
+        this.cell = Math.round(tw * ART);
+        const tall = (span * this.th) / 2 + this.depth + HEADROOM * tw;
+        this.ox = w / 2 - ((this.cols - this.rows) * tw) / 4;
+        this.oy = top + HEADROOM * tw + Math.max(0, (availH - tall) / 2);
+        this.skyTop = this.oy - HEADROOM * tw;
+        this.boardW = this.cols * this.cell;
+        this.boardH = this.rows * this.cell;
 
         this.tray = [];
         const perRow = Math.ceil(n / trayRows);
@@ -203,17 +273,126 @@ export class BoardScene extends Scene {
         this.drawGround();
     }
 
+    // A point on the grid, in tiles, on the screen.
+    iso(u, v) {
+        return { x: this.ox + ((u - v) * this.tw) / 2, y: this.oy + ((u + v) * this.th) / 2 };
+    }
+
+    // The middle of a tile's top, and a point on it, in fractions of the tile.
+    center(c, r) {
+        return this.iso(c + 0.5, r + 0.5);
+    }
+
+    spot(c, r, fx, fy) {
+        return this.iso(c + fx, r + fy);
+    }
+
+    // A point of the plan, as `paintGround` draws it, on the screen.
+    toScreen(x, y) {
+        return this.iso(x / this.cell, y / this.cell);
+    }
+
+    // The point of the grid under a point on the screen, on the ground.
+    gridAt(x, y) {
+        const a = (x - this.ox) / (this.tw / 2);
+        const b = (y - this.oy) / (this.th / 2);
+        return { u: (a + b) / 2, v: (b - a) / 2 };
+    }
+
+    // The tile under a point, land or table, if it is on the table at all.
+    cellAt(x, y) {
+        const { u, v } = this.gridAt(x, y);
+        const c = Math.floor(u);
+        const r = Math.floor(v);
+        return this.inside(c, r) ? [c, r] : null;
+    }
+
+    // The frame an upright piece on (c, r) is drawn in.
+    cellRect(c, r) {
+        const { x, y } = this.center(c, r);
+        const s = this.cell;
+        return { x: x - s / 2, y: y - s * FOOT, s };
+    }
+
+    // A tile's frame for drawing at the island's angle (see iso.js): on the board, in an upright
+    // piece's sprite, and for a piece drawn loose in a square of side s.
+    frameOf(c, r) {
+        const { x, y } = this.center(c, r);
+        return { cx: x, cy: y, tw: this.tw };
+    }
+
+    spriteFrame() {
+        return { cx: this.cell / 2, cy: this.cell * FOOT, tw: this.tw };
+    }
+
+    looseFrame(x, y, s) {
+        return { cx: x + s / 2, cy: y + s * FOOT, tw: s / ART };
+    }
+
+    // A tile's square in the plan, for drawing what lies flat on it.
+    mapRect(c, r) {
+        const s = this.cell;
+        return { x: c * s, y: r * s, s };
+    }
+
+    // Draw from here on in the plan, laid at the island's angle.
+    planView(ctx) {
+        const s = this.cell;
+        ctx.transform(
+            this.tw / (2 * s),
+            this.th / (2 * s),
+            -this.tw / (2 * s),
+            this.th / (2 * s),
+            this.ox,
+            this.oy
+        );
+    }
+
+    // The top of a tile, as a path.
+    diamond(ctx, c, r, inset = 0, drop = 0) {
+        const a = this.iso(c + inset, r + inset);
+        const b = this.iso(c + 1 - inset, r + inset);
+        const d = this.iso(c + 1 - inset, r + 1 - inset);
+        const e = this.iso(c + inset, r + 1 - inset);
+        ctx.moveTo(a.x, a.y + drop);
+        ctx.lineTo(b.x, b.y + drop);
+        ctx.lineTo(d.x, d.y + drop);
+        ctx.lineTo(e.x, e.y + drop);
+        ctx.closePath();
+    }
+
     // A piece at rest drawn once into its own small layer, and copied from there each frame: an
     // old iPad redraws a barn sixty times a second only if it has to.
     sprite(id, draw) {
+        return this.cached(id, () => {
+            const s = this.cell;
+            const layer = makeLayer(s, s, this.scale);
+            draw(layer.ctx, s);
+            return layer;
+        });
+    }
+
+    // A layer kept under `id`, made by `make` the first time it is wanted.
+    cached(id, make) {
         let layer = this.sprites[id];
         if (!layer) {
-            const s = this.cell;
-            layer = makeLayer(s, s, this.scale);
-            draw(layer.ctx, s);
+            layer = make();
             this.sprites[id] = layer;
         }
+        layer.frame = this.frame;
         return layer;
+    }
+
+    // Past SPRITES kept, the pictures not drawn this frame are let go. A long game would otherwise
+    // keep every shape a fence or a field has had, and an old iPad has little room for pictures.
+    prune() {
+        const ids = Object.keys(this.sprites);
+        if (ids.length <= SPRITES) return;
+        for (const id of ids) {
+            if (this.sprites[id].frame === this.frame) continue;
+            freeLayer(this.sprites[id]);
+            delete this.sprites[id];
+        }
     }
 
     freeSprites() {
@@ -222,18 +401,27 @@ export class BoardScene extends Scene {
     }
 
     blit(ctx, id, x, y, s, draw) {
-        ctx.drawImage(this.sprite(id, draw).canvas, x, y, s, s);
+        const layer = this.sprite(id, draw);
+        ctx.drawImage(layer.canvas, x, y, s, s);
+        this.marked(layer, x, y, s, s);
     }
 
-    cellRect(c, r) {
-        return { x: this.bx + c * this.cell, y: this.by + r * this.cell, s: this.cell };
+    // A sprite drawn for the piece being drawn, kept so a touch can be tested against the piece's
+    // own pixels rather than a box round it.
+    marked(layer, x, y, w, h) {
+        if (this.marking) this.marking.push({ layer, x, y, w, h });
     }
 
-    cellAt(x, y) {
-        const c = Math.floor((x - this.bx) / this.cell);
-        const r = Math.floor((y - this.by) / this.cell);
-        if (c < 0 || r < 0 || c >= this.cols || r >= this.rows) return null;
-        return [c, r];
+    // Whether a piece's sprites have paint at a point of the screen.
+    painted(marks, x, y) {
+        for (const m of marks) {
+            if (x < m.x || y < m.y || x >= m.x + m.w || y >= m.y + m.h) continue;
+            const canvas = m.layer.canvas;
+            const px = Math.floor(((x - m.x) / m.w) * canvas.width);
+            const py = Math.floor(((y - m.y) / m.h) * canvas.height);
+            if (m.layer.ctx.getImageData(px, py, 1, 1).data[3] > 24) return true;
+        }
+        return false;
     }
 
     trayItem(kind) {
@@ -252,9 +440,15 @@ export class BoardScene extends Scene {
         return clamp((x / this.w) * 2 - 1, -1, 1);
     }
 
+    // Tiles of ground, and the bare land tile, go on the board as tiles; everything else stands.
+    isTile(kind) {
+        return kind === this.plain || this.isGround(kind);
+    }
+
     //--------------------------------------------------------------------------
-    // The ground: the board and the flat pieces on it, drawn once into a layer and again whenever a
-    // ground piece moves. `look` gives its colours; `paintGround` draws what lies on it.
+    // The ground: the table, the island and everything flat on it, drawn once into a layer and
+    // again whenever the land or a ground piece changes. `look` gives its colours; `paintGround`
+    // draws what lies on the land, in the plan.
 
     drawGround() {
         freeLayer(this.ground);
@@ -268,37 +462,72 @@ export class BoardScene extends Scene {
         ctx.fillStyle = sky;
         ctx.fillRect(0, 0, w, h);
 
-        const s = this.cell;
-        const pad = 12 * u;
-        const frame = (inset, radius, colour, drop = 0) =>
-            fillRound(
-                ctx,
-                this.bx - pad + inset,
-                this.by - pad + inset + drop,
-                this.boardW + (pad - inset) * 2,
-                this.boardH + (pad - inset) * 2,
-                radius,
-                colour
-            );
-        frame(0, 26 * u, SHADOW, 7 * u);
-        frame(0, 26 * u, look.edge);
-        frame(pad * 0.5, 20 * u, look.base);
-        for (let r = 0; r < this.rows; r++) {
-            for (let c = 0; c < this.cols; c++) {
-                if ((r + c) % 2) {
-                    ctx.fillStyle = look.alt;
-                    ctx.fillRect(this.bx + c * s, this.by + r * s, s, s);
-                }
-            }
+        // The table, marked out where the island can still grow.
+        ctx.beginPath();
+        for (let r = 0; r < this.rows; r++)
+            for (let c = 0; c < this.cols; c++) if (!this.land[r][c]) this.diamond(ctx, c, r, 0.06);
+        ctx.fillStyle = look.table;
+        ctx.fill();
+        ctx.lineWidth = Math.max(1, 1.5 * u);
+        ctx.strokeStyle = look.tableLine;
+        ctx.stroke();
+
+        // The island's shadow on the table, then its sides wherever it meets the table.
+        const tiles = this.tiles();
+        ctx.beginPath();
+        for (const [c, r] of tiles) this.diamond(ctx, c, r, -0.02, this.depth + 7 * u);
+        ctx.fillStyle = SHADOW_SOFT;
+        ctx.fill();
+        for (const [c, r] of tiles) {
+            if (!this.isLand(c + 1, r)) this.side(ctx, c, r, 'right');
+            if (!this.isLand(c, r + 1)) this.side(ctx, c, r, 'left');
         }
+
+        // The top, in the plan.
+        ctx.save();
+        this.planView(ctx);
+        const s = this.cell;
+        ctx.beginPath();
+        for (const [c, r] of tiles) ctx.rect(c * s - 0.5, r * s - 0.5, s + 1, s + 1);
+        ctx.fillStyle = look.base;
+        ctx.fill();
+        ctx.beginPath();
+        for (const [c, r] of tiles) if ((c + r) % 2) ctx.rect(c * s, r * s, s, s);
+        ctx.fillStyle = look.alt;
+        ctx.fill();
         this.paintGround(ctx);
+        ctx.restore();
+
         grain(ctx, 0, 0, w, this.trayTop, 0.22, this.scale);
         woodPanel(ctx, -10, this.trayTop, w + 20, h - this.trayTop + 10, 0, PALETTE.wood, 41, this.scale);
         this.ground = layer;
     }
 
+    // One side of a tile, where nothing is in front of it: a lip of the top's colour, then the
+    // earth, darker towards the bottom.
+    side(ctx, c, r, which) {
+        const a = which === 'right' ? this.iso(c + 1, r) : this.iso(c, r + 1);
+        const b = this.iso(c + 1, r + 1);
+        const d = this.depth;
+        const band = (y0, y1, colour) => {
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y + y0);
+            ctx.lineTo(b.x, b.y + y0);
+            ctx.lineTo(b.x, b.y + y1);
+            ctx.lineTo(a.x, a.y + y1);
+            ctx.closePath();
+            ctx.fillStyle = colour;
+            ctx.fill();
+        };
+        const look = this.look;
+        const dark = which === 'left';
+        band(-0.5, d * 0.28, dark ? look.lipDark : look.lip);
+        band(d * 0.28, d * 0.7, dark ? look.sideDark : look.side);
+        band(d * 0.7, d, dark ? look.deepDark : look.deep);
+    }
+
     // A joined shape: each tile a rounded square, pushed out to meet any neighbour of its kind, with
-    // only its outside corners rounded.
+    // only its outside corners rounded. In the plan.
     blob(ctx, kind, inset, radius, colour) {
         const s = this.cell;
         ctx.fillStyle = colour;
@@ -306,10 +535,10 @@ export class BoardScene extends Scene {
             for (let c = 0; c < this.cols; c++) {
                 if (!this.is(c, r, kind)) continue;
                 const m = this.mask(c, r);
-                const x0 = this.bx + c * s + (m & W ? 0 : inset);
-                const x1 = this.bx + (c + 1) * s - (m & E ? 0 : inset);
-                const y0 = this.by + r * s + (m & N ? 0 : inset);
-                const y1 = this.by + (r + 1) * s - (m & S ? 0 : inset);
+                const x0 = c * s + (m & W ? 0 : inset);
+                const x1 = (c + 1) * s - (m & E ? 0 : inset);
+                const y0 = r * s + (m & N ? 0 : inset);
+                const y1 = (r + 1) * s - (m & S ? 0 : inset);
                 const tl = m & (N | W) ? 0 : radius;
                 const tr = m & (N | E) ? 0 : radius;
                 const br = m & (S | E) ? 0 : radius;
@@ -330,7 +559,7 @@ export class BoardScene extends Scene {
         }
     }
 
-    // A joined line through the middle of each tile of a kind: paths, roads.
+    // A joined line through the middle of each tile of a kind: paths, roads. In the plan.
     drawPaths(ctx, width, colour, kind = 'path') {
         const s = this.cell;
         ctx.strokeStyle = colour;
@@ -340,8 +569,8 @@ export class BoardScene extends Scene {
         for (let r = 0; r < this.rows; r++) {
             for (let c = 0; c < this.cols; c++) {
                 if (!this.is(c, r, kind)) continue;
-                const x = this.bx + (c + 0.5) * s;
-                const y = this.by + (r + 0.5) * s;
+                const x = (c + 0.5) * s;
+                const y = (r + 0.5) * s;
                 disc(ctx, x, y, width / 2, colour);
                 const m = this.mask(c, r);
                 ctx.beginPath();
@@ -426,6 +655,42 @@ export class BoardScene extends Scene {
     //--------------------------------------------------------------------------
     // Input
 
+    // The upright piece whose drawing is under a point, the nearest first: a tall barn can be
+    // touched by its roof, over the tile behind it.
+    pieceAt(x, y) {
+        const tiles = this.tiles();
+        for (let i = tiles.length - 1; i >= 0; i--) {
+            const [c, r] = tiles[i];
+            const p = this.cells[r][c];
+            if (!p || p.away || !this.stands(p)) continue;
+            const rect = this.cellRect(c, r);
+            const s = rect.s;
+            const ground = this.center(c, r).y;
+            if (
+                !(
+                    x > rect.x + s * 0.1 &&
+                    x < rect.x + s * 0.9 &&
+                    y > rect.y + s * this.reach(p) &&
+                    y < ground + this.th * 0.3
+                )
+            )
+                continue;
+            // Drawn from sprites alone, it is only where it has paint: a low hen house in front does
+            // not take a touch meant for the sheep behind it. Near its own foot it always counts.
+            const marks = this.drawn && this.drawn[key(c, r)];
+            if (
+                marks &&
+                marks.length &&
+                this.solid(p) &&
+                y < ground - this.th * 0.15 &&
+                !this.painted(marks, x, y)
+            )
+                continue;
+            return [c, r];
+        }
+        return null;
+    }
+
     down(p) {
         const u = this.u;
         if (dist(p.x, p.y, this.sunButton.x, this.sunButton.y) < this.sunButton.r + 10 * u) {
@@ -444,8 +709,8 @@ export class BoardScene extends Scene {
             this.press[t].kick(-5);
             return;
         }
-        const cell = this.cellAt(p.x, p.y);
-        if (!cell) return;
+        const cell = this.pieceAt(p.x, p.y) || this.cellAt(p.x, p.y);
+        if (!cell || !this.isLand(cell[0], cell[1])) return;
         const [c, r] = cell;
         const piece = this.at(c, r);
         if (piece && piece.away) return;
@@ -500,7 +765,7 @@ export class BoardScene extends Scene {
             piece.bounce.kick(5);
             this.tap(o.c, o.r, piece, p);
         } else if (o.type === 'empty') {
-            this.tapEmpty(o.c, o.r, p);
+            if (this.bare(o.c, o.r)) this.tapEmpty(o.c, o.r, p);
         }
     }
 
@@ -523,7 +788,7 @@ export class BoardScene extends Scene {
         this.drag = null;
         const cell = this.landing(d);
         const overTray = d.y > this.trayTop - 4 * this.u;
-        if (!cell) {
+        if (!cell || overTray) {
             if (d.from && overTray) {
                 this.poof(d.piece, d.x, d.y);
             } else if (d.from) {
@@ -534,6 +799,24 @@ export class BoardScene extends Scene {
             return;
         }
         const [c, r] = cell;
+        // Put down on the table, a tile is new land; so is whatever is put down there, which brings
+        // its patch of land with it.
+        const grew = !this.isLand(c, r);
+        if (grew) this.addLand(c, r);
+        if (d.piece.kind === this.plain) {
+            // The bare land tile: on land, it clears the tile back to bare.
+            const there = this.at(c, r);
+            if (there) {
+                this.cells[r][c] = null;
+                const at = this.center(c, r);
+                this.poof(there, at.x, at.y);
+                this.clearTile(c, r);
+                this.drawGround();
+                this.normalise();
+            }
+            if (!grew) this.thump(c, r);
+            return;
+        }
         const there = this.at(c, r);
         if (there && there !== d.piece) {
             // Dropped on another piece: from the tray it takes the tile, and the other goes back to the
@@ -541,15 +824,47 @@ export class BoardScene extends Scene {
             this.cells[r][c] = null;
             if (d.from) this.put(d.from[0], d.from[1], there, true);
             else {
-                const rect = this.cellRect(c, r);
-                this.poof(there, rect.x + rect.s / 2, rect.y + rect.s / 2);
+                const at = this.center(c, r);
+                this.poof(there, at.x, at.y);
             }
         }
         this.put(c, r, d.piece);
     }
 
+    // New land, rising out of the table with a note: each tile the island grows by a step higher,
+    // round the scale.
+    addLand(c, r) {
+        this.land[r][c] = true;
+        const at = this.center(c, r);
+        const n = this.landCount();
+        audio.note('wood', 3 + (n % 8), 60, { gain: 0.65, pan: this.pan(at.x) });
+        audio.play('thud', { f: 95 }, { gain: 0.5, pan: this.pan(at.x) });
+        this.puff(at.x, at.y + this.th * 0.3, 1.2, this.look.dust);
+        this.fx.push({
+            t: 0,
+            life: 0.5,
+            draw: (ctx, f) => {
+                const k = f.t / f.life;
+                ctx.beginPath();
+                this.diamond(ctx, c, r, 0, (1 - k) * this.depth * 0.6);
+                ctx.fillStyle = `rgba(255, 252, 240, ${0.55 * (1 - k)})`;
+                ctx.fill();
+            },
+        });
+        this.drawGround();
+        this.grown(c, r);
+    }
+
+    // A bare tile, patted.
+    thump(c, r) {
+        const at = this.center(c, r);
+        audio.play('thud', { f: 110 }, { gain: 0.5, pan: this.pan(at.x) });
+        this.puff(at.x, at.y, 0.8, this.look.dust);
+    }
+
     // Place a piece and let it, and anything it joins, say so.
     put(c, r, piece, quiet = false) {
+        if (!this.isLand(c, r)) this.land[r][c] = true;
         this.cells[r][c] = piece;
         piece.away = null;
         if (piece.trip) piece.trip = null;
@@ -560,8 +875,8 @@ export class BoardScene extends Scene {
         this.normalise(quiet);
         this.placed(c, r, piece, quiet);
         if (quiet) return;
-        const rect = this.cellRect(c, r);
-        this.voice(piece.kind, rect.x + rect.s / 2, 1);
+        const at = this.center(c, r);
+        this.voice(piece.kind, at.x, 1);
         if (this.joins(piece.kind)) {
             // Joined neighbours bounce one after another, climbing, as if passing the news along.
             const joined = this.component(c, r, piece.kind).slice(1, 9);
@@ -570,7 +885,7 @@ export class BoardScene extends Scene {
                     const n = this.at(cc, rr);
                     if (!n || n.kind !== piece.kind) return;
                     n.bounce.kick(7);
-                    audio.note('marimba', 5 + i, 60, { gain: 0.35, pan: this.pan(this.cellRect(cc, rr).x) });
+                    audio.note('marimba', 5 + i, 60, { gain: 0.35, pan: this.pan(this.center(cc, rr).x) });
                 })
             );
         }
@@ -593,7 +908,7 @@ export class BoardScene extends Scene {
                 ctx.save();
                 ctx.translate(px, py);
                 ctx.scale(1 - k * 0.6, 1 - k * 0.6);
-                this.drawLoose(ctx, piece, -s / 2, -s / 2, s);
+                this.drawHeld(ctx, piece, -s / 2, -s / 2, s);
                 ctx.restore();
             },
         });
@@ -668,14 +983,14 @@ export class BoardScene extends Scene {
         }
     }
 
-    // A few stars above the board.
+    // A few stars above the island.
     drawStars(ctx) {
         const k = this.night;
         for (let i = 0; i < 9; i++) {
             const sx = ((i * 37 + 11) % 100) / 100;
             const sy = ((i * 61 + 23) % 100) / 100;
             const x = this.w * (0.12 + 0.76 * sx);
-            const y = Math.max(8, this.by - 18) * (0.2 + 0.6 * sy);
+            const y = Math.max(20, this.skyTop) * (0.25 + 0.6 * sy);
             const twinkle = 0.6 + 0.4 * Math.sin(this.time * 2 + i);
             sparkle(ctx, x, y, 5 * twinkle, `rgba(255, 250, 225, ${0.9 * k})`);
         }
@@ -686,35 +1001,45 @@ export class BoardScene extends Scene {
 
     draw(ctx) {
         const s = this.cell;
-        const u = this.u;
+        this.frame = (this.frame || 0) + 1;
         ctx.drawImage(this.ground.canvas, 0, 0, this.w, this.h);
 
         if (this.drag) {
             const cell = this.landing(this.drag);
-            if (cell) {
-                const rect = this.cellRect(cell[0], cell[1]);
-                fillRound(
-                    ctx,
-                    rect.x + 4 * u,
-                    rect.y + 4 * u,
-                    s - 8 * u,
-                    s - 8 * u,
-                    14 * u,
-                    'rgba(255, 252, 240, 0.45)'
-                );
+            if (cell && this.drag.y <= this.trayTop - 4 * this.u) {
+                ctx.beginPath();
+                this.diamond(ctx, cell[0], cell[1], 0.04);
+                ctx.fillStyle = this.isLand(cell[0], cell[1])
+                    ? 'rgba(255, 252, 240, 0.45)'
+                    : 'rgba(255, 252, 240, 0.7)';
+                ctx.fill();
             }
         }
 
         this.drawBelow(ctx);
 
-        for (let r = 0; r < this.rows; r++) {
-            for (let c = 0; c < this.cols; c++) {
-                const p = this.cells[r][c];
-                if (!p || p.away || !this.stands(p)) continue;
-                const rect = this.cellRect(c, r);
-                this.drawPiece(ctx, p, c, r, rect.x, rect.y, s);
+        // Everything upright, from the back of the island to the front: each tile's own, and the
+        // things on the move between tiles.
+        const items = this.tiles().map(([c, r]) => ({ k: c + r + 1 + c * 0.001, c, r }));
+        const drawn = {};
+        for (const m of this.movers()) items.push({ k: m.u + m.v + 0.0005, m });
+        items.sort((a, b) => a.k - b.k);
+        for (const it of items) {
+            if (it.m) {
+                it.m.draw(ctx);
+                continue;
             }
+            const { c, r } = it;
+            this.drawUpright(ctx, c, r);
+            const p = this.cells[r][c];
+            if (!p || p.away || !this.stands(p)) continue;
+            const rect = this.cellRect(c, r);
+            this.marking = [];
+            this.drawPiece(ctx, p, c, r, rect.x, rect.y, s);
+            drawn[key(c, r)] = this.marking;
+            this.marking = null;
         }
+        this.drawn = drawn;
 
         this.drawAbove(ctx);
 
@@ -741,18 +1066,79 @@ export class BoardScene extends Scene {
             ctx.save();
             ctx.translate(d.x, d.y - s * 0.2);
             ctx.scale(1.08, 1.08);
-            fillRound(
-                ctx,
-                -s * 0.42 + 6 * u,
-                -s * 0.42 + 12 * u,
-                s * 0.84,
-                s * 0.84,
-                16 * u,
-                'rgba(112, 84, 58, 0.12)'
-            );
-            this.drawLoose(ctx, d.piece, -s / 2, -s / 2, s);
+            this.drawHeld(ctx, d.piece, -s / 2, -s / 2, s, true);
             ctx.restore();
         }
+        this.prune();
+    }
+
+    // A piece away from the board: in the tray, in a finger, flying back. A tile is a small block
+    // of land with its ground on top; anything else is drawn as it stands.
+    drawHeld(ctx, p, x, y, s, shadow = false) {
+        if (this.isTile(p.kind)) {
+            this.drawTileBlock(ctx, p, x + s / 2, y + s * 0.42, s * 0.86, shadow);
+            return;
+        }
+        if (shadow)
+            fillRound(
+                ctx,
+                x + s * 0.08 + 6,
+                y + s * 0.08 + 12,
+                s * 0.84,
+                s * 0.84,
+                16,
+                'rgba(112, 84, 58, 0.12)'
+            );
+        this.drawLoose(ctx, p, x, y, s);
+    }
+
+    // A loose tile: its top at (cx, cy), `tw` wide, its ground drawn as the game draws it loose,
+    // laid flat.
+    drawTileBlock(ctx, p, cx, cy, tw, shadow) {
+        const th = tw / 2;
+        const d = tw * 0.16;
+        const look = this.look;
+        const face = (x0, y0, x1, y1, colour) => {
+            ctx.beginPath();
+            ctx.moveTo(x0, y0);
+            ctx.lineTo(x1, y1);
+            ctx.lineTo(x1, y1 + d);
+            ctx.lineTo(x0, y0 + d);
+            ctx.closePath();
+            ctx.fillStyle = colour;
+            ctx.fill();
+        };
+        if (shadow) {
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - th / 2 + d + 10);
+            ctx.lineTo(cx + tw / 2, cy + d + 10);
+            ctx.lineTo(cx, cy + th / 2 + d + 10);
+            ctx.lineTo(cx - tw / 2, cy + d + 10);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(112, 84, 58, 0.14)';
+            ctx.fill();
+        }
+        face(cx - tw / 2, cy, cx, cy + th / 2, look.sideDark);
+        face(cx, cy + th / 2, cx + tw / 2, cy, look.side);
+        face(cx - tw / 2, cy - 0.5, cx, cy + th / 2 - 0.5, look.lipDark);
+        face(cx, cy + th / 2 - 0.5, cx + tw / 2, cy - 0.5, look.lip);
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - th / 2);
+        ctx.lineTo(cx + tw / 2, cy);
+        ctx.lineTo(cx, cy + th / 2);
+        ctx.lineTo(cx - tw / 2, cy);
+        ctx.closePath();
+        ctx.fillStyle = look.base;
+        ctx.fill();
+        ctx.clip();
+        // The game's square drawing of the ground, laid at the island's angle.
+        const s = 100;
+        ctx.translate(cx, cy - th / 2);
+        ctx.transform(tw / (2 * s), th / (2 * s), -tw / (2 * s), th / (2 * s), 0, 0);
+        if (p.kind !== this.plain) this.drawLoose(ctx, p, 0, 0, s);
+        else this.drawPlain(ctx, s);
+        ctx.restore();
     }
 
     drawTray(ctx) {
@@ -770,15 +1156,14 @@ export class BoardScene extends Scene {
     }
 
     traySprite(t) {
-        const id = `tray:${t.kind}`;
-        let layer = this.sprites[id];
-        if (!layer) {
-            layer = makeLayer(t.s, t.s, this.scale);
+        return this.cached(`tray:${t.kind}`, () => {
+            const layer = makeLayer(t.s, t.s, this.scale);
             fillRound(layer.ctx, 0, 0, t.s, t.s, 16 * this.u, '#FBF6EE');
-            this.drawLoose(layer.ctx, { kind: t.kind }, t.s * 0.06, t.s * 0.02, t.s * 0.88);
-            this.sprites[id] = layer;
-        }
-        return layer;
+            if (this.isTile(t.kind))
+                this.drawTileBlock(layer.ctx, { kind: t.kind }, t.s / 2, t.s * 0.44, t.s * 0.82);
+            else this.drawLoose(layer.ctx, { kind: t.kind }, t.s * 0.06, t.s * 0.02, t.s * 0.88);
+            return layer;
+        });
     }
 
     drawSun(ctx) {
@@ -823,9 +1208,20 @@ export class BoardScene extends Scene {
         return false;
     }
 
-    // Whether a piece is drawn standing on its tile, in row order.
+    // Whether a piece is drawn standing on its tile, back to front.
     stands(p) {
         return !this.isGround(p.kind);
+    }
+
+    // How far down its frame an upright piece's drawing begins, for touching it.
+    reach() {
+        return 0.12;
+    }
+
+    // Whether the sprites a piece was last drawn with are all of it, so a touch can be tested
+    // against their paint; not when something else is drawn with it, a cat on a roof.
+    solid() {
+        return true;
     }
 
     // Kinds whose neighbours bounce in a climbing ripple when one is put beside them.
@@ -845,6 +1241,9 @@ export class BoardScene extends Scene {
     // A piece put on (c, r).
     placed() {}
 
+    // New land at (c, r).
+    grown() {}
+
     // Clear whatever lay on an empty tile now taken (the farm's flowers); true if the ground must be
     // redrawn.
     clearTile() {
@@ -856,6 +1255,12 @@ export class BoardScene extends Scene {
 
     updatePiece(p, c, r, dt) {
         p.bounce.update(dt);
+    }
+
+    // Things on the move between tiles, drawn among the upright pieces where they are: each
+    // { u, v, draw(ctx) }, at grid point (u, v).
+    movers() {
+        return [];
     }
 
     // Something to touch that is not a piece, or null.
@@ -871,7 +1276,13 @@ export class BoardScene extends Scene {
 
     paintGround() {}
 
+    // The bare land tile's own top, in a square of side s, for the tray.
+    drawPlain() {}
+
     drawBelow() {}
+
+    // Whatever stands up out of a flat piece on (c, r): crops in a field.
+    drawUpright() {}
 
     drawPiece() {}
 

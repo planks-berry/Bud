@@ -7,6 +7,7 @@
 
 import { SHADOW_SOFT, fillRound, disc, ellipse, circle } from '../draw.js';
 import { TAU, shade } from '../util.js';
+import * as iso from './iso.js';
 
 export const INK = '#6B5A4C';
 
@@ -393,7 +394,7 @@ export function crops(ctx, x, y, s, stage, crop, seed, pop = 0, giant = false) {
     }
 }
 
-function plant(ctx, px, py, s, stage, crop) {
+export function plant(ctx, px, py, s, stage, crop) {
     if (stage === 1) {
         disc(ctx, px, py, s * 0.016, '#8A6A4E');
         return;
@@ -1126,4 +1127,451 @@ export function moon(ctx, x, y, r, back) {
         ctx.fillStyle = '#F7F0DC';
         ctx.fill();
     }
+}
+
+//==============================================================================
+// The farm at the island's angle. Buildings are boxes and roofs in a tile's frame (see iso.js),
+// each with the points its callers need: where a cat sits, where the door is, where a window
+// glows. Everything living stays a cut-out, standing up to face whoever is looking.
+
+// Where crops grow in a field tile, along its furrows, as fractions of the tile.
+export const CROP_SPOTS = [];
+for (const fy of [0.36, 0.6, 0.84]) for (const fx of [0.24, 0.5, 0.76]) CROP_SPOTS.push([fx, fy]);
+CROP_SPOTS.sort((a, b) => a[0] + a[1] - (b[0] + b[1]));
+
+// Crops in a field tile: `spot(fx, fy)` is a point of the tile on the screen.
+export function isoCrops(ctx, spot, s, stage, crop, seed, pop = 0, giant = false) {
+    if (stage <= 0) return;
+    if (stage === 4 && giant) {
+        const [x, y] = spot(0.55, 0.6);
+        pumpkin(ctx, x, y - s * 0.12, s * 0.24 * (1 + pop * 0.1));
+        return;
+    }
+    CROP_SPOTS.forEach(([fx, fy], i) => {
+        const n = (seed * 31 + i * 7) % 17;
+        const [x, y] = spot(fx + ((n % 5) - 2) * 0.012, fy + (((n * 3) % 5) - 2) * 0.01);
+        plant(ctx, x, y - pop * s * 0.03, s, stage, crop);
+    });
+}
+
+const BARN = { u0: -0.3, v0: -0.25, u1: 0.3, v1: 0.25, z: 0.3, rise: 0.23 };
+
+// The barn: doors in its gable end that open (`door` 0 to 1) on the dark and the hay, where
+// `inside(ctx, x, y)` is drawn, clipped to the doorway, the doorway's foot at (x, y).
+export function isoBarn(ctx, f, o = {}) {
+    const { u0, v0, u1, v1, z, rise } = BARN;
+    const w = Math.max(1, f.tw * 0.016);
+    iso.footprint(ctx, f, u0, v0, u1, v1);
+    iso.box(ctx, f, u0, v0, u1, v1, 0, z, FARM.barn, { noTop: true, left: shade(FARM.barn, -0.13) });
+    for (const [u, v] of [
+        [u0, v1],
+        [u1, v1],
+        [u1, v0],
+    ])
+        iso.edge(ctx, f, [u, v, 0], [u, v, z], w * 1.2, FARM.trim);
+    // Two windows along the side.
+    iso.onWall(ctx, f, 'left', v1, u0, (g) => {
+        for (const a of [0.12, 0.4]) {
+            g.fillStyle = FARM.trim;
+            g.fillRect(a - 0.012, 0.115, 0.104, 0.1);
+            g.fillStyle = FARM.dark;
+            g.fillRect(a, 0.127, 0.08, 0.076);
+        }
+    });
+    iso.gable(ctx, f, u0, v0, u1, v1, z, rise, 'u', FARM.barnRoof, FARM.barn, {
+        overhang: 0.035,
+        trim: FARM.trim,
+        gableEnd: () => {
+            // The hayloft, under the ridge.
+            iso.onWall(ctx, f, 'right', u1, v1, (g) => {
+                g.fillStyle = FARM.trim;
+                g.fillRect(0.185, 0.315, 0.13, 0.115);
+                g.fillStyle = o.lit ? FARM.lit : FARM.dark;
+                g.fillRect(0.2, 0.327, 0.1, 0.09);
+            });
+        },
+    });
+    barnDoors(ctx, f, o);
+}
+
+function barnDoors(ctx, f, o) {
+    const { u1, v1 } = BARN;
+    const a0 = 0.12;
+    const a1 = 0.38;
+    const top = 0.215;
+    const open = o.door || 0;
+    if (open > 0.01) {
+        iso.onWall(ctx, f, 'right', u1, v1, (g) => {
+            g.fillStyle = FARM.dark;
+            g.fillRect(a0, 0, a1 - a0, top);
+        });
+        iso.poly(
+            ctx,
+            f,
+            [
+                [u1, v1 - a0, 0],
+                [u1, v1 - a1, 0],
+                [u1 + 0.07, v1 - a1 + 0.03, 0],
+                [u1 + 0.07, v1 - a0 - 0.03, 0],
+            ],
+            FARM.hay
+        );
+        if (o.inside) {
+            ctx.save();
+            iso.wallRect(ctx, f, 'right', u1, v1, a0, 0, a1, top);
+            ctx.clip();
+            const [x, y] = iso.wallPt(f, 'right', u1, v1, (a0 + a1) / 2, 0);
+            o.inside(ctx, x, y);
+            ctx.restore();
+        }
+    }
+    const leaf = ((a1 - a0) / 2) * Math.cos((open * Math.PI) / 2.2);
+    iso.onWall(ctx, f, 'right', u1, v1, (g) => {
+        g.lineWidth = 0.012;
+        for (const side of [0, 1]) {
+            const l = side ? a1 - leaf : a0;
+            if (leaf < 0.004) continue;
+            g.fillStyle = FARM.barnDoor;
+            g.fillRect(l, 0, leaf, top);
+            g.strokeStyle = FARM.trim;
+            g.strokeRect(l + 0.008, 0.008, leaf - 0.016, top - 0.016);
+            if (leaf > 0.03) {
+                g.beginPath();
+                g.moveTo(l + 0.01, 0.01);
+                g.lineTo(l + leaf - 0.01, top - 0.01);
+                g.moveTo(l + leaf - 0.01, 0.01);
+                g.lineTo(l + 0.01, top - 0.01);
+                g.stroke();
+            }
+        }
+    });
+}
+
+// Where things are on the barn: the ridge a cat sleeps on, the hayloft an owl looks out of.
+export function barnSpots(f) {
+    const { u1, v1, z, rise } = BARN;
+    return {
+        roof: iso.pt(f, 0.12, 0, z + rise + 0.01),
+        hayloft: iso.wallPt(f, 'right', u1, v1, 0.25, 0.33),
+        door: iso.wallPt(f, 'right', u1, v1, 0.25, 0),
+    };
+}
+
+// The barn's lights at night: the hayloft glows.
+export function barnLights(ctx, f, k) {
+    const { u1, v1 } = BARN;
+    iso.onWall(ctx, f, 'right', u1, v1, (g) => {
+        g.fillStyle = `rgba(255, 226, 154, ${0.3 * k})`;
+        g.fillRect(0.17, 0.3, 0.16, 0.145);
+        g.fillStyle = `rgba(255, 226, 154, ${0.95 * k})`;
+        g.fillRect(0.2, 0.327, 0.1, 0.09);
+    });
+}
+
+const HOUSE = { u0: -0.28, v0: -0.21, u1: 0.28, v1: 0.21, z: 0.29, rise: 0.19 };
+// The house's windows, on its long side (left) and its gable end (right), in each wall's terms.
+const HOUSE_WINDOWS = [
+    ['left', 0.07, 0.115, 0.17, 0.205],
+    ['left', 0.39, 0.115, 0.49, 0.205],
+    ['right', 0.17, 0.12, 0.26, 0.21],
+];
+
+// The farmhouse: `door` opens, `lit` glows the windows; the chimney's smoke is the caller's.
+export function isoHouse(ctx, f, o = {}) {
+    const { u0, v0, u1, v1, z, rise } = HOUSE;
+    iso.footprint(ctx, f, u0, v0, u1, v1);
+    iso.box(ctx, f, u0, v0, u1, v1, 0, z, FARM.wall, { noTop: true, left: shade(FARM.wall, -0.1) });
+    for (const [side, a0, z0, a1, z1] of HOUSE_WINDOWS) {
+        iso.onWall(ctx, f, side, side === 'left' ? v1 : u1, side === 'left' ? u0 : v1, (g) => {
+            g.fillStyle = FARM.trim;
+            g.fillRect(a0 - 0.012, z0 - 0.012, a1 - a0 + 0.024, z1 - z0 + 0.024);
+            g.fillStyle = o.lit ? FARM.lit : FARM.glass;
+            g.fillRect(a0, z0, a1 - a0, z1 - z0);
+            g.fillStyle = FARM.trim;
+            g.fillRect((a0 + a1) / 2 - 0.005, z0, 0.01, z1 - z0);
+            g.fillRect(a0, (z0 + z1) / 2 - 0.005, a1 - a0, 0.01);
+        });
+    }
+    // The door, which opens inwards onto the dark, and a box of flowers under the first window.
+    const open = o.door || 0;
+    iso.onWall(ctx, f, 'left', v1, u0, (g) => {
+        g.fillStyle = FARM.dark;
+        g.fillRect(0.235, 0, 0.09, 0.185);
+        g.fillStyle = FARM.door;
+        g.fillRect(0.235, 0, 0.09 * (1 - open * 0.8), 0.185);
+        g.fillStyle = FARM.roofDeep;
+        g.fillRect(0.06, 0.085, 0.12, 0.028);
+    });
+    for (const [a, colour] of [
+        [0.08, '#F2BAC3'],
+        [0.12, '#F3DE97'],
+        [0.16, '#F2BAC3'],
+    ]) {
+        const [x, y] = iso.wallPt(f, 'left', v1, u0, a, 0.12);
+        disc(ctx, x, y, f.tw * 0.014, colour);
+    }
+    iso.gable(ctx, f, u0, v0, u1, v1, z, rise, 'u', FARM.roof, FARM.wall, {
+        overhang: 0.04,
+        gableEnd: () => {
+            const [x, y] = iso.wallPt(f, 'right', u1, v1, 0.21, 0.355);
+            ellipse(ctx, x, y, f.tw * 0.025, f.tw * 0.03);
+            ctx.fillStyle = o.lit ? FARM.lit : FARM.glass;
+            ctx.fill();
+        },
+    });
+    // The chimney, set in the near slope of the roof.
+    const cz = iso.roofAt(u0, v0, u1, v1, z, rise, 'u', 0.14, 0.08);
+    iso.box(ctx, f, 0.1, 0.04, 0.18, 0.12, cz - 0.03, z + rise + 0.07, FARM.roofDeep);
+}
+
+// Where things are on the house: the doorstep, the chimney's top, and each window, as a path to
+// clip a cat to.
+export function houseSpots(f) {
+    const { u0, v0, u1, v1, z, rise } = HOUSE;
+    void v0;
+    return {
+        door: iso.wallPt(f, 'left', v1, u0, 0.28, 0),
+        chimney: iso.pt(f, 0.14, 0.08, z + rise + 0.08),
+        window: (ctx, i) => {
+            const [side, a0, z0, a1, z1] = HOUSE_WINDOWS[i];
+            iso.wallRect(ctx, f, side, side === 'left' ? v1 : u1, side === 'left' ? u0 : v1, a0, z0, a1, z1);
+        },
+        windowFoot: (i) => {
+            const [side, a0, z0, a1] = HOUSE_WINDOWS[i];
+            return iso.wallPt(
+                f,
+                side,
+                side === 'left' ? v1 : u1,
+                side === 'left' ? u0 : v1,
+                (a0 + a1) / 2,
+                z0
+            );
+        },
+    };
+}
+
+export function houseLights(ctx, f, k) {
+    const { u0, u1, v1 } = HOUSE;
+    for (const [side, a0, z0, a1, z1] of HOUSE_WINDOWS) {
+        iso.onWall(ctx, f, side, side === 'left' ? v1 : u1, side === 'left' ? u0 : v1, (g) => {
+            g.fillStyle = `rgba(255, 226, 154, ${0.28 * k})`;
+            g.fillRect(a0 - 0.03, z0 - 0.03, a1 - a0 + 0.06, z1 - z0 + 0.06);
+            g.fillStyle = `rgba(255, 226, 154, ${0.95 * k})`;
+            g.fillRect(a0, z0, a1 - a0, z1 - z0);
+        });
+    }
+}
+
+const COOP = { u0: -0.2, v0: -0.16, u1: 0.2, v1: 0.16, z0: 0.08, z: 0.25, rise: 0.12 };
+
+// The hen house: a hut on legs, with a ramp down from its door.
+export function isoCoop(ctx, f, o = {}) {
+    const { u0, v0, u1, v1, z0, z, rise } = COOP;
+    iso.footprint(ctx, f, u0, v0, u1, v1, 0.05);
+    for (const [u, v] of [
+        [u0 + 0.03, v0 + 0.03],
+        [u0 + 0.03, v1 - 0.03],
+        [u1 - 0.03, v0 + 0.03],
+        [u1 - 0.03, v1 - 0.03],
+    ])
+        iso.box(ctx, f, u - 0.018, v - 0.018, u + 0.018, v + 0.018, 0, z0, FARM.postDark, { noTop: true });
+    iso.box(ctx, f, u0, v0, u1, v1, z0, z, FARM.coop, { left: shade(FARM.coop, -0.12) });
+    const plank = shade(FARM.coop, -0.16);
+    for (const [side, at, from, len] of [
+        ['left', v1, u0, u1 - u0],
+        ['right', u1, v1, v1 - v0],
+    ]) {
+        iso.onWall(ctx, f, side, at, from, (g) => {
+            g.fillStyle = plank;
+            for (let k = 1; k < 4; k++) g.fillRect(0, z0 + (k * (z - z0)) / 4 - 0.003, len, 0.006);
+        });
+    }
+    iso.onWall(ctx, f, 'left', v1, u0, (g) => {
+        g.fillStyle = o.lit ? FARM.lit : FARM.dark;
+        g.beginPath();
+        g.moveTo(0.15, z0 + 0.01);
+        g.lineTo(0.15, z0 + 0.09);
+        g.arc(0.2, z0 + 0.09, 0.05, Math.PI, 0, true);
+        g.lineTo(0.25, z0 + 0.01);
+        g.closePath();
+        g.fill();
+    });
+    // The ramp, from the door down to the grass.
+    iso.poly(
+        ctx,
+        f,
+        [
+            [-0.02, v1, z0 + 0.01],
+            [0.06, v1, z0 + 0.01],
+            [0.08, v1 + 0.2, 0],
+            [0, v1 + 0.2, 0],
+        ],
+        FARM.post
+    );
+    for (let k = 1; k < 4; k++) {
+        const t = k / 4;
+        iso.edge(
+            ctx,
+            f,
+            [-0.02 + t * 0.02, v1 + t * 0.2, z0 * (1 - t)],
+            [0.06 + t * 0.02, v1 + t * 0.2, z0 * (1 - t)],
+            Math.max(1, f.tw * 0.012),
+            FARM.postDark
+        );
+    }
+    iso.gable(ctx, f, u0, v0, u1, v1, z, rise, 'u', FARM.roofDeep, FARM.coop, { overhang: 0.035 });
+}
+
+// Where things are at the hen house: its roof, the doorway, the foot of the ramp, where an egg is
+// left.
+export function coopSpots(f) {
+    const { u0, v1, z0, z, rise } = COOP;
+    return {
+        roof: iso.pt(f, 0, 0, z + rise),
+        door: iso.wallPt(f, 'left', v1, u0, 0.2, z0),
+        ramp: iso.pt(f, 0.04, v1 + 0.2, 0),
+        egg: iso.pt(f, 0.3, 0.3, 0),
+    };
+}
+
+export function coopLights(ctx, f, k) {
+    const { u0, v1, z0 } = COOP;
+    iso.onWall(ctx, f, 'left', v1, u0, (g) => {
+        g.fillStyle = `rgba(255, 226, 154, ${0.9 * k})`;
+        g.beginPath();
+        g.moveTo(0.15, z0 + 0.01);
+        g.lineTo(0.15, z0 + 0.09);
+        g.arc(0.2, z0 + 0.09, 0.05, Math.PI, 0, true);
+        g.lineTo(0.25, z0 + 0.01);
+        g.closePath();
+        g.fill();
+    });
+}
+
+const MILL = { base: 0.19, top: 0.115, height: 0.6 };
+
+// The windmill: a round tower, lit on its right, a cap, and sails at `angle` turning to face the
+// viewer. `o.sails` false leaves the sails for the caller, who turns them.
+export function isoWindmill(ctx, f, o = {}) {
+    const { base, top, height } = MILL;
+    const tw = f.tw;
+    const cx = f.cx;
+    const cy = f.cy;
+    const bw = base * tw;
+    const tpw = top * tw;
+    const h = height * tw;
+    ellipse(ctx, cx - tw * 0.03, cy + tw * 0.02, bw * 1.35, bw * 0.6);
+    ctx.fillStyle = 'rgba(112, 84, 58, 0.13)';
+    ctx.fill();
+    const half = (side, colour) => {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy + bw * 0.5);
+        ctx.ellipse(cx, cy, bw, bw * 0.5, 0, Math.PI / 2, side < 0 ? Math.PI : 0, side > 0);
+        ctx.lineTo(cx + side * tpw, cy - h);
+        ctx.ellipse(cx, cy - h, tpw, tpw * 0.5, 0, side < 0 ? Math.PI : 0, Math.PI / 2, side < 0);
+        ctx.closePath();
+        ctx.fillStyle = colour;
+        ctx.fill();
+    };
+    half(-1, shade(FARM.tower, -0.1));
+    half(1, FARM.tower);
+    // A band of stone at the foot, the door, a window.
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, bw, bw * 0.5, 0, 0, Math.PI);
+    ctx.lineTo(cx - bw * 0.97, cy - tw * 0.07);
+    ctx.ellipse(cx, cy - tw * 0.07, bw * 0.97, bw * 0.485, 0, Math.PI, 0, true);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(112, 84, 58, 0.12)';
+    ctx.fill();
+    ctx.restore();
+    fillRound(ctx, cx - tw * 0.075, cy - tw * 0.02, tw * 0.07, tw * 0.13 + bw * 0.1, tw * 0.035, FARM.door);
+    disc(ctx, cx - tw * 0.03, cy - h * 0.56, tw * 0.03, o.lit ? FARM.lit : FARM.glass);
+    // The cap.
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - h, tpw * 1.25, tpw * 0.62, 0, 0, Math.PI);
+    ctx.ellipse(cx, cy - h, tpw * 1.25, tpw * 1.15, 0, Math.PI, 0);
+    ctx.closePath();
+    ctx.fillStyle = FARM.roofDeep;
+    ctx.fill();
+    ellipse(ctx, cx + tpw * 0.35, cy - h - tpw * 0.55, tpw * 0.5, tpw * 0.25, -0.3);
+    ctx.fillStyle = 'rgba(255, 255, 240, 0.25)';
+    ctx.fill();
+    if (o.sails !== false) isoSails(ctx, f, o.angle || 0);
+}
+
+// Where the sails turn, and how long they are.
+export function windmillSpots(f) {
+    const { height } = MILL;
+    return {
+        hub: [f.cx - f.tw * 0.07, f.cy - f.tw * (height - 0.02)],
+        sail: f.tw * 0.4,
+        window: [f.cx - f.tw * 0.03, f.cy - f.tw * height * 0.56],
+    };
+}
+
+export function isoSails(ctx, f, angle) {
+    const { hub, sail } = windmillSpots(f);
+    // The old sails are drawn about a hub at (x + s/2, y + s*0.35), each 0.33 s long.
+    const s = sail / 0.33;
+    windmillSails(ctx, hub[0] - s / 2, hub[1] - s * 0.35, s, angle);
+}
+
+export function windmillLights(ctx, f, k) {
+    const [x, y] = windmillSpots(f).window;
+    disc(ctx, x, y, f.tw * 0.06, `rgba(255, 226, 154, ${0.3 * k})`);
+    disc(ctx, x, y, f.tw * 0.03, `rgba(255, 226, 154, ${0.95 * k})`);
+}
+
+// A run of fence through the tile, joined towards the sides in `mask` (1 back right, 2 front right,
+// 4 front left, 8 back left: north, east, south and west of the plan). A lone piece is a short
+// section of its own.
+export function isoFence(ctx, f, mask) {
+    const runs = [];
+    if (!mask) runs.push([-0.32, 0, 0.32, 0]);
+    if (mask & 8) runs.push([-0.5, 0, 0, 0]);
+    if (mask & 1) runs.push([0, -0.5, 0, 0]);
+    if (mask & 2) runs.push([0, 0, 0.5, 0]);
+    if (mask & 4) runs.push([0, 0, 0, 0.5]);
+    const w = Math.max(1, f.tw * 0.012);
+    for (const [u0, v0, u1, v1] of runs)
+        iso.edge(ctx, f, [u0, v0], [u1, v1], w * 3, 'rgba(112, 84, 58, 0.1)');
+    const post = (u, v) => {
+        iso.box(ctx, f, u - 0.028, v - 0.028, u + 0.028, v + 0.028, 0, 0.25, FARM.post, {
+            left: FARM.postDark,
+            top: shade(FARM.post, 0.1),
+        });
+    };
+    const rails = (u0, v0, u1, v1) => {
+        for (const z of [0.1, 0.19]) {
+            iso.poly(
+                ctx,
+                f,
+                [
+                    [u0, v0, z - 0.017],
+                    [u1, v1, z - 0.017],
+                    [u1, v1, z + 0.017],
+                    [u0, v0, z + 0.017],
+                ],
+                u1 !== u0 ? FARM.plank : shade(FARM.plank, -0.08)
+            );
+        }
+    };
+    // From the back of the tile to its front: what is behind the middle post, the post, then what
+    // is in front of it.
+    for (const run of runs) if (run[0] < 0 || run[1] < 0) rails(...run);
+    if (!mask) {
+        post(-0.3, 0);
+        post(0.3, 0);
+        post(0, 0);
+    } else post(0, 0);
+    for (const run of runs) if (!(run[0] < 0 || run[1] < 0)) rails(...run);
+}
+
+// Where things are on the fence: the top of its middle post, and its lower rail.
+export function fenceSpots(f) {
+    return {
+        post: iso.pt(f, 0, 0, 0.26),
+        rail: (t) => iso.pt(f, -0.3 + t * 0.6, 0, 0.1),
+    };
 }

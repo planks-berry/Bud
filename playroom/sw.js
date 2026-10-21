@@ -57,6 +57,7 @@ const FILES = [
     'js/toys/site.js',
     'js/toys/siteart.js',
     'js/toys/board.js',
+    'js/toys/iso.js',
     'icons/icon-32.png',
     'icons/icon-152.png',
     'icons/icon-167.png',

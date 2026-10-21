@@ -1,7 +1,10 @@
-// The building site: a board to build a site on, and a tray of pieces to build it with.
+// The building site: an island of earth to build a site on, a tile at a time, and a tray of pieces
+// to build it with.
 //
-// The farm's board and the farm's grammar (board.js): pieces are dragged from the tray, snap to a
-// tile, move, swap and go back. What is new is that the site's machines work in chains. A digger
+// The farm's board and the farm's grammar (board.js): tiles of earth put down on the table make the
+// island bigger, a road or a plot put down on a tile changes it, and pieces are dragged from the
+// tray, snap to a tile, move, swap and go back. What is new is that the site's machines work in
+// chains. A digger
 // beside a marked-out plot digs it out and loads the earth into a truck beside it; the truck drives
 // the road and tips the earth onto a pile; a mixer beside the hole fills it with concrete; and a
 // crane beside the set foundation lifts a building onto it, a floor at a time, each floor a note
@@ -23,24 +26,29 @@
 // work lamps light the ground around them.
 //
 //   touch  - tap anything: every piece answers.
-//   move   - drag pieces from the tray, and around the board.
+//   move   - drag tiles and pieces from the tray, and around the island.
 //   make   - a site that works: dig, carry, pour and build, and a building that grows.
 
-import { fillRound, disc, ellipse } from '../draw.js';
-import { Spring, clamp, lerp, TAU } from '../util.js';
+import { fillRound, disc, ellipse, makeLayer } from '../draw.js';
+import { Spring, clamp, lerp, TAU, shade } from '../util.js';
 import { noteHz } from '../synth.js';
 import * as audio from '../audio.js';
-import { BoardScene, SIDES, E, S, W, key } from './board.js';
+import { BoardScene, SIDES, E, S, key, FOOT } from './board.js';
+import * as iso from './iso.js';
 import { cat, bird, dog, sparkle } from './farmart.js';
-import { SITE, worker, digger, dumpTruck, bulldozer, diggerSolve, toWorld } from './machines.js';
+import { SITE, worker, digger, dumpTruck, bulldozer, diggerSolve, toWorld, stripes } from './machines.js';
 import * as art from './siteart.js';
 
-const { GROUND, FLOORS, FLOOR_H } = art;
+const { GROUND, FLOORS, FLOOR } = art;
 
 const FLAT = ['road', 'plot'];
 
-// The machines that machines.js draws, at their size on a tile.
+// The machines that machines.js draws, at their size on a tile, and the crane's mast at its least,
+// in tile widths.
 const MACHINE_K = 0.62;
+const CRANE_MAST = 0.92;
+// How far down its frame each upright piece's drawing begins, for touching it (machines: 0.35).
+const REACH = { plot: 0, crane: 0, hut: 0.42, pile: 0.5, cones: 0.45, lamp: 0.12 };
 const MACHINES = ['digger', 'truck', 'mixer', 'crane', 'roller', 'dozer'];
 
 // A plot's steps: marked out with pegs and string, dug, poured, set; then a building, a floor a step.
@@ -49,9 +57,9 @@ const DUG = 1;
 const POURED = 2;
 const SET = 3;
 
-// What each stage puts in the tray, how big the site is, the little site it starts as, and how
-// tall the crane can build. In the plans, H is a plot already dug, F one already set, and B one
-// with its first floor on.
+// What each stage puts in the tray, how big the table is, the little island the site starts as, and
+// how tall the crane can build. In the plans, H is a plot already dug, F one already set, and B one
+// with its first floor on; '.' is bare earth, ' ' the table still to build on.
 const CODES = {
     R: 'road',
     P: 'plot',
@@ -75,21 +83,22 @@ const PLANS = [
     {
         cols: 5,
         rows: 4,
-        kinds: ['road', 'plot', 'digger', 'truck', 'mixer', 'crane'],
-        start: ['PDT..', 'RRRRR', 'MHHCB', '.....'],
+        kinds: ['earth', 'road', 'plot', 'digger', 'truck', 'mixer', 'crane'],
+        start: ['PDT  ', 'RRRR ', 'MHCB ', '     '],
         floors: 3,
     },
     {
         cols: 6,
         rows: 5,
-        kinds: ['road', 'plot', 'pile', 'digger', 'truck', 'mixer', 'crane', 'cones', 'hut'],
-        start: ['L.PDT.', 'RRRRRR', 'MHH.CB', 'KK.O..', '......'],
+        kinds: ['earth', 'road', 'plot', 'pile', 'digger', 'truck', 'mixer', 'crane', 'cones', 'hut'],
+        start: ['L.PDT ', 'RRRRR ', 'MHH.CB', 'KK.O  ', '      '],
         floors: 4,
     },
     {
         cols: 7,
         rows: 5,
         kinds: [
+            'earth',
             'road',
             'plot',
             'pile',
@@ -103,7 +112,7 @@ const PLANS = [
             'dozer',
             'lamp',
         ],
-        start: ['LZPPDTY', 'RRRRRRR', 'MHH.CBB', 'KK.O.J.', '.......'],
+        start: ['LZPPDTY', 'RRRRRRR', 'MHH.CBB', 'KK.O.J ', '       '],
         floors: 5,
     },
 ];
@@ -124,9 +133,22 @@ const TUNE = [5, 7, 8, 7, 5, null, 3, 5, 7, null, 8, 9, 10];
 
 class SiteScene extends BoardScene {
     constructor(app) {
-        super(app, PLANS);
+        super(app, PLANS, 'earth');
         this.maxFloors = this.plan.floors;
-        this.look = { sky: GROUND.sky, edge: GROUND.edge, base: GROUND.earth, alt: GROUND.earthAlt };
+        this.look = {
+            sky: GROUND.sky,
+            table: 'rgba(255, 252, 244, 0.42)',
+            tableLine: 'rgba(170, 145, 110, 0.3)',
+            base: GROUND.earth,
+            alt: GROUND.earthAlt,
+            lip: GROUND.edge,
+            lipDark: shade(GROUND.edge, -0.1),
+            side: SITE.earth,
+            sideDark: shade(SITE.earth, -0.12),
+            deep: SITE.earthDeep,
+            deepDark: shade(SITE.earthDeep, -0.12),
+            dust: '226, 210, 180',
+        };
         this.workId = 0;
         this.begin(CODES);
         for (let r = 0; r < this.rows; r++) {
@@ -134,6 +156,13 @@ class SiteScene extends BoardScene {
                 const p = this.at(c, r);
                 if (p && p.kind === 'plot') p.step = STEPS[this.plan.start[r][c]];
             }
+        }
+        for (const [c, r] of this.every('crane')) {
+            const p = this.at(c, r);
+            const plot = this.plotBeside(c, r, (n) => n.step >= SET);
+            if (!plot) continue;
+            p.slew.value = Math.atan2(plot[1] - r, plot[0] - c);
+            p.slew.target = p.slew.value;
         }
         this.normalise(true);
     }
@@ -190,10 +219,13 @@ class SiteScene extends BoardScene {
                 p.pour = new Spring(0, 60, 11);
             }
             if (kind === 'crane') {
-                p.swing = new Spring(1, 22, 8);
-                p.trolley = new Spring(0.7, 30, 9);
-                p.drop = new Spring(0.45, 30, 9);
-                p.mast = new Spring(0.62, 20, 9);
+                // The jib's heading on the ground, in radians (0 down the column, a quarter turn down
+                // the row), the trolley from the mast out to the jib's end, the hook below the jib, and
+                // the mast's height, all in tile widths.
+                p.slew = new Spring(-Math.PI / 2, 22, 8);
+                p.trolley = new Spring(0.6, 30, 9);
+                p.drop = new Spring(0.3, 30, 9);
+                p.mast = new Spring(CRANE_MAST, 20, 9);
                 p.carry = null;
             }
             if (kind === 'dozer') {
@@ -284,6 +316,14 @@ class SiteScene extends BoardScene {
         return null;
     }
 
+    // Which way to face, across the screen, to look from (c, r) at a tile beside it: down the column
+    // is to the right, down the row to the left.
+    facingTo(c, r, cell, otherwise) {
+        if (!cell) return otherwise;
+        const across = cell[0] - c - (cell[1] - r);
+        return across ? (across > 0 ? 1 : -1) : otherwise;
+    }
+
     // A picked-up machine stops what it was doing.
     lifted(c, r, piece) {
         piece.work = null;
@@ -303,18 +343,16 @@ class SiteScene extends BoardScene {
 
     paintGround(ctx) {
         const s = this.cell;
-        for (let r = 0; r < this.rows; r++) {
-            for (let c = 0; c < this.cols; c++) {
-                for (let i = 0; i < 4; i++) {
-                    const n = (c * 7 + r * 13 + i * 29) % 37;
-                    disc(
-                        ctx,
-                        this.bx + c * s + s * (0.12 + ((n * 0.37) % 0.76)),
-                        this.by + r * s + s * (0.15 + ((n * 0.53) % 0.7)),
-                        s * 0.012,
-                        GROUND.speck
-                    );
-                }
+        for (const [c, r] of this.tiles()) {
+            for (let i = 0; i < 4; i++) {
+                const n = (c * 7 + r * 13 + i * 29) % 37;
+                disc(
+                    ctx,
+                    c * s + s * (0.12 + ((n * 0.37) % 0.76)),
+                    r * s + s * (0.15 + ((n * 0.53) % 0.7)),
+                    s * 0.012,
+                    GROUND.speck
+                );
             }
         }
         this.drawPaths(ctx, s * 0.62, GROUND.roadEdge, 'road');
@@ -392,7 +430,7 @@ class SiteScene extends BoardScene {
             p.spin = idle + (p.spin - idle) * Math.exp(-dt / 1.5);
             p.drum += p.spin * dt;
         } else if (p.kind === 'crane') {
-            p.swing.update(dt);
+            p.slew.update(dt);
             p.trolley.update(dt);
             p.drop.update(dt);
             p.mast.update(dt);
@@ -413,8 +451,8 @@ class SiteScene extends BoardScene {
             audio.note('glock', d, 72, { gain: 0.3, pan: this.pan(rect.x), delay: i * 0.08 })
         );
         for (const [cc, rr] of cells.slice(0, 4)) {
-            const q = this.cellRect(cc, rr);
-            this.sparkleAt(q.x + q.s * 0.5, q.y + q.s * 0.45);
+            const q = this.center(cc, rr);
+            this.sparkleAt(q.x, q.y - this.cell * 0.12);
         }
     }
 
@@ -487,7 +525,7 @@ class SiteScene extends BoardScene {
         const s = this.cell;
         const life = 4.2;
         [0, 1].forEach((i) => {
-            const land = { x: rect.x + s * (0.35 + i * 0.3), y: rect.y + s * (0.55 + i * 0.08) };
+            const land = this.spot(c, r, 0.32 + i * 0.36, 0.5 + i * 0.12);
             const from = { x: land.x + (i ? 1 : -1) * s * 1.4, y: rect.y - s * 1.2 };
             const to = { x: land.x + (i ? -1 : 1) * s * 1.6, y: rect.y - s * 1.4 };
             this.fx.push({
@@ -534,8 +572,6 @@ class SiteScene extends BoardScene {
     // Plots: pegs and string, then a hole, wet concrete, a foundation, and a building.
 
     tapPlot(c, r, p, x, y) {
-        const rect = this.cellRect(c, r);
-        const s = this.cell;
         const pan = this.pan(x);
         if (p.step === MARKED) {
             // The string between the pegs, plucked.
@@ -545,20 +581,23 @@ class SiteScene extends BoardScene {
             audio.play('crunch', { seed: 3 }, { gain: 0.5, pan });
             this.puff(x, y, 0.5, '190, 160, 130');
             // Something at the bottom of the hole.
+            const deep = this.center(c, r);
+            deep.y += this.tw * 0.1;
             if (!p.find && this.surprise('bone', 0.5)) {
                 p.find = true;
                 this.later(0.2, () => audio.note('glock', 9, 72, { gain: 0.45, pan, wet: 0.4 }));
-                this.sparkleAt(rect.x + s * 0.5, rect.y + s * 0.58, 0.2);
+                this.sparkleAt(deep.x, deep.y, 0.2);
             } else if (p.find) {
                 audio.note('glock', 7, 72, { gain: 0.35, pan, wet: 0.4 });
-                this.sparkleAt(rect.x + s * 0.5, rect.y + s * 0.58);
+                this.sparkleAt(deep.x, deep.y);
             }
         } else if (p.step === POURED) {
             // A hand pressed into wet concrete leaves its print.
             if (p.prints.length >= 4) p.prints.shift();
+            const g = this.gridAt(x, y);
             p.prints.push({
-                x: clamp((x - rect.x) / s, 0.2, 0.8),
-                y: clamp((y - rect.y) / s, 0.25, 0.8),
+                x: clamp(g.u - c, 0.2, 0.8),
+                y: clamp(g.v - r, 0.25, 0.8),
                 hand: true,
             });
             audio.play('slosh', {}, { gain: 0.45, pan });
@@ -613,7 +652,7 @@ class SiteScene extends BoardScene {
         const s = this.cell;
         p.slide.kick(12);
         audio.play('rumble', { variant: 'short' }, { gain: 0.55, pan: this.pan(rect.x) });
-        this.puff(rect.x + s * 0.5, rect.y + s * 0.78, 0.8, '232, 214, 176');
+        this.puff(rect.x + s * 0.5, rect.y + s * FOOT, 0.8, '232, 214, 176');
         if (p.worm <= 0 && this.surprise('worm', 0.6)) {
             p.worm = 3.5;
             this.later(0.3, () => audio.play('squeak', { f: 2600 }, { gain: 0.3, pan: this.pan(rect.x) }));
@@ -635,10 +674,17 @@ class SiteScene extends BoardScene {
         const truck = this.pieceBeside(c, r, 'truck', (n) => !n.trip && !n.load);
         const onto = truck || this.pieceBeside(c, r, 'pile', (n) => !heap || n !== this.at(heap[0], heap[1]));
         const id = ++this.workId;
-        const face = (cell) => (cell && cell[0] !== c ? (cell[0] > c ? 1 : -1) : p.facing);
-        p.facing = face(from);
-        const back = face(onto);
-        p.work = { id, type: 'dig', t: 0, life: 2.6, turn: back !== p.facing ? back : 0 };
+        p.facing = this.facingTo(c, r, from, p.facing);
+        const back = this.facingTo(c, r, onto, p.facing);
+        // Where the bucket goes in, in the digger's own frame: the middle of the tile it digs.
+        let reach = null;
+        if (from) {
+            const a = this.center(c, r);
+            const b = this.center(from[0], from[1]);
+            const k = s * MACHINE_K;
+            reach = [Math.abs(b.x - a.x) / k, (b.y - a.y) / k];
+        }
+        p.work = { id, type: 'dig', t: 0, life: 2.6, turn: back !== p.facing ? back : 0, reach };
         for (let i = 0; i < 3; i++) audio.play('putt', {}, { gain: 0.7, pan, delay: i * 0.15 });
         audio.play('hiss', {}, { gain: 0.4, pan, delay: 0.3 });
         this.later(0.75, () => {
@@ -648,8 +694,8 @@ class SiteScene extends BoardScene {
                 const cells = this.group(plot[0], plot[1]);
                 this.advance(cells, DUG);
                 for (const [cc, rr] of cells) {
-                    const q = this.cellRect(cc, rr);
-                    this.puff(q.x + s * 0.5, q.y + s * 0.5, 1, '190, 160, 130');
+                    const q = this.center(cc, rr);
+                    this.puff(q.x, q.y, 1, '190, 160, 130');
                 }
                 p.loadColour = SITE.earth;
             } else if (heap && this.at(heap[0], heap[1]) && this.at(heap[0], heap[1]).kind === 'pile') {
@@ -680,7 +726,7 @@ class SiteScene extends BoardScene {
                 audio.play('rumble', { variant: 'short' }, { gain: 0.6, pan });
             } else {
                 audio.play('rumble', { variant: 'short' }, { gain: 0.45, pan });
-                this.puff(rect.x + s * (0.5 + p.facing * 0.4), rect.y + s * 0.7, 0.8, '190, 160, 130');
+                this.puff(rect.x + s * (0.5 + p.facing * 0.4), rect.y + s * FOOT, 0.8, '190, 160, 130');
             }
         });
         this.later(2.6, () => {
@@ -696,8 +742,10 @@ class SiteScene extends BoardScene {
     // up holding the load, out over the truck, tipped, and home.
     diggerPose(p) {
         const REST = [0.55, -0.33, 0.2];
-        const DIG = [1.12, 0.04, 1.1];
-        const BITE = [1.0, -0.02, 0];
+        const w0 = p.work;
+        const [rx, ry] = (w0 && w0.reach) || [1.06, 0];
+        const DIG = [rx + 0.06, ry + 0.04, 1.1];
+        const BITE = [rx - 0.06, ry - 0.02, 0];
         const LIFT = [0.72, -0.8, 0];
         const OVER = [1.05, -0.72, 0];
         const TIP = [1.05, -0.72, 2.2];
@@ -772,18 +820,18 @@ class SiteScene extends BoardScene {
 
     // Tip a truck's load: onto a pile beside it, or out onto the ground.
     tipLoad(p, c, r, roadC = c, roadR = r) {
-        const rect = this.cellRect(roadC, roadR);
         const s = this.cell;
         const heap = this.pieceBeside(roadC, roadR, 'pile');
-        audio.play('rumble', {}, { gain: 0.75, pan: this.pan(rect.x) });
+        audio.play('rumble', {}, { gain: 0.75, pan: this.pan(this.center(roadC, roadR).x) });
         if (heap) {
             const pile = this.at(heap[0], heap[1]);
             pile.size = Math.min(3, pile.size + 1);
             pile.slide.kick(12);
-            const q = this.cellRect(heap[0], heap[1]);
-            this.puff(q.x + s * 0.5, q.y + s * 0.7, 1, '232, 214, 176');
+            const q = this.center(heap[0], heap[1]);
+            this.puff(q.x, q.y - s * 0.05, 1, '232, 214, 176');
         } else {
-            this.puff(rect.x + s * 0.5, rect.y + s * 0.75, 1, '226, 210, 180');
+            const q = this.center(roadC, roadR);
+            this.puff(q.x, q.y, 1, '226, 210, 180');
         }
         p.load = 0;
     }
@@ -806,7 +854,11 @@ class SiteScene extends BoardScene {
             audio.play(
                 'putt',
                 {},
-                { gain: 0.7, pan: this.pan(this.bx + (trip.x || 0)), rate: roller ? 0.8 : 1 }
+                {
+                    gain: 0.7,
+                    pan: this.pan(this.toScreen(trip.x || 0, trip.y || 0).x),
+                    rate: roller ? 0.8 : 1,
+                }
             );
         }
         const i = Math.floor(trip.d);
@@ -814,7 +866,7 @@ class SiteScene extends BoardScene {
             p.trip = null;
             p.away = null;
             p.bounce.kick(8);
-            const pan = this.pan(this.cellRect(c, r).x);
+            const pan = this.pan(this.center(c, r).x);
             if (roller) audio.note('toot', 0, 60, { gain: 0.7, pan });
             else {
                 audio.note('beep', 4, 72, { gain: 0.8, pan });
@@ -827,11 +879,11 @@ class SiteScene extends BoardScene {
         const [bc, br] = trip.points[i + 1];
         trip.x = (lerp(ac, bc, k) + 0.5) * s;
         trip.y = (lerp(ar, br, k) + 0.5) * s;
-        if (bc !== ac) p.facing = bc > ac ? 1 : -1;
+        p.facing = this.facingTo(ac, ar, [bc, br], p.facing);
         if (i === trip.last) return;
         // Arriving on a tile.
         trip.last = i;
-        const pan = this.pan(this.bx + trip.x);
+        const pan = this.pan(this.toScreen(trip.x, trip.y).x);
         const dir = [bc - ac, br - ar];
         if (trip.dir && dir[0] === -trip.dir[0] && dir[1] === -trip.dir[1] && !roller) {
             // Backing up the way it came.
@@ -870,7 +922,7 @@ class SiteScene extends BoardScene {
         if (hole && !(p.work && p.work.type === 'pour')) {
             const id = ++this.workId;
             p.work = { id, type: 'pour', t: 0, life: 2.6 };
-            if (hole[0] !== c) p.facing = hole[0] > c ? -1 : 1;
+            p.facing = -this.facingTo(c, r, hole, -p.facing);
             p.pour.target = 1;
             for (let i = 0; i < 3; i++)
                 audio.play('gulp', { f: 220 }, { gain: 0.5, pan, delay: 0.6 + i * 0.35 });
@@ -891,53 +943,51 @@ class SiteScene extends BoardScene {
             p.pour.target = 0.6;
             this.later(0.9, () => (p.pour.target = 0));
             this.later(0.5, () =>
-                this.puff(rect.x + s * (0.5 - p.facing * 0.42), rect.y + s * 0.8, 0.6, '185, 179, 171')
+                this.puff(rect.x + s * (0.5 - p.facing * 0.42), rect.y + s * FOOT, 0.6, '185, 179, 171')
             );
         }
     }
 
-    // A cat crossing the wet concrete, leaving a line of paw prints, and a meow at the far side.
+    // A cat crossing the wet concrete, leaving a line of paw prints, and a meow at the far side: down
+    // the column of the first tile, from its back edge to past its front.
     catAcross(cells) {
         const s = this.cell;
-        const row = cells.filter(([, rr]) => rr === cells[0][1]).sort((a, b) => a[0] - b[0]);
-        const first = this.cellRect(row[0][0], row[0][1]);
-        const last = this.cellRect(row[row.length - 1][0], row[row.length - 1][1]);
-        const y = first.y + s * 0.62;
-        const x0 = first.x - s * 0.2;
-        const x1 = last.x + s * 1.2;
-        const life = 1.2 + 0.6 * row.length;
+        const [c0, r0] = cells[0];
+        const col = cells.filter(([cc]) => cc === c0).sort((a, b) => a[1] - b[1]);
+        const v0 = col[0][1] - 0.3;
+        const v1 = col[col.length - 1][1] + 1.3;
+        const u = c0 + 0.55;
+        const life = 1.2 + 0.6 * col.length;
         let printed = 0;
+        const step = 0.16;
         this.fx.push({
             t: 0,
             life,
             kind: 'cat',
             draw: (ctx, f) => {
-                const x = lerp(x0, x1, f.t / f.life);
-                cat(ctx, x, y + Math.abs(Math.sin(f.t * 9)) * s * -0.01, s * 0.9, {
-                    facing: 1,
+                const at = this.iso(u, lerp(v0, v1, f.t / f.life));
+                cat(ctx, at.x, at.y + Math.abs(Math.sin(f.t * 9)) * s * -0.01, s * 0.9, {
+                    facing: -1,
                     stretch: 0.6,
                 });
             },
             update: (dt, f) => {
-                const x = lerp(x0, x1, f.t / f.life);
-                const due = Math.floor((x - x0) / (s * 0.16));
+                const v = lerp(v0, v1, f.t / f.life);
+                const due = Math.floor((v - v0) / step);
                 for (; printed < due; printed++) {
-                    const px = x0 + (printed + 0.5) * s * 0.16;
-                    const cell = this.cellAt(px, y);
-                    if (!cell) continue;
-                    const t = this.at(cell[0], cell[1]);
+                    const pv = v0 + (printed + 0.5) * step;
+                    const rr = Math.floor(pv);
+                    const t = this.at(c0, rr);
                     if (!t || t.kind !== 'plot' || t.step !== POURED) continue;
-                    const rect = this.cellRect(cell[0], cell[1]);
-                    t.prints.push({
-                        x: (px - rect.x) / s,
-                        y: (y - rect.y) / s + (printed % 2 ? 0.04 : -0.04),
-                    });
+                    t.prints.push({ x: u - c0 + (printed % 2 ? 0.04 : -0.04), y: pv - rr });
                     if (t.prints.length > 12) t.prints.shift();
                 }
             },
         });
+        void r0;
+        const end = this.iso(u, v1);
         this.later(life * 0.8, () =>
-            audio.play('meow', { f: noteHz(5, 60) }, { gain: 0.6, pan: this.pan(x1) })
+            audio.play('meow', { f: noteHz(5, 60) }, { gain: 0.6, pan: this.pan(end.x) })
         );
     }
 
@@ -948,9 +998,8 @@ class SiteScene extends BoardScene {
 
     tapCrane(c, r, p) {
         if (p.work) return;
-        const rect = this.cellRect(c, r);
         const s = this.cell;
-        const pan = this.pan(rect.x);
+        const pan = this.pan(this.center(c, r).x);
         audio.play('rattle', {}, { gain: 0.7, pan });
         let target = null;
         let tree = false;
@@ -976,10 +1025,10 @@ class SiteScene extends BoardScene {
         if (!target) {
             // Nothing to build on: a swing round and back.
             p.work = { id, type: 'swing', t: 0, life: 2.4 };
-            const home = p.swing.target >= 0 ? 1 : -1;
-            p.swing.target = -home;
+            const home = p.slew.target;
+            p.slew.target = home + Math.PI;
             this.later(1.2, () => {
-                if (this.still(p, c, r, id)) p.swing.target = home;
+                if (this.still(p, c, r, id)) p.slew.target = home;
             });
             this.later(0.6, () => audio.play('rattle', { seed: 3 }, { gain: 0.4, pan }));
             return;
@@ -988,19 +1037,18 @@ class SiteScene extends BoardScene {
         const goal = this.at(tc, tr);
         const step = goal.step;
         const floors = step - SET;
-        const side = tc - c;
-        const roofY = this.cellRect(tc, tr).y + s * 0.84 - floors * FLOOR_H * s;
-        // The mast climbs if the building would otherwise reach the jib.
-        const needTop = roofY - (FLOOR_H + 0.42) * s;
-        p.mast.target = Math.max(0.62, (rect.y - needTop) / s);
-        const jy = rect.y - s * p.mast.target - s * 0.02;
-        const hookFor = (y) => (y - jy - s * 0.05) / s;
-        const ground = hookFor(rect.y + s * 0.84 - s * 0.26);
-        const land = hookFor(roofY - s * (0.04 + FLOOR_H * 0.9));
+        // Round the short way to face the building, and up, if the building would reach the jib.
+        p.slew.target = towards(p.slew.value, Math.atan2(tr - r, tc - c));
+        const roof = 0.025 + floors * FLOOR;
+        p.mast.target = Math.max(CRANE_MAST, roof + FLOOR + 0.34);
+        const H = p.mast.target;
+        // How far below the jib the hook hangs for what it carries to have its foot at height z.
+        const hookFor = (z) => H - 0.06 - FLOOR - z;
+        const ground = hookFor(0.02);
+        const land = hookFor(roof);
         p.work = { id, type: 'lift', t: 0, life: 3.8 };
-        p.swing.target = side;
         p.trolley.target = 0.05;
-        p.drop.target = 0.5;
+        p.drop.target = 0.3;
         this.later(0.7, () => {
             if (this.still(p, c, r, id)) p.drop.target = ground;
         });
@@ -1009,12 +1057,12 @@ class SiteScene extends BoardScene {
             p.carry = tree ? 'tree' : FLOORS[Math.min(floors, FLOORS.length - 1)];
             audio.note('clank', 2, 60, { gain: 0.3, pan });
             audio.play('rattle', { seed: 2 }, { gain: 0.5, pan, delay: 0.1 });
-            p.drop.target = Math.min(land - 0.3, 0.25);
+            p.drop.target = Math.min(land - 0.25, 0.2);
         });
         this.later(1.9, () => {
             if (!this.still(p, c, r, id)) return;
-            p.trolley.target = side ? 1 : 0.5;
-            p.drop.target = land - 0.25;
+            p.trolley.target = 0.82;
+            p.drop.target = land - 0.2;
         });
         this.later(2.6, () => {
             if (this.still(p, c, r, id)) p.drop.target = land;
@@ -1025,7 +1073,8 @@ class SiteScene extends BoardScene {
             const t = this.at(tc, tr);
             if (!t || t.kind !== 'plot' || t.step !== step) return;
             const cells = this.group(tc, tr);
-            const q = this.cellRect(tc, tr);
+            const q = this.center(tc, tr);
+            const roofY = q.y - roof * this.tw;
             if (tree) {
                 let mid = cells[0];
                 for (const cell of cells) if (Math.abs(cell[0] - c) < Math.abs(mid[0] - c)) mid = cell;
@@ -1033,16 +1082,16 @@ class SiteScene extends BoardScene {
                 [5, 7, 9, 10].forEach((d, i) =>
                     audio.note('glock', d, 72, { gain: 0.45, pan, delay: i * 0.12, wet: 0.4 })
                 );
-                this.sparkleAt(q.x + s * 0.5, roofY - s * 0.2);
+                this.sparkleAt(q.x, roofY - s * 0.2);
             } else {
                 this.advance(cells, step + 1);
                 audio.note('clank', FLOORS[floors].degree, 60, { gain: 0.9, pan });
                 audio.note('wood', FLOORS[floors].degree, 60, { gain: 0.6, pan, delay: 0.05 });
-                this.puff(q.x + s * 0.5, roofY, 0.8, '230, 224, 214');
+                this.puff(q.x, roofY - FLOOR * this.tw, 0.8, '230, 224, 214');
             }
             for (const [cc, rr] of cells) this.at(cc, rr).bounce.kick(6);
-            p.drop.target = 0.45;
-            p.trolley.target = 0.7;
+            p.drop.target = 0.3;
+            p.trolley.target = 0.6;
             if (this.night < 0.5 && this.surprise('nest', 0.5)) {
                 this.later(0.8, () => {
                     if (this.at(c, r) !== p) return;
@@ -1051,6 +1100,19 @@ class SiteScene extends BoardScene {
                 });
             }
         });
+    }
+
+    // The crane as its drawing wants it.
+    craneState(p) {
+        return {
+            slew: p.slew.value,
+            reach: 0.22 + 0.95 * clamp(p.trolley.value, 0, 1),
+            drop: Math.max(0.04, p.drop.value),
+            mast: p.mast.value,
+            load: p.carry && p.carry !== 'tree' ? p.carry : null,
+            tree: p.carry === 'tree',
+            glow: this.beaconGlow(p),
+        };
     }
 
     //--------------------------------------------------------------------------
@@ -1117,7 +1179,7 @@ class SiteScene extends BoardScene {
                     this.later(delay + at + i * 0.3, () => {
                         if (this.at(c, r) !== p || p.away || p.work) return;
                         p.bounce.kick(5);
-                        this.tap(c, r, p, { x: this.cellRect(c, r).x, y: this.cellRect(c, r).y });
+                        this.tap(c, r, p, this.center(c, r));
                     });
                 });
         }
@@ -1164,7 +1226,13 @@ class SiteScene extends BoardScene {
         const heap = this.pieceBeside(c, r, 'pile');
         const hole = heap ? null : this.plotBeside(c, r, (n) => n.step === DUG);
         const at = heap || hole;
-        if (at && at[0] !== c) p.facing = at[0] > c ? 1 : -1;
+        p.facing = this.facingTo(c, r, at, p.facing);
+        if (at) {
+            const a = this.center(c, r);
+            const b = this.center(at[0], at[1]);
+            const d = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+            p.pushDir = [(b.x - a.x) / d, (b.y - a.y) / d];
+        } else p.pushDir = [p.facing, 0];
         const id = ++this.workId;
         p.work = { id, type: 'push', t: 0, life: 2.2 };
         p.blade.target = 0;
@@ -1177,21 +1245,21 @@ class SiteScene extends BoardScene {
                 const pile = this.at(heap[0], heap[1]);
                 pile.size = Math.max(1, pile.size - 1);
                 pile.slide.kick(14);
-                const q = this.cellRect(heap[0], heap[1]);
-                this.puff(q.x + s * 0.5, q.y + s * 0.75, 1, '232, 214, 176');
-                if (this.surprise('ball', 0.5)) this.ballOut(q.x + s * 0.5, q.y + s * 0.6);
+                const q = this.center(heap[0], heap[1]);
+                this.puff(q.x, q.y - s * 0.05, 1, '232, 214, 176');
+                if (this.surprise('ball', 0.5)) this.ballOut(q.x, q.y - s * 0.24);
             } else if (hole) {
                 const h = this.at(hole[0], hole[1]);
                 if (h && h.kind === 'plot' && h.step === DUG) {
                     const cells = this.group(hole[0], hole[1]);
                     this.advance(cells, MARKED);
                     for (const [cc, rr] of cells) {
-                        const q = this.cellRect(cc, rr);
-                        this.puff(q.x + s * 0.5, q.y + s * 0.5, 1, '190, 160, 130');
+                        const q = this.center(cc, rr);
+                        this.puff(q.x, q.y, 1, '190, 160, 130');
                     }
                 }
             } else {
-                this.puff(rect.x + s * (0.5 + p.facing * 0.45), rect.y + s * 0.78, 0.8, '226, 210, 180');
+                this.puff(rect.x + s * (0.5 + p.facing * 0.45), rect.y + s * FOOT, 0.8, '226, 210, 180');
             }
         });
         this.later(1.1, () => {
@@ -1243,23 +1311,21 @@ class SiteScene extends BoardScene {
     // behind it, and a bird perched on a machine.
 
     targetAt(x, y) {
-        const s = this.cell;
-        for (let r = this.rows - 1; r >= 0; r--) {
-            for (let c = 0; c < this.cols; c++) {
-                const p = this.at(c, r);
-                if (!p || p.away) continue;
-                const rect = this.cellRect(c, r);
-                if (p.kind === 'plot' && p.step > SET) {
-                    const roof = rect.y + s * 0.84 - (p.step - SET) * FLOOR_H * s - s * 0.06;
-                    if (y < rect.y && y >= roof && x > rect.x + s * 0.08 && x < rect.x + s * 0.92) {
-                        return {
-                            tap: () => {
-                                p.bounce.kick(5);
-                                this.playBuilding(c, r);
-                            },
-                        };
-                    }
-                }
+        const tiles = this.tiles();
+        for (let i = tiles.length - 1; i >= 0; i--) {
+            const [c, r] = tiles[i];
+            const p = this.at(c, r);
+            if (!p || p.away || p.kind !== 'plot' || p.step <= SET) continue;
+            const rect = this.cellRect(c, r);
+            const ground = this.center(c, r);
+            const top = ground.y - (0.025 + (p.step - SET) * FLOOR) * this.tw - this.th * 0.4;
+            if (y < rect.y && y >= top && Math.abs(x - ground.x) < this.tw * 0.4) {
+                return {
+                    tap: () => {
+                        p.bounce.kick(5);
+                        this.playBuilding(c, r);
+                    },
+                };
             }
         }
         return null;
@@ -1301,14 +1367,17 @@ class SiteScene extends BoardScene {
     //--------------------------------------------------------------------------
     // Drawing
 
-    // Plots at every step, then anything that lies on the ground, under everything standing.
+    // Plots at every step, then anything that lies on the ground, under everything standing: in the
+    // plan, laid at the island's angle, except the holes, which are dug down into it.
     drawBelow(ctx) {
         const s = this.cell;
+        ctx.save();
+        this.planView(ctx);
         for (let r = 0; r < this.rows; r++) {
             for (let c = 0; c < this.cols; c++) {
                 const p = this.cells[r][c];
                 if (!p) continue;
-                const { x, y } = this.cellRect(c, r);
+                const { x, y } = this.mapRect(c, r);
                 if (p.kind === 'road' && p.fresh > 0) {
                     // Freshly rolled: smooth and dark, joined to the fresh road beside it.
                     const k = clamp(p.fresh / 2, 0, 1);
@@ -1335,10 +1404,7 @@ class SiteScene extends BoardScene {
                 const m = this.plotMask(c, r);
                 const lift = clamp(p.pop.value, -20, 20) * s * 0.001;
                 if (p.step === MARKED) art.plotMarked(ctx, x, y - lift, s, m, p.twang.value * s * 0.0015);
-                else if (p.step === DUG) {
-                    art.plotHole(ctx, x, y, s, m);
-                    if (p.find) art.bone(ctx, x + s * 0.5, y + s * 0.6, s * 2);
-                } else if (p.step === POURED) {
+                else if (p.step === POURED) {
                     art.plotWet(ctx, x, y, s, m);
                     for (const print of p.prints) {
                         if (print.hand) art.handprint(ctx, x + print.x * s, y + print.y * s, s);
@@ -1347,29 +1413,109 @@ class SiteScene extends BoardScene {
                 } else if (p.step === SET) art.plotSlab(ctx, x, y - lift, s, m, true);
             }
         }
+        ctx.restore();
+        const seen = new Set();
+        for (const [c, r] of this.tiles()) {
+            const p = this.cells[r][c];
+            if (!p || p.kind !== 'plot' || p.step !== DUG || seen.has(key(c, r))) continue;
+            const cells = this.group(c, r);
+            for (const [cc, rr] of cells) seen.add(key(cc, rr));
+            this.hole(ctx, cells);
+        }
         for (const f of this.fx) if (f.below) f.draw(ctx, f);
+    }
+
+    // A dug plot: a hole down into the island, its far walls showing and its floor deep, one hole
+    // however many tiles it joins.
+    hole(ctx, cells) {
+        const ids = new Set(cells.map(([c, r]) => key(c, r)));
+        const inset = (c, r, dc, dr) => (ids.has(key(c + dc, r + dr)) ? 0 : 0.09);
+        const outline = () => {
+            ctx.beginPath();
+            for (const [c, r] of cells) {
+                const a = this.iso(c + inset(c, r, -1, 0), r + inset(c, r, 0, -1));
+                const b = this.iso(c + 1 - inset(c, r, 1, 0), r + inset(c, r, 0, -1));
+                const d = this.iso(c + 1 - inset(c, r, 1, 0), r + 1 - inset(c, r, 0, 1));
+                const e = this.iso(c + inset(c, r, -1, 0), r + 1 - inset(c, r, 0, 1));
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.lineTo(d.x, d.y);
+                ctx.lineTo(e.x, e.y);
+                ctx.closePath();
+            }
+        };
+        const depth = this.tw * 0.13;
+        ctx.save();
+        outline();
+        ctx.fillStyle = GROUND.holeEdge;
+        ctx.fill();
+        ctx.clip();
+        ctx.translate(0, depth);
+        outline();
+        ctx.fillStyle = GROUND.hole;
+        ctx.fill();
+        ctx.translate(0, depth * 0.4);
+        outline();
+        ctx.fillStyle = 'rgba(112, 84, 58, 0.12)';
+        ctx.fill();
+        ctx.restore();
+        for (const [c, r] of cells) {
+            const p = this.at(c, r);
+            if (p && p.find) {
+                const at = this.center(c, r);
+                art.bone(ctx, at.x, at.y + depth * 0.9, this.cell * 2);
+            }
+        }
+    }
+
+    // Whether a piece's sprites are all of it: not a building with a cat at the door or a tree on
+    // top, nor the hut with the foreman out or the radio on.
+    solid(p) {
+        if (p.kind === 'plot') return !p.residents && !p.tree;
+        if (p.kind === 'hut') return !(p.out > 0) && !(p.radio > 0);
+        return true;
+    }
+
+    // How far down its frame each piece's drawing begins, for touching it.
+    reach(p) {
+        const top = REACH[p.kind];
+        return top === undefined ? 0.35 : top;
+    }
+
+    // A building at rest, drawn once into a sprite tall enough for its top floor.
+    blitTall(ctx, id, x, y, s, draw) {
+        const layer = this.cached(id, () => {
+            const tall = makeLayer(s * 1.2, s * 2, this.scale);
+            tall.ctx.translate(s * 0.1, s);
+            draw(tall.ctx);
+            return tall;
+        });
+        ctx.drawImage(layer.canvas, x - s * 0.1, y - s, s * 1.2, s * 2);
+        this.marked(layer, x - s * 0.1, y - s, s * 1.2, s * 2);
     }
 
     drawPiece(ctx, p, c, r, x, y, s) {
         const b = p.bounce.value * 0.01;
         ctx.save();
-        ctx.translate(x + s / 2, y + s * 0.86);
+        ctx.translate(x + s / 2, y + s * FOOT);
         ctx.scale(1 + b, 1 - b * 1.2);
-        ctx.translate(-(x + s / 2), -(y + s * 0.86));
+        ctx.translate(-(x + s / 2), -(y + s * FOOT));
         const kind = p.kind;
         const cx = x + s / 2;
-        const by = y + s * 0.84;
+        const by = y + s * FOOT;
+        const f = this.frameOf(c, r);
         if (kind === 'plot') {
             const m = this.plotMask(c, r);
             const floors = p.step - SET;
-            art.building(ctx, x, y, s, floors, !!(m & W), !!(m & E), {
-                glow: p.glow,
-                plants: p.residents,
-            });
-            const roof = by - floors * FLOOR_H * s;
-            if (p.residents && !(m & W))
-                cat(ctx, x + s * 0.33, by - FLOOR_H * s * 0.3, s * 0.8, { facing: 1 });
-            if (p.tree) art.toppingTree(ctx, cx, roof - s * 0.04, s);
+            if (p.glow < 0)
+                this.blitTall(ctx, `building:${floors}:${m}:${p.residents ? 1 : 0}`, x, y, s, (g) =>
+                    art.isoBuilding(g, this.spriteFrame(), floors, m, { plants: p.residents })
+                );
+            else art.isoBuilding(ctx, f, floors, m, { glow: p.glow, plants: p.residents });
+            const spots = art.buildingSpots(f, floors, m);
+            if (p.residents && !(m & 4) && !(m & 8))
+                cat(ctx, spots.door[0] - s * 0.05, spots.door[1] + s * 0.02, s * 0.7, { facing: -1 });
+            if (p.tree) art.toppingTree(ctx, spots.roof[0], spots.roof[1], s);
         } else if (kind === 'pile') {
             const slide = clamp(p.slide.value, -30, 30) * 0.004;
             ctx.save();
@@ -1403,32 +1549,24 @@ class SiteScene extends BoardScene {
                 glow: this.beaconGlow(p),
             });
         } else if (kind === 'crane') {
-            art.crane(ctx, x, y, s, {
-                swing: p.swing.value,
-                trolley: clamp(p.trolley.value, 0, 1),
-                drop: p.drop.value,
-                mast: p.mast.value,
-                load: p.carry && p.carry !== 'tree' ? p.carry : null,
-                tree: p.carry === 'tree',
-                glow: this.beaconGlow(p),
-            });
-            if (p.bird > 0) {
-                const top = y - s * p.mast.value;
-                const end = x + s * 0.5 + p.swing.value * s * 1.0;
-                bird(ctx, end, top - s * 0.05, s * 0.9, { facing: -1, flap: Math.PI / 2 });
-            }
+            // The mast stands among the pieces; the jib, over everything, is drawn above them.
+            art.isoCraneMast(ctx, f, p.mast.value);
         } else if (kind === 'cones') {
-            art.cone(ctx, x, y, s, this.mask(c, r), { wobble: p.wobble.value * 0.012 });
+            this.drawCones(ctx, p, c, r, x, y, s);
         } else if (kind === 'hut') {
-            art.hut(ctx, x, y, s, { door: clamp(p.door.value, 0, 1), radio: p.radio > 0 });
+            const open = clamp(p.door.value, 0, 1);
+            if (open < 0.005 && !(p.radio > 0))
+                this.blit(ctx, 'hut', x, y, s, (g) => art.isoHut(g, this.spriteFrame(), {}));
+            else art.isoHut(ctx, f, { door: open, radio: p.radio > 0 });
+            const spots = art.hutSpots(f);
             if (p.out > 0 && p.door.value > 0.5)
-                worker(ctx, x + s * 0.3, by + s * 0.02, s, { wave: this.time * 9 });
+                worker(ctx, spots.door[0], spots.door[1] + s * 0.05, s, { wave: this.time * 9 });
             if (p.radio > 0) {
                 const k = (this.time * 1.4) % 1;
                 sparkle(
                     ctx,
-                    x + s * (0.6 + k * 0.12),
-                    by - s * (0.3 + k * 0.25),
+                    spots.window[0] + s * k * 0.12,
+                    spots.window[1] - s * (0.05 + k * 0.25),
                     s * 0.02 * (1 - k),
                     '#FBF6EE'
                 );
@@ -1436,8 +1574,8 @@ class SiteScene extends BoardScene {
         } else if (kind === 'roller') {
             art.roller(ctx, cx, by, s * 0.92, { facing: p.facing, roll: p.roll, glow: this.beaconGlow(p) });
         } else if (kind === 'dozer') {
-            const push = clamp(p.push.value, 0, 1) * s * 0.22 * p.facing;
-            bulldozer(ctx, cx + push, by, s * MACHINE_K, {
+            const [px, py] = this.pushed(p);
+            bulldozer(ctx, cx + px, by + py, s * MACHINE_K, {
                 facing: p.facing,
                 lift: clamp(p.blade.value, 0, 1),
                 load: p.push.value > 0.3 ? 0.5 : 0,
@@ -1451,34 +1589,100 @@ class SiteScene extends BoardScene {
         ctx.restore();
     }
 
-    // The truck and the roller out on the road, over everything standing.
-    drawAbove(ctx) {
+    // How far a bulldozer has pushed out towards what it is pushing, on the screen.
+    pushed(p) {
+        const amount = clamp(p.push.value, 0, 1) * this.cell * 0.22;
+        const [dx, dy] = p.pushDir || [p.facing, 0];
+        return [dx * amount, dy * amount];
+    }
+
+    // A line of cones: the striped tape to any cone joined in front, then the cone, which hides the
+    // tape's end.
+    drawCones(ctx, p, c, r, x, y, s) {
+        const width = s * 0.04;
+        for (const [dc, dr] of [
+            [1, 0],
+            [0, 1],
+        ]) {
+            if (!this.is(c + dc, r + dr, 'cones')) continue;
+            const a = this.center(c, r);
+            const b = this.center(c + dc, r + dr);
+            const lift = s * 0.24;
+            ctx.save();
+            ctx.translate(a.x, a.y - lift);
+            ctx.rotate(Math.atan2(b.y - a.y, b.x - a.x));
+            stripes(
+                ctx,
+                0,
+                -width / 2,
+                Math.hypot(b.x - a.x, b.y - a.y),
+                width,
+                '#FBF6EE',
+                SITE.accent,
+                width * 0.9
+            );
+            ctx.restore();
+        }
+        art.cone(ctx, x, y, s, 0, { wobble: p.wobble.value * 0.012 });
+    }
+
+    // The trucks and the roller out on the road, among the pieces they pass.
+    movers() {
+        const out = [];
         const s = this.cell;
         for (const row of this.cells) {
             for (const p of row) {
                 if (!p || !p.trip || p.trip.x === undefined) continue;
-                const x = this.bx + p.trip.x;
-                const y = this.by + p.trip.y + s * 0.3;
-                if (p.kind === 'truck') {
-                    if (p.trip.dog)
-                        dog(ctx, x - p.facing * s * 0.55, y, s, { facing: p.facing, run: this.time * 14 });
-                    dumpTruck(ctx, x, y, s * MACHINE_K, {
-                        facing: p.facing,
-                        tip: clamp(p.tip.value, 0, 1),
-                        load: p.load,
-                        loadColour: p.loadColour,
-                        roll: p.roll,
-                        beacon: this.beaconGlow(p),
-                    });
-                } else {
-                    art.roller(ctx, x, y, s * 0.85, {
-                        facing: p.facing,
-                        roll: p.roll,
-                        glow: this.beaconGlow(p),
-                    });
-                    if (p.trip.cat)
-                        cat(ctx, x - p.facing * s * 0.12, y - s * 0.47, s * 0.8, { facing: p.facing });
-                }
+                const u = p.trip.x / s;
+                const v = p.trip.y / s;
+                out.push({
+                    u,
+                    v,
+                    draw: (ctx) => {
+                        const { x, y } = this.iso(u, v);
+                        if (p.kind === 'truck') {
+                            if (p.trip.dog)
+                                dog(ctx, x - p.facing * s * 0.55, y, s, {
+                                    facing: p.facing,
+                                    run: this.time * 14,
+                                });
+                            dumpTruck(ctx, x, y, s * MACHINE_K, {
+                                facing: p.facing,
+                                tip: clamp(p.tip.value, 0, 1),
+                                load: p.load,
+                                loadColour: p.loadColour,
+                                roll: p.roll,
+                                beacon: this.beaconGlow(p),
+                            });
+                        } else {
+                            art.roller(ctx, x, y, s * 0.85, {
+                                facing: p.facing,
+                                roll: p.roll,
+                                glow: this.beaconGlow(p),
+                            });
+                            if (p.trip.cat)
+                                cat(ctx, x - p.facing * s * 0.12, y - s * 0.47, s * 0.8, {
+                                    facing: p.facing,
+                                });
+                        }
+                    },
+                });
+            }
+        }
+        return out;
+    }
+
+    // The cranes' jibs, the tallest things on the site, over everything.
+    drawAbove(ctx) {
+        for (const [c, r] of this.tiles()) {
+            const p = this.cells[r][c];
+            if (!p || p.kind !== 'crane' || p.away) continue;
+            const f = this.frameOf(c, r);
+            const state = this.craneState(p);
+            art.isoCraneTop(ctx, f, state);
+            if (p.bird > 0) {
+                const { perch } = art.craneSpots(f, state);
+                bird(ctx, perch[0], perch[1], this.cell * 0.9, { facing: -1, flap: Math.PI / 2 });
             }
         }
     }
@@ -1489,94 +1693,87 @@ class SiteScene extends BoardScene {
         const s = this.cell;
         const k = this.night;
         const glowCol = (alpha) => `rgba(255, 226, 154, ${alpha * k})`;
-        for (let r = 0; r < this.rows; r++) {
-            for (let c = 0; c < this.cols; c++) {
-                const p = this.cells[r][c];
-                if (!p || p.away) continue;
-                const { x, y } = this.cellRect(c, r);
-                const by = y + s * 0.84;
-                if (p.kind === 'lamp' && p.on) {
-                    const head = { x: x + s / 2, y: by - s * 0.7 };
-                    ctx.globalCompositeOperation = 'screen';
-                    ellipse(ctx, x + s / 2, by - s * 0.02, s * 0.95, s * 0.5);
-                    ctx.fillStyle = `rgba(150, 105, 35, ${0.32 * k})`;
-                    ctx.fill();
-                    ellipse(ctx, x + s / 2, by - s * 0.02, s * 0.55, s * 0.28);
-                    ctx.fillStyle = `rgba(170, 120, 40, ${0.38 * k})`;
-                    ctx.fill();
-                    ctx.globalCompositeOperation = 'source-over';
-                    disc(ctx, head.x, head.y + s * 0.0, s * 0.16, glowCol(0.3));
-                    fillRound(
+        for (const [c, r] of this.tiles()) {
+            const p = this.cells[r][c];
+            if (!p || p.away) continue;
+            const { x, y } = this.cellRect(c, r);
+            const by = y + s * FOOT;
+            const f = this.frameOf(c, r);
+            if (p.kind === 'lamp' && p.on) {
+                const head = { x: x + s / 2, y: by - s * 0.7 };
+                ctx.globalCompositeOperation = 'screen';
+                ellipse(ctx, x + s / 2, by, s * 0.95, s * 0.48);
+                ctx.fillStyle = `rgba(150, 105, 35, ${0.32 * k})`;
+                ctx.fill();
+                ellipse(ctx, x + s / 2, by, s * 0.55, s * 0.27);
+                ctx.fillStyle = `rgba(170, 120, 40, ${0.38 * k})`;
+                ctx.fill();
+                ctx.globalCompositeOperation = 'source-over';
+                disc(ctx, head.x, head.y, s * 0.16, glowCol(0.3));
+                fillRound(
+                    ctx,
+                    head.x - s * 0.075,
+                    head.y - s * 0.04,
+                    s * 0.15,
+                    s * 0.09,
+                    s * 0.02,
+                    glowCol(0.95)
+                );
+                for (let i = 0; i < 3; i++) {
+                    const t = this.time * (1.6 + i * 0.3) + i * 2.1 + p.seed;
+                    art.moth(
                         ctx,
-                        head.x - s * 0.075,
-                        head.y - s * 0.04,
-                        s * 0.15,
-                        s * 0.09,
-                        s * 0.02,
-                        glowCol(0.95)
+                        head.x + Math.cos(t) * s * 0.18,
+                        head.y - s * 0.02 + Math.sin(t * 1.3) * s * 0.12,
+                        s,
+                        this.time * 25 + i
                     );
-                    for (let i = 0; i < 3; i++) {
-                        const t = this.time * (1.6 + i * 0.3) + i * 2.1 + p.seed;
-                        art.moth(
-                            ctx,
-                            head.x + Math.cos(t) * s * 0.18,
-                            head.y - s * 0.02 + Math.sin(t * 1.3) * s * 0.12,
-                            s,
-                            this.time * 25 + i
-                        );
-                    }
-                } else if (p.kind === 'hut') {
-                    fillRound(ctx, x + s * 0.45, by - s * 0.35, s * 0.32, s * 0.18, s * 0.04, glowCol(0.25));
-                    fillRound(ctx, x + s * 0.48, by - s * 0.32, s * 0.26, s * 0.12, s * 0.015, glowCol(0.9));
-                    if (p.door.value > 0.4)
-                        fillRound(
-                            ctx,
-                            x + s * 0.17,
-                            by - s * 0.35,
-                            s * 0.12,
-                            s * 0.29,
-                            s * 0.02,
-                            glowCol(0.6)
-                        );
-                } else if (p.kind === 'plot' && p.step > SET) {
-                    art.windowsLit(ctx, x, y, s, p.step - SET, glowCol);
-                } else if (MACHINES.indexOf(p.kind) >= 0 && !p.trip) {
-                    this.beaconAt(ctx, p, x + s / 2, by, s);
                 }
+            } else if (p.kind === 'hut') {
+                art.hutLights(ctx, f, k, p.door.value);
+            } else if (p.kind === 'plot' && p.step > SET) {
+                art.isoWindowsLit(ctx, f, p.step - SET, this.plotMask(c, r), glowCol);
+            } else if (MACHINES.indexOf(p.kind) >= 0 && !p.trip) {
+                this.beaconAt(ctx, p, x + s / 2, by, s, f);
             }
         }
         // The truck and the roller out on the road.
         for (const row of this.cells) {
             for (const p of row) {
-                if (p && p.trip && p.trip.x !== undefined)
-                    this.beaconAt(ctx, p, this.bx + p.trip.x, this.by + p.trip.y + s * 0.3, s);
+                if (p && p.trip && p.trip.x !== undefined) {
+                    const at = this.toScreen(p.trip.x, p.trip.y);
+                    this.beaconAt(ctx, p, at.x, at.y, s);
+                }
             }
         }
         this.drawStars(ctx);
     }
 
     // A machine's beacon, lit over the night: where each drawing puts it.
-    beaconAt(ctx, p, cx, by, s) {
+    beaconAt(ctx, p, cx, by, s, f) {
         const g = this.beaconGlow(p);
         if (g < 0.05) return;
         let at;
-        if (p.kind === 'crane') at = { x: cx, y: by - s * 0.84 - s * p.mast.value - s * 0.17 };
-        else if (p.kind === 'mixer') at = { x: cx + p.facing * s * 0.25, y: by - s * 0.41 };
+        if (p.kind === 'crane') {
+            const [bx, bY] = art.craneSpots(f, this.craneState(p)).beacon;
+            at = { x: bx, y: bY };
+        } else if (p.kind === 'mixer') at = { x: cx + p.facing * s * 0.25, y: by - s * 0.41 };
         else if (p.kind === 'roller') at = { x: cx - p.facing * s * 0.13, y: by - s * 0.52 };
         else {
             const local = { digger: [0.05, -0.725], truck: [0.295, -0.575], dozer: [-0.235, -0.655] }[p.kind];
-            const push = p.kind === 'dozer' ? clamp(p.push.value, 0, 1) * s * 0.22 * p.facing : 0;
-            at = toWorld(cx + push, by, s * MACHINE_K, { facing: p.facing }, local[0], local[1]);
+            const [px, py] = p.kind === 'dozer' ? this.pushed(p) : [0, 0];
+            at = toWorld(cx + px, by + py, s * MACHINE_K, { facing: p.facing }, local[0], local[1]);
         }
         disc(ctx, at.x, at.y, s * 0.07, `rgba(255, 214, 140, ${0.25 * g})`);
         disc(ctx, at.x, at.y, s * 0.025, `rgba(255, 226, 160, ${0.9 * g})`);
     }
 
-    // A piece away from the board: in the tray, in a finger, or flying back.
+    // A piece away from the board: in the tray, in a finger, or flying back. A road or a plot is
+    // drawn as a square, which the board lays flat as the top of a tile.
     drawLoose(ctx, p, x, y, s) {
         const kind = p.kind;
         const cx = x + s / 2;
-        const by = y + s * 0.84;
+        const by = y + s * FOOT;
         if (kind === 'road') {
             fillRound(ctx, x + s * 0.08, y + s * 0.1, s * 0.84, s * 0.84, s * 0.2, GROUND.roadEdge);
             fillRound(ctx, x + s * 0.1, y + s * 0.1, s * 0.8, s * 0.8, s * 0.18, GROUND.road);
@@ -1597,41 +1794,76 @@ class SiteScene extends BoardScene {
             digger(ctx, cx - s * 0.12, by, s * 0.66, { boom: -0.9, stick: 1.6, bucket: 0.2 });
         else if (kind === 'truck') dumpTruck(ctx, cx, by, s * 0.8, {});
         else if (kind === 'mixer') art.mixer(ctx, cx, by, s * 0.9, { drum: 0.6 });
-        else if (kind === 'crane')
-            art.crane(ctx, x - s * 0.02, y + s * 0.44, s * 0.6, { swing: 1, trolley: 0.6, drop: 0.5 });
-        else if (kind === 'cones') art.cone(ctx, x, y, s, 0, {});
-        else if (kind === 'hut') art.hut(ctx, x, y, s, {});
+        else if (kind === 'crane') {
+            const f = { cx: x + s * 0.36, cy: y + s * 0.9, tw: s * 0.6 };
+            art.isoCraneMast(ctx, f, 0.95);
+            art.isoCraneTop(ctx, f, { slew: -Math.PI / 2, reach: 0.85, drop: 0.35, mast: 0.95 });
+        } else if (kind === 'cones') art.cone(ctx, x, y, s, 0, {});
+        else if (kind === 'hut') art.isoHut(ctx, this.looseFrame(x, y, s), {});
         else if (kind === 'roller') art.roller(ctx, cx, by, s * 0.9, {});
         else if (kind === 'dozer') bulldozer(ctx, cx - s * 0.04, by, s * 0.8, { lift: 1 });
         else if (kind === 'lamp') art.lamp(ctx, x, y, s, { on: 0 });
     }
+
+    // The bare earth tile, as the tray shows it: a few specks on a square of side s.
+    drawPlain(ctx, s) {
+        for (const [x, y] of [
+            [0.3, 0.3],
+            [0.62, 0.26],
+            [0.44, 0.56],
+            [0.74, 0.66],
+            [0.24, 0.72],
+            [0.55, 0.82],
+        ])
+            disc(ctx, x * s, y * s, s * 0.025, GROUND.speck);
+    }
+}
+
+// An angle the short way round from `from` to `to`.
+function towards(from, to) {
+    let a = to;
+    while (a - from > Math.PI) a -= TAU;
+    while (from - a > Math.PI) a += TAU;
+    return a;
 }
 
 function hedgehogAt(ctx, x, y, s, facing, t) {
     art.hedgehog(ctx, x, y, s * 2.4, { facing, step: t * 12 });
 }
 
+// The site's picture on the shelf: a little island with a building, the crane and a truck.
 function icon(ctx, x, y, w, h) {
-    const s = Math.min(w, h) * 0.42;
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    fillRound(ctx, cx - s * 1.08, cy - s * 0.8 + 4, s * 2.16, s * 1.6, s * 0.18, 'rgba(112, 84, 58, 0.14)');
-    fillRound(ctx, cx - s * 1.08, cy - s * 0.8, s * 2.16, s * 1.6, s * 0.18, GROUND.earth);
-    fillRound(ctx, cx - s * 1.08, cy + s * 0.2, s * 2.16, s * 0.3, s * 0.1, GROUND.road);
-    for (let i = 0; i < 4; i++)
-        fillRound(
-            ctx,
-            cx - s * 0.95 + i * s * 0.52,
-            cy + s * 0.34,
-            s * 0.24,
-            s * 0.03,
-            s * 0.01,
-            GROUND.roadLine
-        );
-    const k = s * 0.95;
-    art.building(ctx, cx + s * 0.08, cy - s * 0.9, k, 2, false, false, {});
-    art.crane(ctx, cx - s * 0.9, cy - s * 0.5, k * 0.62, { swing: 1, trolley: 0.55, drop: 0.35 });
-    dumpTruck(ctx, cx - s * 0.45, cy + s * 0.62, k * 0.6, { load: 1, loadColour: SITE.earth });
+    const tw = Math.min(w * 0.42, h * 0.62);
+    const look = {
+        base: GROUND.earth,
+        alt: GROUND.earthAlt,
+        lip: GROUND.edge,
+        lipDark: shade(GROUND.edge, -0.1),
+        side: SITE.earth,
+        sideDark: shade(SITE.earth, -0.12),
+    };
+    const mid = iso.island(
+        ctx,
+        x + w / 2,
+        y + h * 0.5 - tw * 0.22,
+        tw,
+        [
+            [0, 0],
+            [1, 0],
+            [0, 1],
+            [1, 1],
+        ],
+        look,
+        (c, r) => (c === 1 && r === 1 ? GROUND.road : null)
+    );
+    const [mx, my] = mid(1, 0);
+    const crane = { cx: mx, cy: my, tw };
+    art.isoCraneMast(ctx, crane, 0.62);
+    const [bx, by] = mid(0, 0);
+    art.isoBuilding(ctx, { cx: bx, cy: by, tw }, 2, 0, {});
+    art.isoCraneTop(ctx, crane, { slew: Math.PI, reach: 0.8, drop: 0.2, mast: 0.62 });
+    const [tx, ty] = mid(1, 1);
+    dumpTruck(ctx, tx, ty, tw * 0.55, { load: 1, loadColour: SITE.earth });
 }
 
 export const toy = {

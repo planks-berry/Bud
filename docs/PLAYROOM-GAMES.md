@@ -371,26 +371,31 @@ silent, so a finger that wanders off the letter knows it at once.
 
 ### 9. Farm
 
-**What it is:** a board of grass tiles and a tray of farm pieces to build with: paths, fields, a
-pond, buildings, animals and a tractor.
+**What it is:** a little farm seen from a corner and a little above, like a model on a table: an
+island of tiles, each a small block of earth with grass on top, and a tray of tiles and farm pieces
+to build with: grass, paths, fields, a pond, buildings, animals and a tractor.
 
 **Roots:** Pok Pok's builder, not a Montessori material. It takes the builder's way of playing:
-pieces snap to tiles, join their neighbours, come alive when touched, and keep a few secrets.
+tiles that make up the world, pieces that snap to them, join their neighbours, come alive when
+touched, and keep a few secrets.
 
 **Layers**
 - Touch: tap anything. Every piece answers, and tapped grass grows a flower.
-- Move: drag a piece from the tray onto a tile. Drag one on the board to move it; dropped on
-  another piece it swaps places, and dropped on the tray it goes back.
-- Make: a farm that joins up: paths for the tractor, fields beside water, a pond big enough for
-  ducks. The sun in the corner turns day to night and back.
+- Move: the table around the island is marked out in tiles. A tile of grass put down there adds
+  land, and the island grows; a path, a field or a pond put down on a tile changes it to that, and
+  put down on the table brings its own land. A piece put down on a tile stands there. Drag a piece
+  to move it; dropped on another piece it swaps places, and dropped on the tray it goes back.
+  Grass put down on a tile makes it bare grass again.
+- Make: a farm that joins up, as big as the table: paths for the tractor, fields beside water, a
+  pond big enough for ducks. The sun in the corner turns day to night and back.
 
 **Stages**
-- Seed: a 5 × 4 farm with 6 kinds of piece: path, field, pond, tree, cow, tractor.
-- Sprout: a 6 × 5 farm with 10 kinds: adds the fence, barn, hen house and sheep.
-- Bloom: a 7 × 5 farm with all 13 kinds: adds the farmhouse, windmill and pig.
+- Seed: a table of 5 × 4 tiles, 6 kinds of piece: path, field, pond, tree, cow, tractor.
+- Sprout: 6 × 5, 10 kinds: adds the fence, barn, hen house and sheep.
+- Bloom: 7 × 5, all 13 kinds: adds the farmhouse, windmill and pig.
 
-Each stage starts as a small farm, so there is something to tap straight away. Everything in it
-can be moved or put back.
+Each stage starts as a small island in the middle of the table with a few pieces on it, so there
+is something to tap straight away and room to grow.
 
 **Every piece: how it connects, what a tap does, what it hides**
 
@@ -431,7 +436,12 @@ morning, with a rooster if there is a hen house.
   one flies back to the tray. Moved onto a piece on the board, the two swap. Dropped off the board,
   a piece goes back where it was.
 - A fresh farm every time it comes off the shelf: the building is the game, so nothing is kept,
-  not even while the playroom is open. ("It should not be kept. He can build fresh.")
+  not even while the playroom is open. ("It should not be kept. He can build fresh.") The island
+  starts small again too.
+- Seen at an angle, like Pok Pok's city: an isometric island of tiles that can be added and
+  changed, not only pieces moved around. Buildings are drawn as boxes with walls and roofs;
+  animals, trees and the tractor stay standing cut-outs. (Asked for: "more 3d in design, an
+  isometric layout with tiles that can be changed and added, not just moved around.")
 - Hidden things are certain rather than rare, as above. ("They should be more certain.")
 - No Montessori parallel, by choice.
 
@@ -561,16 +571,18 @@ knocking down never leaves a mess.
 
 ### 12. Building site
 
-**What it is:** the farm's board, as a building site: a tray of roads, plots and machines to build
-with, where the machines work in chains.
+**What it is:** the farm's board, as a building site: an island of earth tiles seen from a corner,
+and a tray of earth, roads, plots and machines to build with, where the machines work in chains.
 
-**Roots:** Pok Pok's builder, like the farm, which it shares its board with: pieces snap to tiles,
-join their neighbours, come alive when touched, and keep a few secrets.
+**Roots:** Pok Pok's builder, like the farm, which it shares its board with: tiles that make up the
+world, pieces that snap to them, join their neighbours, come alive when touched, and keep a few
+secrets.
 
 **Layers**
 - Touch: tap anything. Every piece answers, whatever stands beside it.
-- Move: drag a piece from the tray onto a tile. Drag one on the board to move it; dropped on
-  another piece it swaps places, and dropped on the tray it goes back.
+- Move: as on the farm. A tile of earth put down on the table adds land; a road or a plot put down
+  on a tile changes it; a piece put down on a tile stands there. Drag a piece to move it; dropped
+  on another piece it swaps places, and dropped on the tray it goes back.
 - Make: a site that works. A digger beside a marked-out plot digs it out and loads the earth into a
   truck beside it; the truck drives the road and tips the earth onto a pile; a mixer beside the
   hole fills it with concrete, which sets by itself; a crane beside the foundation lifts a building
@@ -579,11 +591,10 @@ join their neighbours, come alive when touched, and keep a few secrets.
   goal.
 
 **Stages**
-- Seed: a 5 × 4 site with 6 kinds of piece: road, plot, digger, truck, mixer, crane. Buildings go
-  up to 3 floors.
-- Sprout: a 6 × 5 site with 9 kinds: adds the pile, the cones and the foreman's hut. Up to 4 floors.
-- Bloom: a 7 × 5 site with all 12 kinds: adds the roller, the bulldozer and the work lamp. Up to 5
-  floors.
+- Seed: a table of 5 × 4 tiles, 6 kinds of piece: road, plot, digger, truck, mixer, crane.
+  Buildings go up to 3 floors.
+- Sprout: 6 × 5, 9 kinds: adds the pile, the cones and the foreman's hut. Up to 4 floors.
+- Bloom: 7 × 5, all 12 kinds: adds the roller, the bulldozer and the work lamp. Up to 5 floors.
 
 Each stage starts as a small site with the work half done (a plot marked, a hole dug, a building
 begun), so there is something to tap straight away.
@@ -620,7 +631,10 @@ his whistle.
 
 **Decisions so far**
 - The farm's board is shared, so the two builders' games play the same way: one piece to a tile,
-  moved, swapped and put back alike.
+  moved, swapped and put back alike, and an island that grows a tile at a time.
+- In three dimensions: a building is stacked floors with windows on its walls, a dug plot is a
+  real hole in the island, and the crane's jib swings round to face whichever building it works
+  on, its mast climbing as the building rises.
 - A fresh site every time it comes off the shelf, and hidden things certain, as on the farm.
 - The whistle lets one tap show the whole chain of work.
 

@@ -10,8 +10,9 @@
 // scale, and its colours are the easel's and the colour tower's.
 
 import { fillRound, disc, ellipse } from '../draw.js';
-import { TAU, clamp } from '../util.js';
+import { TAU, clamp, shade } from '../util.js';
 import { SITE, INK, poly, line, mirrored, shadow, stripes, wheel, beacon, worker } from './machines.js';
+import * as iso from './iso.js';
 
 export const GROUND = {
     sky: ['#F0EEE6', '#E8E4D8'],
@@ -702,4 +703,360 @@ export function bone(ctx, x, y, k) {
         disc(ctx, x + ex * k, y - k * 0.012, k * 0.017, '#F8F0DF');
         disc(ctx, x + ex * k, y + k * 0.012, k * 0.017, '#F8F0DF');
     }
+}
+
+//==============================================================================
+// The site at the island's angle: buildings, the hut and the crane as boxes in a tile's frame (see
+// iso.js). The machines, the cones, the lamp and everyone living stay cut-outs, standing up to face
+// whoever is looking.
+
+// A floor's height, in tile widths, and where a building's walls stand in its tile when it does not
+// join a neighbour.
+export const FLOOR = 0.17;
+const INSET = 0.36;
+const ROOF = '#D9CCB6';
+
+function footprintOf(m) {
+    return {
+        u0: m & 8 ? -0.5 : -INSET,
+        u1: m & 2 ? 0.5 : INSET,
+        v0: m & 1 ? -0.5 : -INSET,
+        v1: m & 4 ? 0.5 : INSET,
+    };
+}
+
+// Where a building's windows are on its walls: across the tile, in tiles from its middle, and up a
+// floor, in tile widths. The same in every tile, so a wide building's windows keep their rhythm.
+const PANES = [-0.18, 0.16];
+const SILL = 0.045;
+const PANE_H = 0.08;
+const PANE_W = 0.13;
+
+function panes(f, m, floor, each) {
+    const { u0, u1, v0, v1 } = footprintOf(m);
+    const z0 = 0.025 + floor * FLOOR + SILL;
+    if (!(m & 4)) for (const c of PANES) each('left', v1, u0, c - PANE_W / 2 - u0, z0);
+    if (!(m & 2)) for (const c of PANES) each('right', u1, v1, v1 - (-c + PANE_W / 2), z0);
+    void v0;
+}
+
+// A building on a plot: `floors` storeys, each its colour, its walls pushed out to meet the plots it
+// joins (`m`: 1 back right, 2 front right, 4 front left, 8 back left). `o.glow` lights the floor
+// that is sounding; `o.plants` puts window boxes on the top floor; `o.lit` lights the windows.
+export function isoBuilding(ctx, f, floors, m, o = {}) {
+    const { u0, u1, v0, v1 } = footprintOf(m);
+    const kerb = 0.03;
+    if (!m) iso.footprint(ctx, f, u0, v0, u1, v1, 0.05);
+    iso.box(
+        ctx,
+        f,
+        u0 - (m & 8 ? 0 : kerb),
+        v0 - (m & 1 ? 0 : kerb),
+        u1 + (m & 2 ? 0 : kerb),
+        v1 + (m & 4 ? 0 : kerb),
+        0,
+        0.025,
+        GROUND.slabEdge
+    );
+    for (let i = 0; i < floors; i++) {
+        const fl = FLOORS[i % FLOORS.length];
+        const z0 = 0.025 + i * FLOOR;
+        const z1 = z0 + FLOOR;
+        iso.box(ctx, f, u0, v0, u1, v1, z0, z1, fl.wall, {
+            left: shade(fl.wall, -0.08),
+            top: ROOF,
+            noTop: i < floors - 1,
+        });
+        if (!(m & 4))
+            iso.onWall(ctx, f, 'left', v1, u0, (g) => {
+                g.fillStyle = fl.deep;
+                g.fillRect(0, z1 - 0.016, u1 - u0, 0.016);
+            });
+        if (!(m & 2))
+            iso.onWall(ctx, f, 'right', u1, v1, (g) => {
+                g.fillStyle = fl.deep;
+                g.fillRect(0, z1 - 0.016, v1 - v0, 0.016);
+            });
+        panes(f, m, i, (side, at, from, a, z) =>
+            iso.onWall(ctx, f, side, at, from, (g) => {
+                g.fillStyle = '#FBF6EE';
+                g.fillRect(a - 0.012, z - 0.012, PANE_W + 0.024, PANE_H + 0.024);
+                g.fillStyle = o.lit ? SITE.lit : SITE.glass;
+                g.fillRect(a, z, PANE_W, PANE_H);
+                if (!o.lit) {
+                    g.fillStyle = SITE.glassLight;
+                    g.fillRect(a + 0.02, z + 0.012, 0.022, PANE_H - 0.024);
+                }
+                if (o.plants && i === floors - 1) {
+                    g.fillStyle = '#C9A57E';
+                    g.fillRect(a - 0.008, z - 0.022, PANE_W + 0.016, 0.022);
+                }
+            })
+        );
+        if (o.plants && i === floors - 1) {
+            panes(f, m, i, (side, at, from, a, z) => {
+                ['#F2BAC3', '#9CC48A', '#F3DE97'].forEach((colour, k) => {
+                    const [x, y] = iso.wallPt(f, side, at, from, a + 0.025 + k * 0.04, z);
+                    disc(ctx, x, y, f.tw * 0.014, colour);
+                });
+            });
+        }
+        if (o.glow === i) {
+            ctx.fillStyle = 'rgba(255, 248, 220, 0.55)';
+            iso.poly(ctx, f, [
+                [u0, v1, z0],
+                [u1, v1, z0],
+                [u1, v0, z0],
+                [u1, v0, z1],
+                [u1, v1, z1],
+                [u0, v1, z1],
+            ]);
+            ctx.fill();
+        }
+    }
+    if (floors > 0) {
+        // The roof's rim, on its outside edges.
+        const z = 0.025 + floors * FLOOR;
+        const rim = 0.05;
+        const inner = [
+            u0 + (m & 8 ? 0 : rim),
+            v0 + (m & 1 ? 0 : rim),
+            u1 - (m & 2 ? 0 : rim),
+            v1 - (m & 4 ? 0 : rim),
+        ];
+        iso.poly(
+            ctx,
+            f,
+            [
+                [inner[0], inner[1], z],
+                [inner[2], inner[1], z],
+                [inner[2], inner[3], z],
+                [inner[0], inner[3], z],
+            ],
+            shade(ROOF, 0.06)
+        );
+        // The door, on the ground floor at the building's front left corner.
+        if (!(m & 4) && !(m & 8)) {
+            iso.onWall(ctx, f, 'left', v1, u0, (g) => {
+                g.fillStyle = '#B88A64';
+                g.fillRect(0.06, 0.025, 0.1, FLOOR * 0.8);
+            });
+        }
+    }
+}
+
+// Where things are on a building: the middle of its roof, and its front door.
+export function buildingSpots(f, floors, m) {
+    const { u0, u1, v0, v1 } = footprintOf(m);
+    return {
+        roof: iso.pt(f, (u0 + u1) / 2, (v0 + v1) / 2, 0.025 + floors * FLOOR),
+        door: iso.wallPt(f, 'left', v1, u0, 0.11, 0.025),
+        height: 0.025 + floors * FLOOR,
+    };
+}
+
+// A building's windows, lit: drawn over the night, where the building drew them plain.
+export function isoWindowsLit(ctx, f, floors, m, colour) {
+    for (let i = 0; i < floors; i++) {
+        panes(f, m, i, (side, at, from, a, z) =>
+            iso.onWall(ctx, f, side, at, from, (g) => {
+                g.fillStyle = colour(0.25);
+                g.fillRect(a - 0.03, z - 0.03, PANE_W + 0.06, PANE_H + 0.06);
+                g.fillStyle = colour(0.92);
+                g.fillRect(a, z, PANE_W, PANE_H);
+            })
+        );
+    }
+}
+
+const HUT = { u0: -0.34, v0: -0.19, u1: 0.34, v1: 0.19, z0: 0.035, z: 0.27 };
+const HUT_WALL = '#BFD7CC';
+
+// The site hut, where the foreman keeps the whistle: a cabin on blocks, a window and a door. `o`:
+// door (0 to 1 open), radio (a radio on the sill).
+export function isoHut(ctx, f, o = {}) {
+    const { u0, v0, u1, v1, z0, z } = HUT;
+    iso.footprint(ctx, f, u0, v0, u1, v1, 0.05);
+    for (const u of [u0 + 0.06, u1 - 0.1])
+        iso.box(ctx, f, u, v0 + 0.03, u + 0.04, v1 - 0.03, 0, z0, SITE.concreteDeep, { noTop: true });
+    iso.box(ctx, f, u0, v0, u1, v1, z0, z, HUT_WALL, { left: shade(HUT_WALL, -0.09), noTop: true });
+    // Ribs along the long side, a window, and the door.
+    iso.onWall(ctx, f, 'left', v1, u0, (g) => {
+        g.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        for (let i = 1; i < 6; i++) g.fillRect(i * 0.115, z0 + 0.02, 0.008, z - z0 - 0.04);
+        g.fillStyle = '#FBF6EE';
+        g.fillRect(0.31, 0.115, 0.27, 0.1);
+        g.fillStyle = o.lit ? SITE.lit : SITE.glass;
+        g.fillRect(0.325, 0.128, 0.24, 0.075);
+        g.fillStyle = '#5E4A40';
+        g.fillRect(0.07, z0, 0.12, 0.19);
+        g.fillStyle = '#88A6C8';
+        g.fillRect(0.07, z0, 0.12 * (1 - clamp(o.door || 0, 0, 1) * 0.8), 0.19);
+    });
+    if (o.radio) {
+        const [x, y] = iso.wallPt(f, 'left', v1, u0, 0.36, 0.13);
+        fillRound(
+            ctx,
+            x - f.tw * 0.01,
+            y - f.tw * 0.035,
+            f.tw * 0.07,
+            f.tw * 0.035,
+            f.tw * 0.008,
+            SITE.accentDeep
+        );
+        disc(ctx, x + f.tw * 0.008, y - f.tw * 0.018, f.tw * 0.009, '#FBF6EE');
+    }
+    // The roof, a little wider than the cabin.
+    iso.box(ctx, f, u0 - 0.025, v0 - 0.025, u1 + 0.025, v1 + 0.025, z, z + 0.025, '#9FC2B3');
+    // A step at the door.
+    iso.box(ctx, f, u0 + 0.06, v1, u0 + 0.2, v1 + 0.06, 0, z0, SITE.concreteDeep);
+}
+
+// Where things are at the hut: its doorstep, and its window.
+export function hutSpots(f) {
+    const { u0, v1, z0 } = HUT;
+    return {
+        door: iso.wallPt(f, 'left', v1, u0, 0.13, 0),
+        window: iso.wallPt(f, 'left', v1, u0, 0.44, 0.16),
+        step: z0,
+    };
+}
+
+export function hutLights(ctx, f, k, open) {
+    const { u0, v1, z0 } = HUT;
+    iso.onWall(ctx, f, 'left', v1, u0, (g) => {
+        g.fillStyle = `rgba(255, 226, 154, ${0.25 * k})`;
+        g.fillRect(0.29, 0.095, 0.31, 0.14);
+        g.fillStyle = `rgba(255, 226, 154, ${0.9 * k})`;
+        g.fillRect(0.325, 0.128, 0.24, 0.075);
+        if (open > 0.4) {
+            g.fillStyle = `rgba(255, 226, 154, ${0.6 * k})`;
+            g.fillRect(0.07, z0, 0.12, 0.19);
+        }
+    });
+}
+
+// The tower crane's foot and mast, `mast` tile widths tall, a square lattice tower.
+export function isoCraneMast(ctx, f, mast) {
+    iso.footprint(ctx, f, -0.17, -0.17, 0.17, 0.17, 0.04);
+    iso.box(ctx, f, -0.15, -0.15, 0.15, 0.15, 0, 0.05, SITE.concreteDeep);
+    const m = 0.055;
+    const w = Math.max(1, f.tw * 0.012);
+    // The back post, seen through the lattice, then the lattice on the two sides that show.
+    iso.edge(ctx, f, [-m, -m, 0.05], [-m, -m, mast], w, SITE.bodyDeep);
+    const steps = Math.max(5, Math.round((mast - 0.05) / 0.07));
+    for (const side of ['left', 'right']) {
+        iso.onWall(ctx, f, side, m, side === 'left' ? -m : m, (g) => {
+            g.beginPath();
+            for (let i = 0; i <= steps; i++) {
+                const zz = 0.05 + ((mast - 0.05) * i) / steps;
+                if (i) g.lineTo(i % 2 ? 2 * m : 0, zz);
+                else g.moveTo(0, zz);
+            }
+            g.lineWidth = 0.012;
+            g.strokeStyle = SITE.body;
+            g.stroke();
+        });
+    }
+    for (const [u, v] of [
+        [-m, m],
+        [m, m],
+        [m, -m],
+    ])
+        iso.edge(ctx, f, [u, v, 0.05], [u, v, mast], w * 1.4, SITE.bodyDeep);
+}
+
+// The crane's top: the jib and its counterweight turned to `o.slew` (radians: 0 towards the next
+// tile down the column, a quarter turn towards the next down the row), the cab, the trolley `o.reach`
+// tiles out, and the hook `o.drop` tile widths below the jib with what it carries: `o.load`, a floor
+// of a building, or `o.tree`, the topping-out tree. Over everything, as the tallest thing there.
+export function isoCraneTop(ctx, f, o) {
+    const H = o.mast;
+    const du = Math.cos(o.slew);
+    const dv = Math.sin(o.slew);
+    const at = (r, z) => iso.pt(f, du * r, dv * r, z);
+    const seg = (a, b, width, colour) => {
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1]);
+        ctx.lineTo(b[0], b[1]);
+        ctx.lineWidth = width;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = colour;
+        ctx.stroke();
+    };
+    const w = f.tw;
+    const end = 1.18;
+    const back = -0.42;
+    // The apex over the mast, and the ties from it to both ends.
+    const apex = iso.pt(f, 0, 0, H + 0.17);
+    seg(apex, at(end, H + 0.04), Math.max(1, w * 0.008), SITE.bodyDeep);
+    seg(apex, at(back, H + 0.04), Math.max(1, w * 0.008), SITE.bodyDeep);
+    seg(iso.pt(f, 0, 0, H), apex, w * 0.02, SITE.bodyDeep);
+    // The jib: two chords and a zigzag between them.
+    seg(at(back, H), at(end, H), w * 0.022, SITE.body);
+    seg(at(back, H + 0.045), at(end, H + 0.03), w * 0.012, SITE.body);
+    ctx.beginPath();
+    const n = 12;
+    for (let i = 0; i <= n; i++) {
+        const r = back + ((end - back) * i) / n;
+        const [x, y] = at(r, i % 2 ? H + 0.04 : H);
+        if (i) ctx.lineTo(x, y);
+        else ctx.moveTo(x, y);
+    }
+    ctx.lineWidth = Math.max(1, w * 0.009);
+    ctx.strokeStyle = SITE.bodyDeep;
+    ctx.stroke();
+    // The counterweight, and the cab under the jib.
+    const cu = du * (back + 0.07);
+    const cv = dv * (back + 0.07);
+    iso.box(ctx, f, cu - 0.06, cv - 0.06, cu + 0.06, cv + 0.06, H - 0.09, H + 0.01, SITE.steel);
+    iso.box(ctx, f, -0.07, -0.07, 0.07, 0.07, H - 0.13, H - 0.01, SITE.body);
+    iso.onWall(ctx, f, 'left', 0.07, -0.07, (g) => {
+        g.fillStyle = SITE.glass;
+        g.fillRect(0.025, H - 0.105, 0.09, 0.07);
+    });
+    beacon(ctx, apex[0], apex[1] - w * 0.02, w * 0.022, o.glow || 0);
+    // The trolley, the cable and the hook.
+    const r = o.reach;
+    const trolley = at(r, H - 0.005);
+    fillRound(
+        ctx,
+        trolley[0] - w * 0.035,
+        trolley[1] - w * 0.01,
+        w * 0.07,
+        w * 0.03,
+        w * 0.01,
+        SITE.steelDeep
+    );
+    const hz = H - 0.03 - o.drop;
+    const hook = at(r, hz);
+    seg(trolley, hook, Math.max(1, w * 0.007), INK);
+    ctx.beginPath();
+    ctx.arc(hook[0], hook[1] + w * 0.022, w * 0.018, -0.3, Math.PI + 0.3, false);
+    ctx.lineWidth = w * 0.011;
+    ctx.strokeStyle = SITE.steelDeep;
+    ctx.stroke();
+    if (o.load) {
+        const hu = du * r;
+        const hv = dv * r;
+        const top = hz - 0.03;
+        const half = 0.26;
+        seg(hook, iso.pt(f, hu - half, hv + half, top), Math.max(1, w * 0.006), INK);
+        seg(hook, iso.pt(f, hu + half, hv - half, top), Math.max(1, w * 0.006), INK);
+        iso.box(ctx, f, hu - half, hv - half, hu + half, hv + half, top - FLOOR, top, o.load.wall, {
+            left: shade(o.load.wall, -0.08),
+            top: shade(o.load.wall, 0.06),
+        });
+    }
+    if (o.tree) toppingTree(ctx, hook[0], hook[1] + w * 0.25, w * 0.85);
+}
+
+// Where the crane's beacon shines, and where a bird sits at the end of its jib.
+export function craneSpots(f, o) {
+    const du = Math.cos(o.slew);
+    const dv = Math.sin(o.slew);
+    return {
+        beacon: iso.pt(f, 0, 0, o.mast + 0.19),
+        perch: iso.pt(f, du * 1.12, dv * 1.12, o.mast + 0.05),
+    };
 }

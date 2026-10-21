@@ -1008,24 +1008,29 @@ async function suite(mode) {
 
     // ---- farm ----------------------------------------------------------------------------------
     //
-    // The Sprout farm starts as:   T . B . . T      trees, a barn
-    //                              P P P P P P      a path
-    //                              F F R . N N      a field, the tractor, a fence
-    //                              F F . C S S      a cow and two sheep
-    //                              . W W . H .      a pond, the hen house
+    // The Sprout farm starts as an island on a table of 6 by 5 tiles (' ' is table, '.' bare grass):
+    //
+    //      . . T . . .      a tree                 c runs down to the right on the screen,
+    //      . B P P P .      the barn, a path       r down to the left
+    //      . . R C N .      the tractor, a cow, a fence
+    //      . F F S S .      a field, two sheep
+    //      . . W W H .      a pond, the hen house
 
     await open('farm');
     const farmKinds = await scene(() => window.playroom.stage.scene.kinds);
     check(
-        'the farm opens with its pieces in the tray',
-        (await sceneName()) === 'FarmScene' && farmKinds.length === 10
+        'the farm opens with its tiles and pieces in the tray',
+        (await sceneName()) === 'FarmScene' && farmKinds.length === 11 && farmKinds[0] === 'grass'
     );
     const layout = () =>
-        scene(() =>
-            window.playroom.stage.scene.cells
-                .map((row) => row.map((p) => (p ? p.kind.slice(0, 2) : '..')).join(' '))
-                .join(' / ')
-        );
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            return s.cells
+                .map((row, r) =>
+                    row.map((p, c) => (p ? p.kind.slice(0, 2) : s.isLand(c, r) ? '..' : '  ')).join(' ')
+                )
+                .join(' / ');
+        });
     const fresh = await layout();
     const frog = await page
         .waitForFunction(() => !!window.playroom.stage.scene.frog, null, { timeout: 3000 })
@@ -1041,11 +1046,13 @@ async function suite(mode) {
         s.rand = () => 0.99;
         s.growClock = -1e9;
     });
+    // The middle of a tile's top on the screen, and the size of a piece.
     const cellCentre = (c, r) =>
         scene(
             ([c, r]) => {
-                const q = window.playroom.stage.scene.cellRect(c, r);
-                return { x: q.x + q.s / 2, y: q.y + q.s / 2, s: q.s };
+                const s = window.playroom.stage.scene;
+                const q = s.center(c, r);
+                return { x: q.x, y: q.y, s: s.cell };
             },
             [c, r]
         );
@@ -1062,19 +1069,21 @@ async function suite(mode) {
             },
             [c, r]
         );
+    const landAt = (c, r) => scene(([c, r]) => window.playroom.stage.scene.isLand(c, r), [c, r]);
+    const landCount = () => scene(() => window.playroom.stage.scene.landCount());
     // A dragged piece is held a little above the finger, so it lands on the tile just above it.
     const carryTo = async (from, to) => {
-        await touch.drag(line(from.x, from.y, to.x, to.y + to.s * 0.15, 16), 16, 120);
+        await touch.drag(line(from.x, from.y, to.x, to.y + to.s * 0.18, 16), 16, 120);
         await page.waitForTimeout(350);
     };
-    const tapCell = async (c, r, dy = 0.1) => {
+    const tapCell = async (c, r, dy = 0.05) => {
         const q = await cellCentre(c, r);
         await touch.tap(q.x, q.y + q.s * dy);
     };
     const fieldStages = () =>
         scene(() => {
             const s = window.playroom.stage.scene;
-            return s.component(0, 2, 'field').map(([c, r]) => s.at(c, r).stage);
+            return s.component(1, 3, 'field').map(([c, r]) => s.at(c, r).stage);
         });
 
     await scene(() => {
@@ -1087,15 +1096,15 @@ async function suite(mode) {
         };
     });
     const mice = () => scene(() => window.playroom.stage.scene.mice);
-    await tapCell(1, 1);
+    await tapCell(2, 1);
     const firstMice = await mice();
-    await tapCell(4, 1);
+    await tapCell(3, 1);
     const nextMice = await mice();
     // From here chance always says yes, so every hidden thing shows itself.
     await scene(() => {
         window.playroom.stage.scene.rand = () => 0;
     });
-    await tapCell(2, 1);
+    await tapCell(4, 1);
     const thenMice = await mice();
     check(
         'a hidden thing shows itself the first time whatever chance says, and by chance after that',
@@ -1103,41 +1112,49 @@ async function suite(mode) {
         `mice ${firstMice}, ${nextMice}, ${thenMice}`
     );
 
-    await carryTo(await trayCentre('path'), await cellCentre(3, 2));
+    const farmLand = await landCount();
+    await carryTo(await trayCentre('grass'), await cellCentre(1, 0));
+    check(
+        'a tile of grass put down on the table makes the island bigger',
+        (await landAt(1, 0)) && (await landCount()) === farmLand + 1 && (await kindAt(1, 0)) === null,
+        `${farmLand} -> ${await landCount()}`
+    );
+
+    await carryTo(await trayCentre('path'), await cellCentre(3, 0));
     const joined = await scene(() => {
         const s = window.playroom.stage.scene;
-        return { kind: s.at(3, 2) && s.at(3, 2).kind, mask: s.mask(3, 2) };
+        return { kind: s.at(3, 0) && s.at(3, 0).kind, mask: s.mask(3, 0) };
     });
     check(
-        'a path dragged from the tray joins the path beside it',
-        joined.kind === 'path' && (joined.mask & 1) === 1,
+        'a path put down on the grass joins the path beside it',
+        joined.kind === 'path' && (joined.mask & 4) === 4,
         JSON.stringify(joined)
     );
 
     const sown = await fieldStages();
-    await tapCell(0, 2);
+    await tapCell(1, 3);
     await page.waitForTimeout(700);
     const grown = await fieldStages();
     check(
         'a tap grows the whole joined field a stage',
-        sown.length === 4 && grown.every((v) => v === sown[0] + 1),
+        sown.length === 2 && grown.every((v) => v === sown[0] + 1),
         `${sown.join('')} -> ${grown.join('')}`
     );
     await scene(() => {
         const s = window.playroom.stage.scene;
-        for (const [c, r] of s.component(0, 2, 'field')) s.at(c, r).crop = 'carrot';
+        for (const [c, r] of s.component(1, 3, 'field')) s.at(c, r).crop = 'carrot';
     });
     for (let i = 0; i < 4 && (await fieldStages())[0] < 4; i++) {
-        await tapCell(0, 2);
+        await tapCell(1, 3);
         await page.waitForTimeout(600);
     }
-    await tapCell(0, 2);
+    await tapCell(1, 3);
     await page.waitForTimeout(800);
     const harvested = await scene(() => {
         const s = window.playroom.stage.scene;
         return {
-            stage: s.at(0, 2).stage,
-            crop: s.at(0, 2).crop,
+            stage: s.at(1, 3).stage,
+            crop: s.at(1, 3).crop,
             rabbit: s.fx.some((f) => f.kind === 'rabbit'),
         };
     });
@@ -1159,29 +1176,29 @@ async function suite(mode) {
         'a pond of two tiles has no ducks',
         (await scene(() => window.playroom.stage.scene.ducks.length)) === 0
     );
-    await carryTo(await trayCentre('pond'), await cellCentre(3, 4));
+    await carryTo(await trayCentre('pond'), await cellCentre(1, 4));
     const ducks = await scene(() => window.playroom.stage.scene.ducks.map((f) => f.birds.length));
     check(
-        'grown to three, it brings a duck and her ducklings',
-        ducks.length === 1 && ducks[0] === 3,
+        'a pond put down on the table brings its land with it, and grown to three tiles, ducks',
+        (await landAt(1, 4)) && (await kindAt(1, 4)) === 'pond' && ducks.length === 1 && ducks[0] === 3,
         ducks.join(' ')
     );
 
     const beforeBaa = await scene(() => window.playroom.stage.scene.time);
-    await tapCell(4, 3);
+    await tapCell(3, 3);
     const baa = await peak(900);
-    const answered = await scene((t) => (window.playroom.stage.scene.at(5, 3).called || 0) > t, beforeBaa);
+    const answered = await scene((t) => (window.playroom.stage.scene.at(4, 3).called || 0) > t, beforeBaa);
     check('a sheep baas, and the sheep beside it answers', answered && baa > 0.02, `peak ${baa.toFixed(3)}`);
 
-    await carryTo(await cellCentre(0, 0), await cellCentre(1, 0));
+    await carryTo(await cellCentre(2, 0), await cellCentre(1, 2));
     check(
         'a piece can be carried to another tile',
-        (await kindAt(1, 0)) === 'tree' && (await kindAt(0, 0)) === null
+        (await kindAt(1, 2)) === 'tree' && (await kindAt(2, 0)) === null
     );
-    await carryTo(await cellCentre(1, 0), await cellCentre(2, 0));
+    await carryTo(await cellCentre(1, 2), await cellCentre(1, 1));
     check(
         'and dropped on another piece, the two swap places',
-        (await kindAt(2, 0)) === 'tree' && (await kindAt(1, 0)) === 'barn'
+        (await kindAt(1, 1)) === 'tree' && (await kindAt(1, 2)) === 'barn'
     );
     const coop = await cellCentre(4, 4);
     const tray = await trayCentre('coop');
@@ -1189,8 +1206,19 @@ async function suite(mode) {
     await page.waitForTimeout(500);
     check('carried to the tray, a piece goes back to it', (await kindAt(4, 4)) === null);
 
+    await carryTo(await trayCentre('field'), await cellCentre(1, 2));
+    check(
+        'a field put down on a piece changes the tile, and the piece goes back to the tray',
+        (await kindAt(1, 2)) === 'field' && (await fieldStages()).length === 3
+    );
+    await carryTo(await trayCentre('grass'), await cellCentre(1, 2));
+    check(
+        'and grass put down on a tile makes it bare grass again',
+        (await kindAt(1, 2)) === null && (await landAt(1, 2)) && (await fieldStages()).length === 2
+    );
+
     for (let i = 0; i < 4 && (await fieldStages())[0] < 4; i++) {
-        await tapCell(0, 2);
+        await tapCell(1, 3);
         await page.waitForTimeout(600);
     }
     await tapCell(2, 2);
@@ -1208,7 +1236,7 @@ async function suite(mode) {
             () => false
         );
     check(
-        'and comes home, having harvested the ripe field beside the path',
+        'and comes home, having harvested the ripe field beside it',
         home2 && (await fieldStages()).every((v) => v === 0),
         (await fieldStages()).join('')
     );
@@ -1217,7 +1245,7 @@ async function suite(mode) {
     await touch.tap(sun.x, sun.y);
     await page.waitForTimeout(2600);
     check('the sun turns the farm to night', (await scene(() => window.playroom.stage.scene.night)) > 0.9);
-    await tapCell(3, 3);
+    await tapCell(3, 2);
     await page.waitForTimeout(300);
     check(
         'and at night, the cow jumps over the moon',
@@ -1235,7 +1263,7 @@ async function suite(mode) {
     const reopened = await layout();
     const foundAgain = await scene(() => window.playroom.stage.scene.found.size);
     check(
-        'and the farm starts fresh when it comes off the shelf again',
+        'and the farm starts fresh when it comes off the shelf again, the island as small as it began',
         built !== fresh && reopened === fresh && foundAgain === 0,
         `${reopened}; found ${foundAgain}`
     );
@@ -1604,15 +1632,16 @@ async function suite(mode) {
     // ---- building site ---------------------------------------------------------------------------
     //
     // The Sprout site starts as:   L . P D T .      a pile, a plot, the digger, the truck
-    //                              R R R R R R      a road
+    //                              R R R R R .      a road
     //                              M H H . C B      the mixer, a dug hole, the crane, a building
     //                              K K . O . .      cones, the hut
+    //                              . . . . . .      (and the rest of the table, still to build on)
 
     await open('site');
     const siteKinds = await scene(() => window.playroom.stage.scene.kinds);
     check(
-        'the building site opens with its pieces in the tray',
-        (await sceneName()) === 'SiteScene' && siteKinds.length === 9
+        'the building site opens with its tiles and pieces in the tray',
+        (await sceneName()) === 'SiteScene' && siteKinds.length === 10 && siteKinds[0] === 'earth'
     );
     const siteFresh = await layout();
     const plotAt = (c, r) => scene(([c, r]) => window.playroom.stage.scene.at(c, r).step, [c, r]);
@@ -1634,13 +1663,15 @@ async function suite(mode) {
     await scene(() => {
         window.playroom.stage.scene.rand = () => 0;
     });
-    await tapCell(5, 1);
+    await tapCell(4, 1);
     check(
         'pigeons come to the road the first time whatever chance says, and by chance after that',
         firstFlock === 1 && nextFlock === 1 && (await flocks()) === 2,
         `flocks ${firstFlock}, ${nextFlock}, ${await flocks()}`
     );
 
+    await carryTo(await trayCentre('earth'), await cellCentre(5, 1));
+    check('a tile of earth put down on the table makes the site bigger', await landAt(5, 1));
     await carryTo(await trayCentre('road'), await cellCentre(3, 2));
     const siteRoad = await scene(() => {
         const s = window.playroom.stage.scene;
@@ -1716,7 +1747,7 @@ async function suite(mode) {
     await craneLift();
     check('and then tops it out with a tree', (await plotAt(5, 2)) === 7 && (await topped()));
 
-    await tapCell(5, 2, 0.25);
+    await tapCell(5, 2);
     const played = await page.evaluate(async () => {
         const seen = [];
         const s = window.playroom.stage.scene;
@@ -1921,8 +1952,8 @@ async function suite(mode) {
     );
     await home();
 
-    // The building site at Bloom: all twelve kinds; the roller leaves the road it rolls shining, and
-    // the lamp lights.
+    // The building site at Bloom: all twelve kinds of piece, and the earth tile; the roller leaves
+    // the road it rolls shining, and the lamp lights.
     await page.evaluate(async () => (await import('./js/settings.js')).setStage('site', 'bloom'));
     await open('site');
     const bloomKinds = await scene(() => window.playroom.stage.scene.kinds.length);
@@ -1933,7 +1964,7 @@ async function suite(mode) {
     await page.waitForTimeout(300);
     check(
         'the building site at Bloom: twelve kinds, a roller that leaves the road fresh, a lamp that lights',
-        bloomKinds === 12 && rolled >= 2 && (await scene(() => window.playroom.stage.scene.at(5, 3).on)),
+        bloomKinds === 13 && rolled >= 2 && (await scene(() => window.playroom.stage.scene.at(5, 3).on)),
         `${bloomKinds} kinds, ${rolled} tiles rolled`
     );
     await home();

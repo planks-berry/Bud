@@ -1,9 +1,11 @@
-// The farm: a board of grass to build on, and a tray of pieces to build it with.
+// The farm: an island of grass to build on, a tile at a time, and a tray of pieces to build it with.
 //
-// After Pok Pok's builder rather than any Montessori material. Pieces are dragged from the tray onto
-// the board, where they snap to a tile; dragged again, they move, swap places, or go back to the
-// tray. Nothing is a goal and nothing is wrong: a pond can go anywhere and a cow can stand in a row
-// of barns.
+// After Pok Pok's builder rather than any Montessori material, on the board in board.js: a little
+// farm seen from a corner and above, like a model on a table. A tile of grass from the tray, put
+// down on the table, makes the island bigger; a path, a field or a pond put down on a tile changes
+// it to that; a barn, a tree or a cow stands on it. Dragged again, they move, swap places, or go
+// back to the tray. Nothing is a goal and nothing is wrong: a pond can go anywhere and a cow can
+// stand in a row of barns.
 //
 // Every piece does three things:
 //   - it connects: paths, fields, ponds and fences join their neighbours; animals answer animals of
@@ -18,15 +20,16 @@
 // the hidden things only happen then.
 //
 //   touch  - tap anything: every piece and every patch of grass answers.
-//   move   - drag pieces from the tray, and around the board.
-//   make   - a farm, joined up: paths for the tractor to drive, fields beside water, a pond big
-//            enough for ducks.
+//   move   - drag tiles and pieces from the tray, and around the island.
+//   make   - a farm, joined up and as big as the table: paths for the tractor to drive, fields
+//            beside water, a pond big enough for ducks.
 
 import { fillRound, disc, ellipse } from '../draw.js';
-import { Spring, clamp, lerp, TAU, dist } from '../util.js';
+import { Spring, clamp, lerp, TAU, dist, shade } from '../util.js';
 import { noteHz } from '../synth.js';
 import * as audio from '../audio.js';
-import { BoardScene, AROUND, E, W, key } from './board.js';
+import { BoardScene, AROUND, E, W, key, FOOT } from './board.js';
+import * as iso from './iso.js';
 import * as art from './farmart.js';
 
 const { FARM } = art;
@@ -36,7 +39,8 @@ const GROUND = ['path', 'field', 'pond'];
 const ANIMALS = ['cow', 'sheep', 'pig'];
 const CROPS = ['carrot', 'pumpkin', 'sunflower', 'cabbage'];
 
-// What each stage puts in the tray, how big the farm is, and the little farm it starts as.
+// What each stage puts in the tray, how big the table is, and the little island the farm starts as:
+// '.' is grass with nothing on it, ' ' the table still to build on.
 const CODES = {
     P: 'path',
     F: 'field',
@@ -57,19 +61,20 @@ const PLANS = [
     {
         cols: 5,
         rows: 4,
-        kinds: ['path', 'field', 'pond', 'tree', 'cow', 'tractor'],
-        start: ['T..T.', 'PPPPP', 'FFR.W', 'FF.CW'],
+        kinds: ['grass', 'path', 'field', 'pond', 'tree', 'cow', 'tractor'],
+        start: [' T.  ', ' PPP ', ' FRW ', ' FCW '],
     },
     {
         cols: 6,
         rows: 5,
-        kinds: ['path', 'field', 'pond', 'fence', 'tree', 'barn', 'coop', 'cow', 'sheep', 'tractor'],
-        start: ['T.B..T', 'PPPPPP', 'FFR.NN', 'FF.CSS', '.WW.H.'],
+        kinds: ['grass', 'path', 'field', 'pond', 'fence', 'tree', 'barn', 'coop', 'cow', 'sheep', 'tractor'],
+        start: ['  T.  ', ' BPPP ', ' .RCN ', ' FFSS ', '  WWH '],
     },
     {
         cols: 7,
         rows: 5,
         kinds: [
+            'grass',
             'path',
             'field',
             'pond',
@@ -84,7 +89,7 @@ const PLANS = [
             'pig',
             'tractor',
         ],
-        start: ['T.B..OT', 'PPPPPPP', 'FFR.NN.', 'FFMCSS.', 'GWW.H..'],
+        start: ['  T.BO ', ' PPPPP ', ' FFR.NN', ' FMCSS ', ' GWW.H '],
     },
 ];
 
@@ -98,19 +103,30 @@ const VOICES = {
 
 const FLOWERS = ['#F2BAC3', '#F3DE97', '#C9BBE3', '#FBF6EE', '#ABCDEA'];
 
+// How far down its frame each upright piece's drawing begins, for touching it (animals: 0.4).
+const REACH = { tree: 0.05, barn: 0.22, house: 0.2, windmill: 0, coop: 0.34, fence: 0.45, tractor: 0.42 };
+
 class FarmScene extends BoardScene {
     constructor(app) {
-        super(app, PLANS);
+        super(app, PLANS, 'grass');
         this.ducks = [];
         this.frog = null;
         this.frogClock = 1.5;
         this.growClock = 0;
         this.flowers = {};
         this.look = {
-            sky: ['#EEF2E1', '#E4ECD3'],
-            edge: FARM.grassEdge,
+            sky: ['#EEF2E1', '#E2EAD0'],
+            table: 'rgba(255, 255, 248, 0.38)',
+            tableLine: 'rgba(140, 170, 115, 0.32)',
             base: FARM.grass,
             alt: FARM.grassAlt,
+            lip: FARM.grassEdge,
+            lipDark: shade(FARM.grassEdge, -0.1),
+            side: FARM.soil,
+            sideDark: shade(FARM.soil, -0.12),
+            deep: FARM.soilEdge,
+            deepDark: shade(FARM.soilEdge, -0.12),
+            dust: '232, 222, 196',
         };
         this.begin(CODES);
         this.normalise(true);
@@ -138,7 +154,8 @@ class FarmScene extends BoardScene {
 
     // An animal put down faces into the farm.
     placed(c, r, piece, quiet) {
-        if (!quiet && ANIMALS.indexOf(piece.kind) >= 0) piece.facing = c < this.cols / 2 ? 1 : -1;
+        if (!quiet && ANIMALS.indexOf(piece.kind) >= 0)
+            piece.facing = this.center(c, r).x < this.w / 2 ? 1 : -1;
     }
 
     // The ducks were placed before the board had a size, or for another one: put them back on their
@@ -255,21 +272,19 @@ class FarmScene extends BoardScene {
         ctx.strokeStyle = 'rgba(140, 175, 105, 0.45)';
         ctx.lineWidth = Math.max(1, s * 0.012);
         ctx.lineCap = 'round';
-        for (let r = 0; r < this.rows; r++) {
-            for (let c = 0; c < this.cols; c++) {
-                for (let i = 0; i < 3; i++) {
-                    const n = (c * 7 + r * 13 + i * 29) % 37;
-                    const tx = this.bx + c * s + s * (0.15 + ((n * 0.37) % 0.7));
-                    const ty = this.by + r * s + s * (0.2 + ((n * 0.53) % 0.65));
-                    ctx.beginPath();
-                    ctx.moveTo(tx - s * 0.015, ty);
-                    ctx.lineTo(tx - s * 0.02, ty - s * 0.03);
-                    ctx.moveTo(tx, ty);
-                    ctx.lineTo(tx, ty - s * 0.04);
-                    ctx.moveTo(tx + s * 0.015, ty);
-                    ctx.lineTo(tx + s * 0.022, ty - s * 0.028);
-                    ctx.stroke();
-                }
+        for (const [c, r] of this.tiles()) {
+            for (let i = 0; i < 3; i++) {
+                const n = (c * 7 + r * 13 + i * 29) % 37;
+                const tx = this.bx + c * s + s * (0.15 + ((n * 0.37) % 0.7));
+                const ty = this.by + r * s + s * (0.2 + ((n * 0.53) % 0.65));
+                ctx.beginPath();
+                ctx.moveTo(tx - s * 0.015, ty);
+                ctx.lineTo(tx - s * 0.02, ty - s * 0.03);
+                ctx.moveTo(tx, ty);
+                ctx.lineTo(tx, ty - s * 0.04);
+                ctx.moveTo(tx + s * 0.015, ty);
+                ctx.lineTo(tx + s * 0.022, ty - s * 0.028);
+                ctx.stroke();
             }
         }
 
@@ -294,7 +309,7 @@ class FarmScene extends BoardScene {
         for (let r = 0; r < this.rows; r++) {
             for (let c = 0; c < this.cols; c++) {
                 if (!this.is(c, r, 'pond')) continue;
-                const { x, y } = this.cellRect(c, r);
+                const { x, y } = this.mapRect(c, r);
                 ellipse(ctx, x + s * 0.36, y + s * 0.3, s * 0.12, s * 0.035, -0.2);
                 ctx.fillStyle = FARM.waterLight;
                 ctx.fill();
@@ -308,7 +323,7 @@ class FarmScene extends BoardScene {
         for (let r = 0; r < this.rows; r++) {
             for (let c = 0; c < this.cols; c++) {
                 if (!this.is(c, r, 'path')) continue;
-                const { x, y } = this.cellRect(c, r);
+                const { x, y } = this.mapRect(c, r);
                 for (let i = 0; i < 4; i++) {
                     const n = (c * 11 + r * 17 + i * 23) % 31;
                     disc(
@@ -326,12 +341,13 @@ class FarmScene extends BoardScene {
         for (const id of Object.keys(this.flowers)) {
             const c = Math.floor(id / 100);
             const r = id % 100;
-            if (this.at(c, r)) continue;
+            if (this.at(c, r) || !this.isLand(c, r)) continue;
             for (const f of this.flowers[id])
                 art.flower(ctx, this.bx + (c + f.x) * s, this.by + (r + f.y) * s, s, f.colour);
         }
     }
 
+    // Where a pond tile's lily pad floats, in the plan.
     padOf(c, r) {
         const s = this.cell;
         const n = (c * 13 + r * 7) % 5;
@@ -428,7 +444,10 @@ class FarmScene extends BoardScene {
     // Each kind's own sound, for being placed, or tapped in the tray.
     voice(kind, x, gain) {
         const pan = this.pan(x);
-        if (kind === 'path') audio.play('pat', {}, { gain, pan });
+        if (kind === 'grass') {
+            audio.play('rustle', {}, { gain: gain * 0.6, pan });
+            audio.play('thud', { f: 100 }, { gain: gain * 0.5, pan });
+        } else if (kind === 'path') audio.play('pat', {}, { gain, pan });
         else if (kind === 'field') {
             audio.play('thud', { f: 110 }, { gain: gain * 0.7, pan });
             audio.play('rustle', {}, { gain: gain * 0.5, pan, delay: 0.05 });
@@ -470,9 +489,9 @@ class FarmScene extends BoardScene {
         const id = key(c, r);
         const list = this.flowers[id] || (this.flowers[id] = []);
         const s = this.cell;
-        const rect = this.cellRect(c, r);
-        const fx = clamp((p.x - rect.x) / s, 0.12, 0.88);
-        const fy = clamp((p.y - rect.y) / s, 0.15, 0.88);
+        const g = this.gridAt(p.x, p.y);
+        const fx = clamp(g.u - c, 0.12, 0.88);
+        const fy = clamp(g.v - r, 0.15, 0.88);
         const colour = FLOWERS[Math.floor(this.rand() * FLOWERS.length)];
         if (list.length >= 5) list.shift();
         list.push({ x: fx, y: fy, colour });
@@ -482,7 +501,8 @@ class FarmScene extends BoardScene {
             draw: (ctx, f) => {
                 const k = 1.4 - 0.4 * (f.t / f.life);
                 ctx.save();
-                ctx.translate(p.x, p.y);
+                this.planView(ctx);
+                ctx.translate((c + fx) * s, (r + fy) * s);
                 ctx.scale(k, k);
                 art.flower(ctx, 0, 0, s, colour);
                 ctx.restore();
@@ -519,7 +539,7 @@ class FarmScene extends BoardScene {
                 if (giant && i === giantAt) p.giant = true;
                 audio.note('marimba', 2 + p.stage + Math.min(i, 5), 60, {
                     gain: loud ? 0.6 : 0.3,
-                    pan: this.pan(this.cellRect(c, r).x),
+                    pan: this.pan(this.center(c, r).x),
                 });
             })
         );
@@ -533,9 +553,7 @@ class FarmScene extends BoardScene {
             this.later(i * 0.05, () => {
                 const p = this.at(c, r);
                 if (!p || p.kind !== 'field' || p.stage < 4) return;
-                const rect = this.cellRect(c, r);
-                const cx = rect.x + s / 2;
-                const cy = rect.y + s / 2;
+                const { x: cx, y: cy } = this.center(c, r);
                 if (p.giant) this.rollPumpkin(cx, cy);
                 for (let k = 0; k < 3; k++)
                     this.flyCrop(
@@ -581,17 +599,10 @@ class FarmScene extends BoardScene {
                 const wet = cells.find(([cc, rr]) => this.beside(cc, rr, 'pond').length);
                 if (!wet) continue;
                 const [pc, pr] = this.beside(wet[0], wet[1], 'pond')[0];
-                const from = this.cellRect(pc, pr);
-                const to = this.cellRect(wet[0], wet[1]);
+                const from = this.center(pc, pr);
+                const to = this.center(wet[0], wet[1]);
                 for (let k = 0; k < 3; k++) {
-                    this.travel(
-                        from.x + from.s / 2,
-                        from.y + from.s / 2,
-                        to.x + to.s / 2,
-                        to.y + to.s / 2,
-                        wait + k * 0.12,
-                        FARM.waterLight
-                    );
+                    this.travel(from.x, from.y, to.x, to.y, wait + k * 0.12, FARM.waterLight);
                 }
                 this.growField(cells, wait + 0.5);
                 wait += 0.3;
@@ -604,7 +615,10 @@ class FarmScene extends BoardScene {
 
     tapPond(c, r, x, y) {
         this.ripple(x, y);
-        const degree = 3 + Math.round((9 * (x - this.bx)) / this.boardW);
+        // Higher to the right, across the whole table.
+        const left = this.ox - (this.rows * this.tw) / 2;
+        const across = ((this.cols + this.rows) * this.tw) / 2;
+        const degree = 3 + Math.round((9 * (x - left)) / across);
         audio.note('drop', clamp(degree, 3, 12), 60, { gain: 0.9, pan: this.pan(x), wet: 0.3 });
         for (const family of this.ducks) {
             if (family.cells.some(([cc, rr]) => cc === c && rr === r)) {
@@ -670,11 +684,7 @@ class FarmScene extends BoardScene {
             if (!f.goal || f.wait > 0) {
                 if (f.wait <= 0 && !f.goal) {
                     const [c, r] = f.cells[Math.floor(this.rand() * f.cells.length)];
-                    const rect = this.cellRect(c, r);
-                    f.goal = {
-                        x: rect.x + s * (0.3 + this.rand() * 0.4),
-                        y: rect.y + s * (0.35 + this.rand() * 0.4),
-                    };
+                    f.goal = this.spot(c, r, 0.3 + this.rand() * 0.4, 0.3 + this.rand() * 0.4);
                 }
             }
             if (f.goal) {
@@ -707,9 +717,9 @@ class FarmScene extends BoardScene {
                 const cell = this.cellAt(b.x, b.y);
                 if (!cell || !this.is(cell[0], cell[1], 'pond')) {
                     const [c, r] = f.cells[0];
-                    const rect = this.cellRect(c, r);
-                    b.x = rect.x + s / 2;
-                    b.y = rect.y + s / 2;
+                    const at = this.center(c, r);
+                    b.x = at.x;
+                    b.y = at.y;
                 }
             }
         }
@@ -736,13 +746,12 @@ class FarmScene extends BoardScene {
 
     seatDucks(family) {
         if (!this.cell) return;
-        const s = this.cell;
         const [c, r] = family.cells[0];
-        const rect = this.cellRect(c, r);
         family.goal = null;
         family.birds.forEach((b, i) => {
-            b.x = rect.x + s / 2 - i * s * 0.14;
-            b.y = rect.y + s / 2;
+            const at = this.spot(c, r, 0.62 - i * 0.12, 0.5);
+            b.x = at.x;
+            b.y = at.y;
         });
     }
 
@@ -785,10 +794,7 @@ class FarmScene extends BoardScene {
             route.push(at);
         }
         const s = this.cell;
-        const points = route.map(([cc, rr]) => {
-            const rect = this.cellRect(cc, rr);
-            return { x: rect.x + s / 2, y: rect.y + s * 0.6 };
-        });
+        const points = route.map(([cc, rr]) => this.center(cc, rr));
         const last = points[points.length - 1];
         const prior = points[points.length - 2] || { x: last.x - s, y: last.y };
         points.push({ x: last.x + (last.x - prior.x) * 0.6, y: last.y + (last.y - prior.y) * 0.6 });
@@ -949,9 +955,10 @@ class FarmScene extends BoardScene {
     tapBarn(c, r, p, pointer) {
         const rect = this.cellRect(c, r);
         const s = this.cell;
-        if (p.cat > 0 && pointer.y < rect.y + s * 0.24) {
+        const [rx, ry] = art.barnSpots(this.frameOf(c, r)).roof;
+        if (p.cat > 0 && dist(pointer.x, pointer.y, rx, ry - s * 0.04) < s * 0.14) {
             p.cat = 0.01;
-            this.catJump(rect.x + s * 0.7, rect.y + s * 0.18);
+            this.catJump(rx, ry - s * 0.02);
             return;
         }
         if (p.door.target > 0) return;
@@ -1007,7 +1014,6 @@ class FarmScene extends BoardScene {
 
     tapHouse(c, r, p) {
         const rect = this.cellRect(c, r);
-        const s = this.cell;
         if (this.night > 0.5) {
             // A lullaby, and the lights go out until morning.
             [7, 6, 5, 6, 7, 7, 7].forEach((d, i) =>
@@ -1019,8 +1025,10 @@ class FarmScene extends BoardScene {
         if (p.door.target > 0) return;
         p.door.target = 1;
         audio.play('creak', {}, { gain: 0.5, pan: this.pan(rect.x), rate: 1.2 });
-        this.smoke(rect.x + s * 0.67, rect.y + s * 0.18);
-        const door = { x: rect.x + s / 2, y: rect.y + s * 0.88 };
+        const spots = art.houseSpots(this.frameOf(c, r));
+        this.smoke(spots.chimney[0], spots.chimney[1]);
+        const front = this.spot(c, r, 0.5, 0.92);
+        const door = { x: front.x, y: front.y };
         const fields = [];
         for (const [fc, fr] of this.beside(c, r, 'field')) {
             if (
@@ -1030,8 +1038,8 @@ class FarmScene extends BoardScene {
             fields.push([fc, fr]);
         }
         const stops = fields.map(([fc, fr]) => {
-            const fRect = this.cellRect(fc, fr);
-            return { x: fRect.x + s / 2, y: fRect.y + s * 0.75, cells: this.component(fc, fr, 'field') };
+            const at = this.center(fc, fr);
+            return { x: at.x, y: at.y, cells: this.component(fc, fr, 'field') };
         });
         this.farmerWalk(door, stops, () => {
             p.door.target = 0;
@@ -1127,6 +1135,7 @@ class FarmScene extends BoardScene {
     tapWindmill(c, r, p) {
         const rect = this.cellRect(c, r);
         const s = this.cell;
+        const { hub } = art.windmillSpots(this.frameOf(c, r));
         p.spin = 9;
         audio.play('whoosh', { variant: 'up' }, { gain: 0.9, pan: this.pan(rect.x) });
         audio.play('creak', {}, { gain: 0.4, pan: this.pan(rect.x), delay: 0.2, rate: 0.8 });
@@ -1137,25 +1146,15 @@ class FarmScene extends BoardScene {
                 if (seen.has(key(fc, fr))) continue;
                 const cells = this.component(fc, fr, 'field');
                 for (const [a, b] of cells) seen.add(key(a, b));
-                const to = this.cellRect(fc, fr);
-                for (let k = 0; k < 4; k++)
-                    this.travel(
-                        rect.x + s / 2,
-                        rect.y + s * 0.35,
-                        to.x + to.s / 2,
-                        to.y + to.s / 2,
-                        k * 0.1,
-                        '#FFF6D6'
-                    );
+                const to = this.center(fc, fr);
+                for (let k = 0; k < 4; k++) this.travel(hub[0], hub[1], to.x, to.y, k * 0.1, '#FFF6D6');
                 this.growField(cells, 0.5, true);
             }
         }
         if (p.rider <= 0 && this.night < 0.5 && this.surprise('rider', 0.6)) {
             p.rider = 5;
             this.later(5, () => audio.play('chirp', {}, { gain: 0.6, pan: this.pan(rect.x) }));
-            this.later(5, () =>
-                this.flight({ x: rect.x + s / 2, y: rect.y }, { x: rect.x + s / 2 + s, y: -s }, 0, 'bird')
-            );
+            this.later(5, () => this.flight({ x: hub[0], y: hub[1] }, { x: hub[0] + s, y: -s }, 0, 'bird'));
         }
     }
 
@@ -1170,14 +1169,12 @@ class FarmScene extends BoardScene {
         p.out = 1;
         audio.play('cluck', { f: noteHz(4, 60) }, { gain: 1, pan: this.pan(rect.x) });
         audio.play('cluck', { f: noteHz(3, 60) }, { gain: 0.7, pan: this.pan(rect.x), delay: 0.45 });
-        const door = { x: rect.x + s * 0.62, y: rect.y + s * 0.86 };
+        const [dx, dy] = art.coopSpots(this.frameOf(c, r)).ramp;
+        const door = { x: dx, y: dy };
         const field = this.beside(c, r, 'field')[0];
         const spots = [0, 1].map((i) => {
-            if (field) {
-                const fRect = this.cellRect(field[0], field[1]);
-                return { x: fRect.x + s * (0.35 + i * 0.3), y: fRect.y + s * 0.8 };
-            }
-            return { x: rect.x + s * (0.25 + i * 0.5), y: rect.y + s * 0.95 };
+            if (field) return this.spot(field[0], field[1], 0.35 + i * 0.3, 0.6);
+            return i ? this.spot(c, r, 0.94, 0.62) : this.spot(c, r, 0.62, 0.96);
         });
         spots.forEach((spot, i) => {
             this.fx.push({
@@ -1209,10 +1206,9 @@ class FarmScene extends BoardScene {
     }
 
     hatch(c, r, p) {
-        const rect = this.cellRect(c, r);
         const s = this.cell;
-        const x = rect.x + s * 0.82;
-        const y = rect.y + s * 0.9;
+        const spots = art.coopSpots(this.frameOf(c, r));
+        const [x, y] = spots.egg;
         p.egg = false;
         audio.play('pop', { f: 700 }, { gain: 0.6, pan: this.pan(x) });
         this.later(0.3, () =>
@@ -1225,7 +1221,7 @@ class FarmScene extends BoardScene {
                 { gain: 0.6, pan: this.pan(x), rate: 1.1 }
             )
         );
-        const door = { x: rect.x + s * 0.5, y: rect.y + s * 0.7 };
+        const door = { x: spots.ramp[0], y: spots.ramp[1] };
         this.fx.push({
             t: 0,
             life: 3,
@@ -1250,7 +1246,8 @@ class FarmScene extends BoardScene {
     tapFence(c, r, p) {
         const rect = this.cellRect(c, r);
         const s = this.cell;
-        const post = { x: rect.x + s / 2, y: rect.y + s * 0.39 };
+        const [px, py] = art.fenceSpots(this.frameOf(c, r)).post;
+        const post = { x: px, y: py };
         audio.note('wood', 7, 60, { gain: 0.5, pan: this.pan(rect.x) });
         if (p.bird > 0) {
             p.bird = 0;
@@ -1450,14 +1447,14 @@ class FarmScene extends BoardScene {
         trip.beat -= dt;
         if (trip.beat <= 0) {
             trip.beat = 0.16;
-            audio.play('putt', {}, { gain: 0.9, pan: this.pan(this.bx + (trip.x || 0)) });
+            audio.play('putt', {}, { gain: 0.9, pan: this.pan(this.toScreen(trip.x || 0, trip.y || 0).x) });
         }
         const i = Math.floor(trip.d);
         if (i >= trip.points.length - 1) {
             p.trip = null;
             p.away = null;
             p.bounce.kick(8);
-            audio.play('toot', { f: noteHz(5, 60) }, { gain: 0.8, pan: this.pan(this.cellRect(c, r).x) });
+            audio.play('toot', { f: noteHz(5, 60) }, { gain: 0.8, pan: this.pan(this.center(c, r).x) });
             if (trip.load > 0) this.unload(c, r, trip.load);
             return;
         }
@@ -1466,7 +1463,9 @@ class FarmScene extends BoardScene {
         const [bc, br] = trip.points[i + 1];
         trip.x = (lerp(ac, bc, k) + 0.5) * s;
         trip.y = (lerp(ar, br, k) + 0.5) * s;
-        if (bc !== ac) p.facing = bc > ac ? 1 : -1;
+        // Down the column it goes right across the screen, down the row left.
+        const across = bc - ac - (br - ar);
+        if (across) p.facing = across > 0 ? 1 : -1;
         // Arriving on a tile: harvest what is ripe beside it.
         if (i !== trip.last) {
             trip.last = i;
@@ -1480,7 +1479,11 @@ class FarmScene extends BoardScene {
             for (const [bcc, brr] of this.beside(ac, ar, 'barn')) {
                 if (trip.visited.has(key(bcc, brr))) continue;
                 trip.visited.add(key(bcc, brr));
-                audio.play('toot', { f: noteHz(3, 60) }, { gain: 0.7, pan: this.pan(this.bx + trip.x) });
+                audio.play(
+                    'toot',
+                    { f: noteHz(3, 60) },
+                    { gain: 0.7, pan: this.pan(this.toScreen(trip.x, trip.y).x) }
+                );
             }
         }
     }
@@ -1509,8 +1512,9 @@ class FarmScene extends BoardScene {
                 let tx = x + (x > this.w / 2 ? 0.3 : -0.3) * s;
                 let ty = y - s * 0.9;
                 if (tractor && tractor.trip) {
-                    tx = this.bx + tractor.trip.x - tractor.facing * s * 0.4;
-                    ty = this.by + tractor.trip.y - s * 0.1;
+                    const at = this.toScreen(tractor.trip.x, tractor.trip.y);
+                    tx = at.x - tractor.facing * s * 0.4;
+                    ty = at.y - s * 0.12;
                 }
                 const px = lerp(x, tx, k);
                 const py = lerp(y, ty, k) - Math.sin(k * Math.PI) * s * 0.5;
@@ -1570,11 +1574,9 @@ class FarmScene extends BoardScene {
     }
 
     rabbit(c, r) {
-        const rect = this.cellRect(c, r);
         const s = this.cell;
-        const x = rect.x + s / 2;
-        const y = rect.y + s * 0.7;
-        const dir = c < this.cols / 2 ? -1 : 1;
+        const { x, y } = this.center(c, r);
+        const dir = x < this.w / 2 ? -1 : 1;
         audio.play('pop', { f: 650 }, { gain: 0.6, pan: this.pan(x) });
         this.fx.push({
             t: 0,
@@ -1627,7 +1629,8 @@ class FarmScene extends BoardScene {
         const s = this.cell;
         const near = (tx, ty, r) => dist(x, y, tx, ty) < r;
         if (this.frog) {
-            const pad = this.padOf(this.frog.c, this.frog.r);
+            const p = this.padOf(this.frog.c, this.frog.r);
+            const pad = this.toScreen(p.x, p.y);
             if (near(pad.x, pad.y - s * 0.05, s * 0.14)) return { tap: () => this.frogLeap() };
         }
         for (let r = 0; r < this.rows; r++) {
@@ -1635,21 +1638,21 @@ class FarmScene extends BoardScene {
                 const p = this.at(c, r);
                 if (!p) continue;
                 const rect = this.cellRect(c, r);
-                if (p.kind === 'coop' && p.egg && near(rect.x + s * 0.82, rect.y + s * 0.87, s * 0.12)) {
-                    return { tap: () => this.hatch(c, r, p) };
+                const f = this.frameOf(c, r);
+                if (p.kind === 'coop' && p.egg) {
+                    const [ex, ey] = art.coopSpots(f).egg;
+                    if (near(ex, ey - s * 0.03, s * 0.12)) return { tap: () => this.hatch(c, r, p) };
                 }
-                if (
-                    p.kind === 'barn' &&
-                    this.night > 0.5 &&
-                    near(rect.x + s / 2, rect.y + s * 0.3, s * 0.12)
-                ) {
-                    return { tap: () => this.owlHoot(c, r, p) };
+                if (p.kind === 'barn' && this.night > 0.5) {
+                    const [hx, hy] = art.barnSpots(f).hayloft;
+                    if (near(hx, hy - s * 0.03, s * 0.12)) return { tap: () => this.owlHoot(c, r, p) };
                 }
+                const sill = p.kind === 'house' && art.houseSpots(f).windowFoot(0);
                 if (
                     p.kind === 'house' &&
                     p.cat > 0 &&
                     this.night < 0.5 &&
-                    near(rect.x + s * 0.32, rect.y + s * 0.6, s * 0.1)
+                    near(sill[0], sill[1] - s * 0.05, s * 0.1)
                 ) {
                     return {
                         tap: () => {
@@ -1658,11 +1661,7 @@ class FarmScene extends BoardScene {
                         },
                     };
                 }
-                if (
-                    p.kind === 'fence' &&
-                    p.snail > 0 &&
-                    near(this.snailX(rect, p), rect.y + s * 0.5, s * 0.1)
-                ) {
+                if (p.kind === 'fence' && p.snail > 0 && near(...this.snailAt(f, p), s * 0.1)) {
                     return {
                         tap: () => {
                             p.snail = 25;
@@ -1675,8 +1674,9 @@ class FarmScene extends BoardScene {
         return null;
     }
 
-    snailX(rect, p) {
-        return rect.x + this.cell * (0.15 + Math.min(0.7, p.snail * 0.03));
+    // The snail creeps along the fence's lower rail.
+    snailAt(f, p) {
+        return art.fenceSpots(f).rail(Math.min(1, p.snail * 0.04));
     }
 
     frogLeap() {
@@ -1685,7 +1685,8 @@ class FarmScene extends BoardScene {
         this.frog = null;
         this.frogClock = 3 + this.rand() * 4;
         const s = this.cell;
-        const pad = this.padOf(f.c, f.r);
+        const plan = this.padOf(f.c, f.r);
+        const pad = this.toScreen(plan.x, plan.y);
         const to = { x: pad.x + (this.rand() < 0.5 ? -1 : 1) * s * 0.35, y: pad.y + s * 0.05 };
         audio.play('ribbit', {}, { gain: 1, pan: this.pan(pad.x) });
         this.later(0.45, () => {
@@ -1750,6 +1751,7 @@ class FarmScene extends BoardScene {
             for (let c = 0; c < this.cols && !coop; c++) if (this.is(c, r, 'coop')) coop = [c, r];
         if (coop) {
             const rect = this.cellRect(coop[0], coop[1]);
+            const [roofX, roofY] = art.coopSpots(this.frameOf(coop[0], coop[1])).roof;
             const s = this.cell;
             this.later(0.5, () => audio.play('crow', {}, { gain: 1, pan: this.pan(rect.x), wet: 0.4 }));
             this.fx.push({
@@ -1760,7 +1762,7 @@ class FarmScene extends BoardScene {
                 draw: (ctx, f) => {
                     const up = clamp(f.t / 0.3, 0, 1) - clamp((f.t - 2.2) / 0.4, 0, 1);
                     ctx.globalAlpha = up;
-                    art.hen(ctx, rect.x + s / 2, rect.y + s * 0.24, s, {
+                    art.hen(ctx, roofX, roofY, s, {
                         rooster: true,
                         peck: f.t > 0.5 && f.t < 1.6 ? -0.6 : 0,
                     });
@@ -1773,10 +1775,9 @@ class FarmScene extends BoardScene {
     // An animal walking into the barn for the night, or out of it in the morning.
     toBarn(c, r, p, barn, out) {
         const s = this.cell;
-        const home = this.cellRect(c, r);
-        const door = this.cellRect(barn[0], barn[1]);
-        const a = { x: home.x + s / 2, y: home.y + s * 0.82 };
-        const b = { x: door.x + s / 2, y: door.y + s * 0.86 };
+        const a = this.center(c, r);
+        const [bx, by] = art.barnSpots(this.frameOf(barn[0], barn[1])).door;
+        const b = { x: bx, y: by };
         p.away = 'walking';
         const life = 1.4;
         this.fx.push({
@@ -1802,25 +1803,13 @@ class FarmScene extends BoardScene {
     //--------------------------------------------------------------------------
     // Drawing
 
-    // Crops, then the water's life, under everything standing.
+    // The water's life, under everything standing.
     drawBelow(ctx) {
         const s = this.cell;
-        for (let r = 0; r < this.rows; r++) {
-            for (let c = 0; c < this.cols; c++) {
-                const p = this.cells[r][c];
-                if (!p || p.kind !== 'field' || p.stage <= 0) continue;
-                const rect = this.cellRect(c, r);
-                const planting = (p.seed + c * 5 + r * 3) % 4;
-                const id = `crops:${p.stage}:${p.crop}:${p.giant ? 'giant' : planting}`;
-                const lift = clamp(p.pop.value, -20, 20) * s * 0.0015;
-                this.blit(ctx, id, rect.x, rect.y - lift, s, (g, ss) =>
-                    art.crops(g, 0, 0, ss, p.stage, p.crop, planting, 0, p.giant)
-                );
-            }
-        }
         for (const f of this.fx) if (f.water) f.draw(ctx, f);
         if (this.frog) {
-            const pad = this.padOf(this.frog.c, this.frog.r);
+            const plan = this.padOf(this.frog.c, this.frog.r);
+            const pad = this.toScreen(plan.x, plan.y);
             art.frog(ctx, pad.x, pad.y + s * 0.02, s, {});
         }
         for (const family of this.ducks) {
@@ -1834,37 +1823,86 @@ class FarmScene extends BoardScene {
         }
     }
 
-    // The tractor out on its rounds, over everything standing.
-    drawAbove(ctx) {
+    // Crops stand up out of their field, among everything else that stands. Where they grow in a
+    // tile is the same for every tile, so a field tile's crops are drawn once into a sprite.
+    drawUpright(ctx, c, r) {
+        const p = this.cells[r][c];
+        if (!p || p.kind !== 'field' || p.stage <= 0) return;
+        const s = this.cell;
+        const rect = this.cellRect(c, r);
+        const planting = (p.seed + c * 5 + r * 3) % 4;
+        const id = `crops:${p.stage}:${p.crop}:${p.giant ? 'giant' : planting}`;
+        const lift = clamp(p.pop.value, -20, 20) * s * 0.0015;
+        this.blit(ctx, id, rect.x, rect.y - lift, s, (g, ss) => {
+            const f = this.spriteFrame();
+            art.isoCrops(
+                g,
+                (fx, fy) => iso.pt(f, fx - 0.5, fy - 0.5),
+                ss,
+                p.stage,
+                p.crop,
+                planting,
+                0,
+                p.giant
+            );
+        });
+    }
+
+    // The tractor out on its rounds, among the pieces it passes.
+    movers() {
+        const out = [];
         const s = this.cell;
         for (const row of this.cells) {
             for (const p of row) {
-                if (p && p.kind === 'tractor' && p.trip && p.trip.x !== undefined) {
-                    const x = this.bx + p.trip.x;
-                    const y = this.by + p.trip.y + s * 0.32;
-                    if (p.trip.dog) {
-                        const back = p.facing * s * 0.62;
-                        art.dog(ctx, x - back, y, s, { facing: p.facing, run: this.time * 14 });
-                    }
-                    art.tractor(ctx, x, y, s * 0.85, {
-                        facing: p.facing,
-                        bounce: Math.sin(this.time * 30),
-                        wheel: this.time * 8 * p.facing,
-                        load: p.trip.load,
-                    });
-                }
+                if (!p || p.kind !== 'tractor' || !p.trip || p.trip.x === undefined) continue;
+                const u = p.trip.x / s;
+                const v = p.trip.y / s;
+                out.push({
+                    u,
+                    v,
+                    draw: (ctx) => {
+                        const { x, y } = this.iso(u, v);
+                        if (p.trip.dog) {
+                            const back = p.facing * s * 0.62;
+                            art.dog(ctx, x - back, y, s, { facing: p.facing, run: this.time * 14 });
+                        }
+                        art.tractor(ctx, x, y, s * 0.85, {
+                            facing: p.facing,
+                            bounce: Math.sin(this.time * 30),
+                            wheel: this.time * 8 * p.facing,
+                            load: p.trip.load,
+                        });
+                    },
+                });
             }
         }
+        return out;
+    }
+
+    // Whether a piece's sprites are all of it: not the windmill, whose sails turn on their own, nor
+    // anything with a cat, a bird or a snail on it.
+    solid(p) {
+        if (p.kind === 'windmill') return false;
+        if (p.kind === 'barn' || p.kind === 'house') return !(p.cat > 0);
+        if (p.kind === 'fence') return !(p.bird > 0 || p.snail > 0);
+        return true;
+    }
+
+    // How far down its frame each piece's drawing begins, for touching it.
+    reach(p) {
+        const top = REACH[p.kind];
+        return top === undefined ? 0.4 : top;
     }
 
     drawPiece(ctx, p, c, r, x, y, s) {
         const b = p.bounce.value * 0.01;
         ctx.save();
-        ctx.translate(x + s / 2, y + s * 0.86);
+        ctx.translate(x + s / 2, y + s * FOOT);
         ctx.scale(1 + b, 1 - b * 1.2);
-        ctx.translate(-(x + s / 2), -(y + s * 0.86));
+        ctx.translate(-(x + s / 2), -(y + s * FOOT));
         const kind = p.kind;
         const still = (spring) => Math.abs(spring.value) < 0.004 && Math.abs(spring.velocity) < 0.01;
+        const f = this.frameOf(c, r);
         if (kind === 'tree') {
             if (still(p.shake)) {
                 const apples = p.apples.slice().sort();
@@ -1879,61 +1917,78 @@ class FarmScene extends BoardScene {
             }
         } else if (kind === 'barn') {
             if (p.door.value < 0.005 && p.door.target === 0)
-                this.blit(ctx, 'barn', x, y, s, (g, ss) => art.barn(g, 0, 0, ss, {}));
+                this.blit(ctx, 'barn', x, y, s, (g) => art.isoBarn(g, this.spriteFrame(), {}));
             else {
-                art.barn(ctx, x, y, s, {
+                art.isoBarn(ctx, f, {
                     door: clamp(p.door.value, 0, 1),
-                    inside: (inner, cx2, by2, ss) => this.barnInside(inner, c, r, cx2, by2, ss),
+                    inside: (inner, dx, dy) => this.barnInside(inner, c, r, dx, dy, s),
                 });
             }
-            if (p.cat > 0 && this.night < 0.5) art.cat(ctx, x + s * 0.7, y + s * 0.2, s, { sleep: true });
+            if (p.cat > 0 && this.night < 0.5) {
+                const [rx, ry] = art.barnSpots(f).roof;
+                art.cat(ctx, rx, ry, s * 0.85, { sleep: true });
+            }
         } else if (kind === 'house') {
             if (p.door.value < 0.005 && p.door.target === 0)
-                this.blit(ctx, 'house', x, y, s, (g, ss) => art.house(g, 0, 0, ss, {}));
-            else art.house(ctx, x, y, s, { door: clamp(p.door.value, 0, 1) });
+                this.blit(ctx, 'house', x, y, s, (g) => art.isoHouse(g, this.spriteFrame(), {}));
+            else art.isoHouse(ctx, f, { door: clamp(p.door.value, 0, 1) });
             if (p.cat > 0 && this.night < 0.5) {
+                const spots = art.houseSpots(f);
+                const [wx, wy] = spots.windowFoot(0);
                 ctx.save();
-                ctx.beginPath();
-                ctx.rect(x + s * 0.26, y + s * 0.54, s * 0.12, s * 0.11);
+                spots.window(ctx, 0);
                 ctx.clip();
-                art.cat(ctx, x + s * 0.32, y + s * 0.66, s * 0.8, {});
+                art.cat(ctx, wx, wy + s * 0.012, s * 0.62, {});
                 ctx.restore();
             }
         } else if (kind === 'windmill') {
-            this.blit(ctx, 'windmill', x, y, s, (g, ss) => art.windmill(g, 0, 0, ss, { sails: false }));
-            art.windmillSails(ctx, x, y, s, p.angle);
+            this.blit(ctx, 'windmill', x, y, s, (g) =>
+                art.isoWindmill(g, this.spriteFrame(), { sails: false })
+            );
+            art.isoSails(ctx, f, p.angle);
             if (p.rider > 0) {
+                const { hub, sail } = art.windmillSpots(f);
                 const a = p.angle - Math.PI / 2;
                 art.bird(
                     ctx,
-                    x + s / 2 + Math.cos(a) * s * 0.28,
-                    y + s * 0.35 + Math.sin(a) * s * 0.28,
+                    hub[0] + Math.cos(a) * sail * 0.85,
+                    hub[1] + Math.sin(a) * sail * 0.85,
                     s * 0.8,
-                    { flap: Math.PI / 2 }
+                    {
+                        flap: Math.PI / 2,
+                    }
                 );
             }
         } else if (kind === 'coop') {
-            this.blit(ctx, 'coop', x, y, s, (g, ss) => art.coop(g, 0, 0, ss, {}));
-            if (p.egg) art.egg(ctx, x + s * 0.82, y + s * 0.9, s);
+            this.blit(ctx, 'coop', x, y, s, (g) => art.isoCoop(g, this.spriteFrame(), {}));
+            if (p.egg) {
+                const [ex, ey] = art.coopSpots(f).egg;
+                art.egg(ctx, ex, ey, s);
+            }
         } else if (kind === 'fence') {
             const m = this.mask(c, r);
-            this.blit(ctx, `fence:${m}`, x, y, s, (g, ss) => art.fence(g, 0, 0, ss, m));
-            if (p.bird > 0) art.bird(ctx, x + s / 2, y + s * 0.37, s, { facing: 1, flap: Math.PI / 2 });
-            if (p.snail > 0) art.snail(ctx, this.snailX({ x }, p), y + s * 0.51, s, p.snail > 25 ? 1 : 0);
+            this.blit(ctx, `fence:${m}`, x, y, s, (g) => art.isoFence(g, this.spriteFrame(), m));
+            const spots = art.fenceSpots(f);
+            if (p.bird > 0)
+                art.bird(ctx, spots.post[0], spots.post[1] - s * 0.02, s, { facing: 1, flap: Math.PI / 2 });
+            if (p.snail > 0) {
+                const [sx, sy] = this.snailAt(f, p);
+                art.snail(ctx, sx, sy, s, p.snail > 25 ? 1 : 0);
+            }
         } else if (kind === 'tractor') {
             if (still(p.act)) {
                 this.blit(ctx, `tractor:${p.facing}`, x, y, s, (g, ss) =>
-                    art.tractor(g, ss * 0.6, ss * 0.84, ss * 0.85, { facing: p.facing })
+                    art.tractor(g, ss * 0.6, ss * FOOT, ss * 0.85, { facing: p.facing })
                 );
             } else {
                 const hop = Math.abs(Math.sin(p.act.value)) * s * 0.02;
-                art.tractor(ctx, x + s * 0.6, y + s * 0.84 - hop, s * 0.85, {
+                art.tractor(ctx, x + s * 0.6, y + s * FOOT - hop, s * 0.85, {
                     facing: p.facing,
                     bounce: p.act.value * 0.3,
                 });
             }
         } else if (ANIMALS.indexOf(kind) >= 0) {
-            this.drawAnimal(ctx, p, x + s / 2, y + s * 0.84, s, {});
+            this.drawAnimal(ctx, p, x + s / 2, y + s * FOOT, s, {});
         }
         ctx.restore();
     }
@@ -1973,77 +2028,59 @@ class FarmScene extends BoardScene {
         }
     }
 
-    // What the open barn door shows: by day a cow looking out, by night the sleepers in the hay.
+    // What the open barn door shows: by day a cow looking out, by night the sleepers in the hay. The
+    // barn has already clipped the drawing to its doorway, whose foot is (cx, by).
     barnInside(ctx, c, r, cx, by, s) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(cx - s * 0.19, by - s * 0.32, s * 0.38, s * 0.32);
-        ctx.clip();
         const sleepers = this.sleepersIn(c, r);
         if (this.night > 0.5 && sleepers.length) {
             sleepers.slice(0, 2).forEach((a, i) =>
-                this.drawAnimal(ctx, a, cx + (i - 0.5) * s * 0.16, by, s * 0.55, {
+                this.drawAnimal(ctx, a, cx + (i - 0.5) * s * 0.1, by, s * 0.42, {
                     sleep: true,
                     facing: i ? -1 : 1,
                 })
             );
         } else {
-            art.cow(ctx, cx - s * 0.06, by + s * 0.02, s * 0.75, { facing: 1 });
+            art.cow(ctx, cx - s * 0.03, by + s * 0.01, s * 0.5, { facing: 1 });
         }
-        ctx.restore();
     }
 
     drawNight(ctx) {
         const s = this.cell;
         const k = this.night;
-        const glowCol = (alpha) => `rgba(255, 226, 154, ${alpha * k})`;
-        for (let r = 0; r < this.rows; r++) {
-            for (let c = 0; c < this.cols; c++) {
-                const p = this.cells[r][c];
-                if (!p) continue;
-                const { x, y } = this.cellRect(c, r);
-                if (p.kind === 'house' && !p.dark) {
-                    for (const wx of [x + s * 0.26, x + s * 0.62]) {
-                        fillRound(
-                            ctx,
-                            wx - s * 0.03,
-                            y + s * 0.51,
-                            s * 0.18,
-                            s * 0.17,
-                            s * 0.05,
-                            glowCol(0.25)
-                        );
-                        fillRound(ctx, wx, y + s * 0.54, s * 0.12, s * 0.11, s * 0.015, glowCol(0.95));
-                    }
-                } else if (p.kind === 'barn') {
-                    fillRound(ctx, x + s * 0.39, y + s * 0.21, s * 0.22, s * 0.19, s * 0.05, glowCol(0.25));
-                    fillRound(ctx, x + s * 0.425, y + s * 0.24, s * 0.15, s * 0.13, s * 0.02, glowCol(0.9));
-                    // The owl is only there at night.
-                    ctx.globalAlpha = clamp((k - 0.5) * 2, 0, 1);
-                    art.owl(ctx, x + s / 2, y + s * 0.315, s, { blink: p.blink > this.time });
-                    ctx.globalAlpha = 1;
-                } else if (p.kind === 'windmill') {
-                    disc(ctx, x + s / 2, y + s * 0.56, s * 0.06, glowCol(0.3));
-                    disc(ctx, x + s / 2, y + s * 0.56, s * 0.035, glowCol(0.95));
-                } else if (p.kind === 'pond') {
-                    // Fireflies over the water.
-                    for (let i = 0; i < 2; i++) {
-                        const t = this.time * 0.6 + p.seed + i * 2.1;
-                        const fx = x + s * (0.5 + 0.35 * Math.sin(t * 1.3 + i));
-                        const fy = y + s * (0.4 + 0.25 * Math.sin(t * 1.7 + i * 2));
-                        const blink = 0.5 + 0.5 * Math.sin(t * 5 + i);
-                        disc(ctx, fx, fy, s * 0.03, `rgba(255, 246, 170, ${0.25 * blink * k})`);
-                        disc(ctx, fx, fy, s * 0.012, `rgba(255, 250, 200, ${0.95 * blink * k})`);
-                    }
-                } else if (ANIMALS.indexOf(p.kind) >= 0 && !p.away && k > 0.6) {
-                    art.zzz(ctx, x + s * (p.facing > 0 ? 0.68 : 0.32), y + s * 0.42, s, this.time + p.seed);
+        for (const [c, r] of this.tiles()) {
+            const p = this.cells[r][c];
+            if (!p) continue;
+            const { x, y } = this.cellRect(c, r);
+            const f = this.frameOf(c, r);
+            if (p.kind === 'house' && !p.dark) art.houseLights(ctx, f, k);
+            else if (p.kind === 'barn') {
+                art.barnLights(ctx, f, k);
+                // The owl is only there at night.
+                const [hx, hy] = art.barnSpots(f).hayloft;
+                ctx.globalAlpha = clamp((k - 0.5) * 2, 0, 1);
+                art.owl(ctx, hx, hy - s * 0.06, s * 0.7, { blink: p.blink > this.time });
+                ctx.globalAlpha = 1;
+            } else if (p.kind === 'windmill') art.windmillLights(ctx, f, k);
+            else if (p.kind === 'coop') art.coopLights(ctx, f, k * 0.7);
+            else if (p.kind === 'pond') {
+                // Fireflies over the water.
+                for (let i = 0; i < 2; i++) {
+                    const t = this.time * 0.6 + p.seed + i * 2.1;
+                    const fx = x + s * (0.5 + 0.3 * Math.sin(t * 1.3 + i));
+                    const fy = y + s * (0.6 + 0.15 * Math.sin(t * 1.7 + i * 2));
+                    const blink = 0.5 + 0.5 * Math.sin(t * 5 + i);
+                    disc(ctx, fx, fy, s * 0.03, `rgba(255, 246, 170, ${0.25 * blink * k})`);
+                    disc(ctx, fx, fy, s * 0.012, `rgba(255, 250, 200, ${0.95 * blink * k})`);
                 }
+            } else if (ANIMALS.indexOf(p.kind) >= 0 && !p.away && k > 0.6) {
+                art.zzz(ctx, x + s * (p.facing > 0 ? 0.68 : 0.32), y + s * 0.5, s, this.time + p.seed);
             }
         }
         this.drawStars(ctx);
     }
 
-    // A piece away from the board: in the tray, in a finger, or flying back.
+    // A piece away from the board: in the tray, in a finger, or flying back. A ground piece is
+    // drawn as a square, which the board lays flat as the top of a tile.
     drawLoose(ctx, p, x, y, s) {
         const kind = p.kind;
         if (kind === 'path' || kind === 'field' || kind === 'pond') {
@@ -2062,7 +2099,6 @@ class FarmScene extends BoardScene {
                         s * 0.015,
                         FARM.furrow
                     );
-                art.crops(ctx, x, y - s * 0.04, s, 3, 'carrot', 3);
             } else if (kind === 'pond') {
                 this.lilyPad(ctx, x + s * 0.62, y + s * 0.6, s);
                 ellipse(ctx, x + s * 0.38, y + s * 0.32, s * 0.14, s * 0.04, -0.2);
@@ -2080,31 +2116,77 @@ class FarmScene extends BoardScene {
             }
             return;
         }
+        const f = this.looseFrame(x, y, s);
         if (kind === 'tree') art.tree(ctx, x, y, s, { apples: [art.APPLE_SPOTS[0], art.APPLE_SPOTS[2]] });
-        else if (kind === 'barn') art.barn(ctx, x, y, s, {});
-        else if (kind === 'house') art.house(ctx, x, y, s, {});
-        else if (kind === 'windmill') art.windmill(ctx, x, y, s, { angle: 0.4 });
-        else if (kind === 'coop') art.coop(ctx, x, y, s, {});
-        else if (kind === 'fence') art.fence(ctx, x, y, s, 0);
-        else if (kind === 'tractor') art.tractor(ctx, x + s * 0.6, y + s * 0.84, s * 0.85, { facing: 1 });
-        else if (kind === 'cow') art.cow(ctx, x + s / 2, y + s * 0.84, s, { facing: 1 });
-        else if (kind === 'sheep') art.sheep(ctx, x + s / 2, y + s * 0.84, s, { facing: 1 });
-        else if (kind === 'pig') art.pig(ctx, x + s / 2, y + s * 0.84, s, { facing: 1 });
+        else if (kind === 'barn') art.isoBarn(ctx, f, {});
+        else if (kind === 'house') art.isoHouse(ctx, f, {});
+        else if (kind === 'windmill') art.isoWindmill(ctx, f, { angle: 0.4 });
+        else if (kind === 'coop') art.isoCoop(ctx, f, {});
+        else if (kind === 'fence') art.isoFence(ctx, f, 0);
+        else if (kind === 'tractor') art.tractor(ctx, x + s * 0.6, y + s * FOOT, s * 0.85, { facing: 1 });
+        else if (kind === 'cow') art.cow(ctx, x + s / 2, y + s * FOOT, s, { facing: 1 });
+        else if (kind === 'sheep') art.sheep(ctx, x + s / 2, y + s * FOOT, s, { facing: 1 });
+        else if (kind === 'pig') art.pig(ctx, x + s / 2, y + s * FOOT, s, { facing: 1 });
+    }
+
+    // The grass tile, as the tray shows it: a few tufts on a square of side s.
+    drawPlain(ctx, s) {
+        ctx.strokeStyle = 'rgba(140, 175, 105, 0.7)';
+        ctx.lineWidth = s * 0.025;
+        ctx.lineCap = 'round';
+        for (const [tx, ty] of [
+            [0.3, 0.32],
+            [0.66, 0.3],
+            [0.46, 0.6],
+            [0.74, 0.7],
+            [0.24, 0.74],
+        ]) {
+            const x = tx * s;
+            const y = ty * s;
+            ctx.beginPath();
+            ctx.moveTo(x - s * 0.03, y);
+            ctx.lineTo(x - s * 0.04, y - s * 0.06);
+            ctx.moveTo(x, y);
+            ctx.lineTo(x, y - s * 0.08);
+            ctx.moveTo(x + s * 0.03, y);
+            ctx.lineTo(x + s * 0.044, y - s * 0.056);
+            ctx.stroke();
+        }
     }
 }
 
+// The farm's picture on the shelf: a little island with a barn, a tree, a path and a cow.
 function icon(ctx, x, y, w, h) {
-    const s = Math.min(w, h) * 0.42;
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    fillRound(ctx, cx - s * 1.08, cy - s * 0.8 + 4, s * 2.16, s * 1.6, s * 0.18, 'rgba(112, 84, 58, 0.14)');
-    fillRound(ctx, cx - s * 1.08, cy - s * 0.8, s * 2.16, s * 1.6, s * 0.18, FARM.grass);
-    fillRound(ctx, cx - s * 1.08, cy + s * 0.16, s * 2.16, s * 0.3, s * 0.1, FARM.path);
-    art.barn(ctx, cx - s * 1.0, cy - s * 0.95, s * 1.15, {});
-    art.tree(ctx, cx + s * 0.1, cy - s * 0.95, s * 0.95, {
-        apples: [art.APPLE_SPOTS[0], art.APPLE_SPOTS[2]],
-    });
-    art.cow(ctx, cx + s * 0.55, cy + s * 0.62, s * 0.7, { facing: -1 });
+    const tw = Math.min(w * 0.42, h * 0.62);
+    const look = {
+        base: FARM.grass,
+        alt: FARM.grassAlt,
+        lip: FARM.grassEdge,
+        lipDark: shade(FARM.grassEdge, -0.1),
+        side: FARM.soil,
+        sideDark: shade(FARM.soil, -0.12),
+    };
+    const mid = iso.island(
+        ctx,
+        x + w / 2,
+        y + h * 0.5 - tw * 0.42,
+        tw,
+        [
+            [0, 0],
+            [1, 0],
+            [0, 1],
+            [1, 1],
+        ],
+        look,
+        (c, r) => (r === 1 && c === 1 ? FARM.path : null)
+    );
+    const s = tw * 0.92;
+    const [bx, by] = mid(0, 0);
+    art.isoBarn(ctx, { cx: bx, cy: by, tw }, {});
+    const [tx, ty] = mid(1, 0);
+    art.tree(ctx, tx - s / 2, ty - s * 0.84, s, { apples: [art.APPLE_SPOTS[0], art.APPLE_SPOTS[2]] });
+    const [cx, cy] = mid(0, 1);
+    art.cow(ctx, cx, cy + s * 0.02, s * 0.8, { facing: 1 });
 }
 
 export const toy = {
