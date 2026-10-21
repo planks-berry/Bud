@@ -184,6 +184,7 @@ const PARAMS = {
     meow: [{ f: noteHz(5, 60) }],
     woof: [{ f: noteHz(-2, 60) }],
     beep: [{ f: noteHz(4, 72) }, { f: noteHz(2, 72) }],
+    whistle: [{}, { variant: 'long' }],
     clank: [{ f: noteHz(0, 60) }, { f: noteHz(9, 60) }, { f: noteHz(-3, 60) }],
     rumble: [{}, { variant: 'short' }],
     rattle: [{}],
@@ -289,6 +290,7 @@ const BANDS = [
             'pat',
             'chirp',
             'beep',
+            'whistle',
             'rattle',
             'crunch',
         ],
@@ -1244,11 +1246,178 @@ async function suite(mode) {
     check('home from the crane', (await home()) === 'ShelfScene');
 
     // ---- building site ---------------------------------------------------------------------------
+    //
+    // The Sprout site starts as:   L . P D T .      a pile, a plot, the digger, the truck
+    //                              R R R R R R      a road
+    //                              M H H . C B      the mixer, a dug hole, the crane, a building
+    //                              K K . O . .      cones, the hut
 
     await open('site');
-    check('the building site opens', (await sceneName()) === 'SiteScene');
+    const siteKinds = await scene(() => window.playroom.stage.scene.kinds);
+    check(
+        'the building site opens with its pieces in the tray',
+        (await sceneName()) === 'SiteScene' && siteKinds.length === 9
+    );
+    const siteFresh = await layout();
+    const plotAt = (c, r) => scene(([c, r]) => window.playroom.stage.scene.at(c, r).step, [c, r]);
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        s.rand = () => 0.99;
+        const run = s.pigeons;
+        s.flocks = 0;
+        s.pigeons = function (c, r) {
+            this.flocks++;
+            return run.call(this, c, r);
+        };
+    });
+    const flocks = () => scene(() => window.playroom.stage.scene.flocks);
+    await tapCell(1, 1);
+    const firstFlock = await flocks();
+    await tapCell(2, 1);
+    const nextFlock = await flocks();
+    await scene(() => {
+        window.playroom.stage.scene.rand = () => 0;
+    });
+    await tapCell(5, 1);
+    check(
+        'pigeons come to the road the first time whatever chance says, and by chance after that',
+        firstFlock === 1 && nextFlock === 1 && (await flocks()) === 2,
+        `flocks ${firstFlock}, ${nextFlock}, ${await flocks()}`
+    );
+
+    await carryTo(await trayCentre('road'), await cellCentre(3, 2));
+    const siteRoad = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { kind: s.at(3, 2) && s.at(3, 2).kind, mask: s.mask(3, 2) };
+    });
+    check(
+        'a road dragged from the tray joins the road beside it',
+        siteRoad.kind === 'road' && (siteRoad.mask & 1) === 1,
+        JSON.stringify(siteRoad)
+    );
+
+    await tapCell(3, 0, -0.05);
+    await page.waitForTimeout(2500);
+    const dug = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { plot: s.at(2, 0).step, truck: s.at(4, 0).load };
+    });
+    check(
+        'the digger digs out the marked plot beside it, and loads the earth into the truck',
+        dug.plot === 1 && dug.truck === 1,
+        JSON.stringify(dug)
+    );
+
+    const pileBefore = await scene(() => window.playroom.stage.scene.at(0, 0).size);
+    await tapCell(4, 0, -0.05);
+    const truckHome = await page
+        .waitForFunction(() => !window.playroom.stage.scene.at(4, 0).trip, null, { timeout: 25000 })
+        .then(
+            () => true,
+            () => false
+        );
+    const tipped = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { pile: s.at(0, 0).size, load: s.at(4, 0).load };
+    });
+    check(
+        'the truck drives the road and tips its load onto the pile beside it',
+        truckHome && tipped.load === 0 && tipped.pile === pileBefore + 1,
+        `${pileBefore} -> ${JSON.stringify(tipped)}`
+    );
+
+    await tapCell(0, 2, -0.05);
+    await page.waitForTimeout(1300);
+    check(
+        'the mixer pours the hole beside it full of concrete',
+        (await plotAt(1, 2)) === 2 && (await plotAt(2, 2)) === 2
+    );
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        for (const c of [1, 2]) s.at(c, 2).setting = 6.9;
+    });
+    await page.waitForTimeout(400);
+    check(
+        'and it sets by itself into a foundation',
+        (await plotAt(1, 2)) === 3 && (await plotAt(2, 2)) === 3
+    );
+
+    // The crane beside the building: a floor, then up to as tall as it builds, then the tree.
+    const craneLift = async () => {
+        await tapCell(4, 2, -0.05);
+        await page.waitForFunction(() => !window.playroom.stage.scene.at(4, 2).work, null, { timeout: 8000 });
+    };
+    await craneLift();
+    check('the crane lifts a floor onto the building beside it', (await plotAt(5, 2)) === 5);
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        s.at(5, 2).step = 3 + s.maxFloors - 1;
+    });
+    await craneLift();
+    const topped = async () => scene(() => window.playroom.stage.scene.at(5, 2).tree);
+    const tall = await plotAt(5, 2);
+    check('up to as tall as it builds', tall === 7 && !(await topped()), `step ${tall}`);
+    await craneLift();
+    check('and then tops it out with a tree', (await plotAt(5, 2)) === 7 && (await topped()));
+
+    await tapCell(5, 2, 0.25);
+    const played = await page.evaluate(async () => {
+        const seen = [];
+        const s = window.playroom.stage.scene;
+        const end = Date.now() + 1800;
+        while (Date.now() < end) {
+            const g = s.at(5, 2).glow;
+            if (g >= 0 && seen[seen.length - 1] !== g) seen.push(g);
+            await new Promise((r) => setTimeout(r, 40));
+        }
+        return seen;
+    });
+    check(
+        'a tap on a building plays its floors from the ground up, each lit as it sounds',
+        played.join('') === '0123',
+        played.join(' ')
+    );
+
+    const worked = await (async () => {
+        await tapCell(3, 3, -0.05);
+        return page.evaluate(async () => {
+            const kinds = new Set();
+            const s = window.playroom.stage.scene;
+            const end = Date.now() + 6000;
+            while (Date.now() < end) {
+                for (const row of s.cells)
+                    for (const p of row) if (p && (p.work || p.trip)) kinds.add(p.kind);
+                await new Promise((r) => setTimeout(r, 100));
+            }
+            return Array.from(kinds).sort();
+        });
+    })();
+    check(
+        "the foreman's whistle sets the machines going, one after another",
+        ['crane', 'digger', 'mixer', 'truck'].every((k) => worked.indexOf(k) >= 0),
+        worked.join(' ')
+    );
+    await page.waitForFunction(() => !window.playroom.stage.scene.at(4, 0).trip, null, { timeout: 25000 });
+
+    const siteSun = await scene(() => window.playroom.stage.scene.sunButton);
+    await touch.tap(siteSun.x, siteSun.y);
+    await page.waitForTimeout(2600);
+    check('the sun turns the site to night', (await scene(() => window.playroom.stage.scene.night)) > 0.9);
+    await shot('site-night');
+    await touch.tap(siteSun.x, siteSun.y);
+    await page.waitForTimeout(2600);
+
+    const siteBuilt = await layout();
     await shot('site');
     check('home from the building site', (await home()) === 'ShelfScene');
+    await open('site');
+    const siteAgain = await layout();
+    check(
+        'and the site starts fresh when it comes off the shelf again',
+        siteBuilt !== siteFresh && siteAgain === siteFresh,
+        siteAgain
+    );
+    await home();
 
     // ---- the grown-up's corner ------------------------------------------------------------------
 
@@ -1324,6 +1493,23 @@ async function suite(mode) {
         'while the others stay at Seed: two colours of three cubes in the tower',
         seed.length === 6 && new Set(seed).size === 2,
         `${seed.length} cubes, ${new Set(seed).size} colours`
+    );
+    await home();
+
+    // The building site at Bloom: all twelve kinds; the roller leaves the road it rolls shining, and
+    // the lamp lights.
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('site', 'bloom'));
+    await open('site');
+    const bloomKinds = await scene(() => window.playroom.stage.scene.kinds.length);
+    await tapCell(6, 0, -0.05);
+    await page.waitForTimeout(2500);
+    const rolled = await scene(() => window.playroom.stage.scene.cells[1].filter((p) => p.fresh > 0).length);
+    await tapCell(5, 3, -0.2);
+    await page.waitForTimeout(300);
+    check(
+        'the building site at Bloom: twelve kinds, a roller that leaves the road fresh, a lamp that lights',
+        bloomKinds === 12 && rolled >= 2 && (await scene(() => window.playroom.stage.scene.at(5, 3).on)),
+        `${bloomKinds} kinds, ${rolled} tiles rolled`
     );
     await home();
 

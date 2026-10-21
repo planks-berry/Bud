@@ -967,6 +967,22 @@ export const recipes = {
         return finish(out, sr, 0.6);
     },
 
+    // The foreman's whistle: a pea whistle's trill, the pea rattling the note thirty times a second.
+    whistle(sr, p) {
+        const f = p.f || noteHz(3, 84);
+        const len = p.variant === 'long' ? 0.55 : 0.22;
+        const out = makeBuffer(sr, len + 0.01);
+        const env = swell(0.012, len, 0.06);
+        let phase = 0;
+        for (let n = 0; n < out.length; n++) {
+            const t = n / sr;
+            const trill = 0.5 + 0.5 * Math.sin(TAU * 31 * t);
+            phase += (TAU * f * (1 + 0.025 * trill)) / sr;
+            out[n] = (Math.sin(phase) + 0.08 * Math.sin(2 * phase)) * env(t) * (0.55 + 0.45 * trill);
+        }
+        return finish(out, sr, 0.55);
+    },
+
     // A steel beam set down: the inharmonic ring of a free bar, two of its modes a hair apart so it
     // shimmers, over the thump of its weight. Pitched, so a building going up rings up the scale.
     clank(sr, p) {
@@ -1114,6 +1130,7 @@ export const MIX = {
     meow: 0.27,
     woof: 0.44,
     beep: 0.2,
+    whistle: 0.3,
     clank: 0.6,
     rumble: 0.39,
     rattle: 0.87,
