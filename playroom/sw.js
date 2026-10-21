@@ -41,6 +41,8 @@ const FILES = [
     'js/toys/cubes.js',
     'js/toys/glyphs.js',
     'js/toys/sandpaper.js',
+    'js/toys/farm.js',
+    'js/toys/farmart.js',
     'icons/icon-32.png',
     'icons/icon-152.png',
     'icons/icon-167.png',

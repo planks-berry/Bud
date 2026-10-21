@@ -170,6 +170,19 @@ const PARAMS = {
     creak: [{}],
     latch: [{}],
     pat: [{}],
+    moo: [{ f: noteHz(-5, 60) }, { f: noteHz(-3, 60) }],
+    baa: [{ f: noteHz(-2, 60) }, { f: noteHz(0, 60) }],
+    oink: [{ f: noteHz(-4, 60) }],
+    cluck: [{ f: noteHz(4, 60) }],
+    quack: [{ f: noteHz(1, 60) }],
+    ribbit: [{ f: noteHz(-2, 60) }],
+    hoot: [{ f: noteHz(2, 60) }],
+    chirp: [{ f: noteHz(2, 96) }, { f: noteHz(0, 96), variant: 'peep' }],
+    putt: [{}],
+    toot: [{ f: noteHz(3, 60) }, { f: noteHz(5, 60) }],
+    crow: [{}],
+    meow: [{ f: noteHz(5, 60) }],
+    woof: [{ f: noteHz(-2, 60) }],
 };
 
 const recipeFaults = [];
@@ -249,12 +262,17 @@ function loudness(samples, sr) {
 const BANDS = [
     ['notes', [-19.5, -14.5], ['marimba', 'glock', 'chime', 'musicBox', 'drop', 'wood']],
     [
+        'voices',
+        [-21.5, -16.5],
+        ['moo', 'baa', 'oink', 'cluck', 'quack', 'ribbit', 'hoot', 'toot', 'crow', 'meow', 'woof'],
+    ],
+    [
         'foley',
         [-24, -18.5],
-        ['click', 'tick', 'pop', 'thud', 'tink', 'squeak', 'gulp', 'creak', 'latch', 'pat'],
+        ['click', 'tick', 'pop', 'thud', 'tink', 'squeak', 'gulp', 'creak', 'latch', 'pat', 'chirp'],
     ],
     ['air', [-27, -21.5], ['bubble', 'rustle', 'whoosh']],
-    ['zip teeth', [-30, -24.5], ['zip']],
+    ['streams', [-30, -24.5], ['zip', 'putt']],
 ];
 const mixFaults = [];
 const banded = new Set();
@@ -522,7 +540,7 @@ async function suite(mode) {
     await page.waitForTimeout(1800);
     check('then the shelf', (await sceneName()) === 'ShelfScene');
     const trays = await scene(() => window.playroom.shelf.items.map((item) => item.toy.id));
-    check('eight trays on the shelf', trays.length === 8, trays.join(' '));
+    check('nine trays on the shelf', trays.length === 9, trays.join(' '));
     await shot('shelf');
 
     // A still shelf draws nothing: an iPad left on the playroom stays cool.
@@ -954,6 +972,200 @@ async function suite(mode) {
     await shot('numerals');
     check('home from the numerals', (await home()) === 'ShelfScene');
 
+    // ---- farm ----------------------------------------------------------------------------------
+    //
+    // The Sprout farm starts as:   T . B . . T      trees, a barn
+    //                              P P P P P P      a path
+    //                              F F R . N N      a field, the tractor, a fence
+    //                              F F . C S S      a cow and two sheep
+    //                              . W W . H .      a pond, the hen house
+
+    await open('farm');
+    const farmKinds = await scene(() => window.playroom.stage.scene.kinds);
+    check(
+        'the farm opens with its pieces in the tray',
+        (await sceneName()) === 'FarmScene' && farmKinds.length === 10
+    );
+    // Chance always says yes, so every hidden thing shows itself; growth by water waits to be asked.
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        s.rand = () => 0;
+        s.growClock = -1e9;
+    });
+    const cellCentre = (c, r) =>
+        scene(
+            ([c, r]) => {
+                const q = window.playroom.stage.scene.cellRect(c, r);
+                return { x: q.x + q.s / 2, y: q.y + q.s / 2, s: q.s };
+            },
+            [c, r]
+        );
+    const trayCentre = (kind) =>
+        scene((kind) => {
+            const t = window.playroom.stage.scene.trayItem(kind);
+            return { x: t.x + t.s / 2, y: t.y + t.s / 2 };
+        }, kind);
+    const kindAt = (c, r) =>
+        scene(
+            ([c, r]) => {
+                const p = window.playroom.stage.scene.at(c, r);
+                return p ? p.kind : null;
+            },
+            [c, r]
+        );
+    // A dragged piece is held a little above the finger, so it lands on the tile just above it.
+    const carryTo = async (from, to) => {
+        await touch.drag(line(from.x, from.y, to.x, to.y + to.s * 0.15, 16), 16, 120);
+        await page.waitForTimeout(350);
+    };
+    const tapCell = async (c, r, dy = 0.1) => {
+        const q = await cellCentre(c, r);
+        await touch.tap(q.x, q.y + q.s * dy);
+    };
+    const fieldStages = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            return s.component(0, 2, 'field').map(([c, r]) => s.at(c, r).stage);
+        });
+
+    await carryTo(await trayCentre('path'), await cellCentre(3, 2));
+    const joined = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { kind: s.at(3, 2) && s.at(3, 2).kind, mask: s.mask(3, 2) };
+    });
+    check(
+        'a path dragged from the tray joins the path beside it',
+        joined.kind === 'path' && (joined.mask & 1) === 1,
+        JSON.stringify(joined)
+    );
+
+    const sown = await fieldStages();
+    await tapCell(0, 2);
+    await page.waitForTimeout(700);
+    const grown = await fieldStages();
+    check(
+        'a tap grows the whole joined field a stage',
+        sown.length === 4 && grown.every((v) => v === sown[0] + 1),
+        `${sown.join('')} -> ${grown.join('')}`
+    );
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        for (const [c, r] of s.component(0, 2, 'field')) s.at(c, r).crop = 'carrot';
+    });
+    for (let i = 0; i < 4 && (await fieldStages())[0] < 4; i++) {
+        await tapCell(0, 2);
+        await page.waitForTimeout(600);
+    }
+    await tapCell(0, 2);
+    await page.waitForTimeout(800);
+    const harvested = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return {
+            stage: s.at(0, 2).stage,
+            crop: s.at(0, 2).crop,
+            rabbit: s.fx.some((f) => f.kind === 'rabbit'),
+        };
+    });
+    check(
+        'ripe, a tap harvests it, the next crop is sown, and the carrots hid a rabbit',
+        harvested.stage === 0 && harvested.crop === 'pumpkin' && harvested.rabbit,
+        JSON.stringify(harvested)
+    );
+
+    await scene(() => window.playroom.stage.scene.growByWater());
+    await page.waitForTimeout(1300);
+    check(
+        'a field beside the pond grows on its own',
+        (await fieldStages()).every((v) => v === 1),
+        (await fieldStages()).join('')
+    );
+
+    check(
+        'a pond of two tiles has no ducks',
+        (await scene(() => window.playroom.stage.scene.ducks.length)) === 0
+    );
+    await carryTo(await trayCentre('pond'), await cellCentre(3, 4));
+    const ducks = await scene(() => window.playroom.stage.scene.ducks.map((f) => f.birds.length));
+    check(
+        'grown to three, it brings a duck and her ducklings',
+        ducks.length === 1 && ducks[0] === 3,
+        ducks.join(' ')
+    );
+
+    const beforeBaa = await scene(() => window.playroom.stage.scene.time);
+    await tapCell(4, 3);
+    const baa = await peak(900);
+    const answered = await scene((t) => (window.playroom.stage.scene.at(5, 3).called || 0) > t, beforeBaa);
+    check('a sheep baas, and the sheep beside it answers', answered && baa > 0.02, `peak ${baa.toFixed(3)}`);
+
+    await carryTo(await cellCentre(0, 0), await cellCentre(1, 0));
+    check(
+        'a piece can be carried to another tile',
+        (await kindAt(1, 0)) === 'tree' && (await kindAt(0, 0)) === null
+    );
+    await carryTo(await cellCentre(1, 0), await cellCentre(2, 0));
+    check(
+        'and dropped on another piece, the two swap places',
+        (await kindAt(2, 0)) === 'tree' && (await kindAt(1, 0)) === 'barn'
+    );
+    const coop = await cellCentre(4, 4);
+    const tray = await trayCentre('coop');
+    await touch.drag(line(coop.x, coop.y, coop.x, tray.y, 16), 16, 120);
+    await page.waitForTimeout(500);
+    check('carried to the tray, a piece goes back to it', (await kindAt(4, 4)) === null);
+
+    for (let i = 0; i < 4 && (await fieldStages())[0] < 4; i++) {
+        await tapCell(0, 2);
+        await page.waitForTimeout(600);
+    }
+    await tapCell(2, 2);
+    await page.waitForTimeout(500);
+    const setOff = await scene(() => {
+        const s = window.playroom.stage.scene;
+        const t = s.at(2, 2);
+        return { away: t.away, covers: s.tour([2, 1]).length };
+    });
+    check('the tractor sets off along the path', setOff.away === 'trip', JSON.stringify(setOff));
+    const home2 = await page
+        .waitForFunction(() => !window.playroom.stage.scene.at(2, 2).trip, null, { timeout: 20000 })
+        .then(
+            () => true,
+            () => false
+        );
+    check(
+        'and comes home, having harvested the ripe field beside the path',
+        home2 && (await fieldStages()).every((v) => v === 0),
+        (await fieldStages()).join('')
+    );
+
+    const sun = await scene(() => window.playroom.stage.scene.sunButton);
+    await touch.tap(sun.x, sun.y);
+    await page.waitForTimeout(2600);
+    check('the sun turns the farm to night', (await scene(() => window.playroom.stage.scene.night)) > 0.9);
+    await tapCell(3, 3);
+    await page.waitForTimeout(300);
+    check(
+        'and at night, the cow jumps over the moon',
+        await scene(() => window.playroom.stage.scene.fx.some((f) => f.kind === 'moonJump'))
+    );
+    await shot('farm-night');
+    await touch.tap(sun.x, sun.y);
+    await page.waitForTimeout(2800);
+    check('and the moon brings the morning', (await scene(() => window.playroom.stage.scene.night)) < 0.1);
+
+    const layout = () =>
+        scene(() =>
+            window.playroom.stage.scene.cells
+                .map((row) => row.map((p) => (p ? p.kind.slice(0, 2) : '..')).join(' '))
+                .join(' / ')
+        );
+    const built = await layout();
+    await shot('farm');
+    check('home from the farm', (await home()) === 'ShelfScene');
+    await open('farm');
+    check('and the farm is as it was left', (await layout()) === built, built);
+    await home();
+
     // ---- the grown-up's corner ------------------------------------------------------------------
 
     const gate = await page.evaluate(() => {
@@ -1009,9 +1221,9 @@ async function suite(mode) {
     );
 
     await page.click('[data-toy="busy"] .switch');
-    check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 7);
+    check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 8);
     await page.click('[data-toy="busy"] .switch');
-    check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 8);
+    check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 9);
     await shot('parent-toys');
     await page.click('[data-close]');
     check('Done closes the settings', await page.evaluate(() => document.getElementById('parent').hidden));

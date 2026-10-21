@@ -49,8 +49,10 @@ the child does: no reports, no history, nothing sent anywhere.
 
 ## The shelf
 
-Eight toys, ordered as a Montessori shelf is: simple to complex, left to right, top to bottom. The
+Nine toys, ordered as a Montessori shelf is: simple to complex, left to right, top to bottom. The
 first row asks for nothing but a touch. The second asks for a steadier hand, and then for symbols.
+The farm comes last: it has no Montessori parallel, and is a world to build rather than a
+material.
 
 Each toy also has its own section, written to be revised, in [PLAYROOM-GAMES.md](PLAYROOM-GAMES.md).
 
@@ -70,6 +72,7 @@ Every toy has three layers, which are found by playing, never unlocked:
 | **Easel** | Art; metal insets for the hand | Paint with a finger, or several | Choose a pot; lay a metal inset frame on the paper | Paint through the frame and lift it to leave a clean shape; watercolour glazes, so colours mix on the paper | 3 / 6 / 6 paints; 0 / 4 / 8 insets; brush smaller as it grows |
 | **Sandpaper letters** | Language | Choose a board from the box; trace it | A guide's finger shows how each is written, once, and again on request | Only the sand makes a sound; the smooth board is silent | – |
 | **Sandpaper numerals** | Mathematics | As the letters | As the letters | A bowl lays out that many counters in pairs, Montessori's cards and counters, one rising note each | – |
+| **Farm** | None: after Pok Pok's builder | Tap anything: every piece answers, and tapped grass grows a flower | Drag pieces from the tray onto the board; move them, swap them, put them back | A farm that joins up: paths for the tractor to drive, fields by water that grow on their own, a pond big enough for ducks; the sun turns it to night, when the lights come on and other things wake | 6 / 10 / 13 kinds of piece, on 5 × 4 / 6 × 5 / 7 × 5 tiles |
 
 ### How Montessori and Pok Pok were reconciled
 
@@ -124,13 +127,16 @@ panel is the only text.
 
 - **One tuning.** Every pitched sound in every toy is on C major pentatonic (A4 = 440 Hz). Any two
   notes from any two toys are consonant, so nothing a child does can sound wrong, and the pond, the
-  tower and the bars can all be played at once.
+  tower and the bars can all be played at once. The farm's animals are on it too: the cow's moo is
+  a C, the sheep's baa an A, and a herd answering itself climbs the scale.
 - **Synthesised, not recorded.** Each sound is rendered from a recipe in
   [`js/synth.js`](../playroom/js/synth.js). Struck things (bars, bells, wood, glass, music-box tines)
   use modal synthesis: a sum of damped sinusoids with the material's mode ratios, upper modes dying
   faster than the fundamental. Water drops are the sweep of a shrinking bubble; the door's creak is
-  stick-slip; the sand is a crackle of individual grains. The whole sound set is a few hundred lines
-  of arithmetic rather than megabytes of audio.
+  stick-slip; the sand is a crackle of individual grains. The farm's voices are a buzzy source
+  through a few formant filters, the shape of a vocal tract: the pitch, its wobble and the vowel
+  are what make a moo a moo and a quack a quack. The whole sound set is a few hundred lines of
+  arithmetic rather than megabytes of audio.
 - **Rendered once, played cheaply.** Recipes render into buffers, ahead of need, a few at a time
   while the shelf is showing. A note at play time is one buffer source and one gain node, which an
   A7 can do by the dozen.
@@ -192,7 +198,7 @@ In Node:
 - every module parses as ES2017;
 - no API or CSS newer than Safari 12;
 - the offline copy is complete;
-- all 78 recipe variants render finite, unclipped, click-free and DC-free at 44.1 and 48 kHz;
+- all 112 recipe variants render finite, unclipped, click-free and DC-free at 44.1 and 48 kHz;
 - every sound sits in its band of the mix;
 - all 36 glyphs stay on the writing lines;
 - every set of cubes the colour tower can roll keeps its rules, over 2000 rolls a stage.
@@ -208,6 +214,12 @@ It also checks:
 - that a tap anywhere plays the whole tower or row, from the left and the bottom, each cube lit in
   turn over a band on the rug;
 - that the tower brings different colours the next time it comes out;
+- on the farm: that a piece from the tray joins its neighbours; that a joined field grows as one, is
+  harvested ripe and hides a rabbit among the carrots; that a field by water grows on its own; that
+  a pond grown to three tiles brings ducks; that a sheep's neighbour answers it; that pieces move,
+  swap, and go back to the tray; that the tractor drives the path, harvests the field beside it and
+  comes home; that the sun brings the night, when the cow jumps over the moon; and that the farm is
+  as it was left when it comes off the shelf again;
 - that leaving a toy stops its sounds;
 - that the grown-ups' gate needs a three-second hold;
 - that one toy's stage can be moved on by itself, and the shared stage clears it again;
@@ -243,15 +255,15 @@ playroom/
     start.js, shelf.js      the bud, and the shelf
     settings.js, parent.js  the grown-ups' corner
     toys/                   one file per toy; glyphs.js holds the letters and numerals, cubes.js
-                            the colour tower's sets
+                            the colour tower's sets, farmart.js the farm's pictures
   icons/                    generated by tools/icons.mjs
   test.mjs                  the suite
 ```
 
 ## Not yet done
 
-- **A garden.** Seeds, a watering can, flowers that open with a chime: the shelf's natural ninth
-  tray, and the bud's own story.
+- **A garden.** Seeds, a watering can, flowers that open with a chime, and the bud's own story. The
+  farm's fields and watering farmer now cover some of it.
 - **A drying line** for the easel, to keep the last few paintings.
 - **The movable alphabet**, the next step after the sandpaper letters, once a child is building
   words.

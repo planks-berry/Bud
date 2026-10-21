@@ -6,7 +6,7 @@ revised. The technical side (the old iPad, the audio engine, the tests) is in
 "toys".
 
 **Status, 21 October 2026.**
-- **Built:** eight games, tested in two simulated iPad browsers (one with everything Safari 12
+- **Built:** nine games, tested in two simulated iPad browsers (one with everything Safari 12
   lacks removed).
 - **Where:** branch `claude/montessori-playroom`. Not yet merged to `main`, so not yet at
   https://planks-berry.github.io/Bud/playroom/.
@@ -36,7 +36,7 @@ What was asked, and the answers that have shaped everything since.
 
 - **The bud.** The first screen is a closed bud. Touching it makes it bloom with a soft chord, then
   the shelf opens. It also starts the sound, which iOS allows only after a touch.
-- **The shelf.** Eight games on a low wooden shelf, one to a tray, in two rows. They are ordered
+- **The shelf.** Nine games on a low wooden shelf, one to a tray, in two rows. They are ordered
   simple to complex, left to right. There are no words anywhere: each tray is a picture of its game.
   Touching a tray opens the game, and the house button in the corner puts it back.
 - **Layers, found by playing, never unlocked.** Every game has three:
@@ -367,12 +367,80 @@ silent, so a finger that wanders off the letter knows it at once.
 **Ideas**
 -
 
+### 9. Farm
+
+**What it is:** a board of grass tiles and a tray of farm pieces to build with: paths, fields, a
+pond, buildings, animals and a tractor.
+
+**Roots:** Pok Pok's builder, not a Montessori material. It takes the builder's way of playing:
+pieces snap to tiles, join their neighbours, come alive when touched, and keep a few secrets.
+
+**Layers**
+- Touch: tap anything. Every piece answers, and tapped grass grows a flower.
+- Move: drag a piece from the tray onto a tile. Drag one on the board to move it; dropped on
+  another piece it swaps places, and dropped on the tray it goes back.
+- Make: a farm that joins up: paths for the tractor, fields beside water, a pond big enough for
+  ducks. The sun in the corner turns day to night and back.
+
+**Stages**
+- Seed: a 5 × 4 farm with 6 kinds of piece: path, field, pond, tree, cow, tractor.
+- Sprout: a 6 × 5 farm with 10 kinds: adds the fence, barn, hen house and sheep.
+- Bloom: a 7 × 5 farm with all 13 kinds: adds the farmhouse, windmill and pig.
+
+Each stage starts as a small farm, so there is something to tap straight away. Everything in it
+can be moved or put back.
+
+**Every piece: how it connects, what a tap does, what it hides**
+
+| Piece | Connects | A tap | Hidden |
+|---|---|---|---|
+| Path | Joins the paths beside it; the tractor drives along them | A puff of dust and a crunch | Sometimes a mouse darts out and runs along the path |
+| Field | Joins the fields beside it, and they grow as one; beside a pond it grows on its own; the windmill, the farmer and the tractor all work it | Grows a stage (seeds, sprouts, leaves, ripe), a rising ripple of notes across the field. Ripe, it is harvested, and the next crop is sown: carrots, pumpkins, sunflowers, cabbages | A rabbit among the carrots; sometimes a giant pumpkin, which rolls away at harvest |
+| Pond | Joins the ponds beside it; waters fields beside it; a cow beside it drinks, a pig beside it gets muddy | A ripple and a water drop, pitched by where it lands; the ducks swim over | A duck and two ducklings arrive when it grows to three tiles; a frog on a lily pad, who leaps off when touched; fireflies at night |
+| Fence | Joins the fences beside it | A bird lands on the post, or flies off | A snail on the rail, which hides in its shell when touched; at night, a sheep beside it jumps it |
+| Tree | Trees side by side are an orchard: shake one and its neighbours rustle | It shakes, and apples fall, a note each; they grow back | Sometimes a bird bursts out and flies to another tree |
+| Barn | At night the animals beside it walk in to sleep, and out again in the morning | The doors swing open and a cow looks out and moos | An owl in the hayloft at night, who hoots when touched; a cat on the roof by day, who meows and jumps down |
+| Farmhouse | Fields beside it get watered | The door opens, the farmer waves, the chimney puffs. Beside fields, the farmer walks out with a watering can and each one grows | A cat in the window by day; at night, a lullaby, and the lights go out |
+| Windmill | Fields around it grow a stage when it spins | The sails spin up and slowly wind down | Sometimes a bird rides a sail; a lit window at night |
+| Hen house | Beside a field, the hens go and peck at it | Two hens hop out, cluck, peck, and go back in | Sometimes an egg is left behind, which hatches a chick when touched; a rooster crows from the roof at dawn |
+| Cow | Cows side by side answer each other, a step higher each; beside a pond, it drinks | A moo | At night, it jumps over the moon |
+| Sheep | Sheep side by side answer each other | A baa and a hop | At night, beside a fence, it jumps it, each jump a note higher, until it falls asleep |
+| Pig | Pigs side by side answer each other; beside a pond, it is muddy | An oink and a wiggle; muddy, it shakes the mud off everywhere | Sometimes it rolls over; at night, a snore |
+| Tractor | Drives the whole path it stands beside, harvests ripe fields along the way, toots at the barn, and tips out its trailer back home | A toot, and off it goes; with no path, it putters on the spot | Sometimes the farm dog runs behind it |
+| Grass | – | A flower | Sometimes a butterfly |
+
+**Night:** the farm turns moonlit blue, the windows light, the animals sleep (the ones beside the
+barn go inside), fireflies come out over the water, and the owl wakes. The moon brings the
+morning, with a rooster if there is a hen house.
+
+**Sound:**
+- the animals are synthesised voices, pitched on the scale: the cow's moo is a C, the sheep's baa
+  an A, and a herd answering climbs the scale;
+- also the tractor's engine and horn, water drops, a marimba ripple as fields grow, and pops as
+  they are harvested;
+- a falling chord at dusk, and a rising one at dawn.
+
+**Decisions so far**
+- One piece to a tile. Dropped from the tray onto a piece, the new one takes the tile and the old
+  one flies back to the tray. Moved onto a piece on the board, the two swap. Dropped off the board,
+  a piece goes back where it was.
+- The farm stays as it was built while the playroom is open, as a painting stays on the easel.
+  Nothing is saved, so the playroom starts with a fresh farm each time it is opened.
+- No Montessori parallel, by choice.
+
+**Questions**
+- Should his farm be kept from one day to the next? It is his work rather than a record of him, but
+  it would be the first thing besides your settings that the playroom keeps.
+
+**Ideas**
+-
+
 ---
 
 ## Not built yet
 
-- **A garden:** seeds, a watering can, flowers that open with a chime. The shelf's natural ninth
-  tray, and the bud's own story.
+- **A garden:** seeds, a watering can, flowers that open with a chime, and the bud's own story.
+  The farm's fields and watering farmer now cover some of it.
 - **A drying line** for the easel (see the easel).
 - **The movable alphabet** (see the letters).
 

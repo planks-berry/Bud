@@ -211,6 +211,63 @@ function finish(out, sr, peak) {
     return trimmed;
 }
 
+// A voiced call: a buzzy source through a few formant band-passes, under an envelope. The source is
+// the harmonics of a gliding pitch, falling away as 1/k^tilt (a softened sawtooth), and stopping
+// below `bright` Hz so nothing aliases. The sines of the multiples come from the Chebyshev
+// recurrence, so each sample costs one sin and one cos and the rest is multiply-adds. Every animal
+// on the farm is this, from the cow to the duck: what differs is the pitch, its wobble, the
+// formants and the envelope.
+//
+//   pitch(t) -> Hz      env(t) -> 0..1      formants(t) -> [[Hz, Q, gain], ...]
+function addVoice(out, sr, len, pitch, env, formants, opts = {}) {
+    const tilt = opts.tilt === undefined ? 1 : opts.tilt;
+    const bright = opts.bright || 4000;
+    const breath = opts.breath || 0;
+    const next = rng(opts.seed || 41);
+    const weights = [];
+    for (let k = 1; k <= 48; k++) weights.push(1 / Math.pow(k, tilt));
+    let bank = formants(0);
+    const filters = bank.map(([f, q]) => new BandPass(sr, f, q));
+    const air = new OnePole(sr, opts.airCutoff || 3000);
+    const n = Math.min(out.length, Math.floor(len * sr));
+    let phase = 0;
+    for (let i = 0; i < n; i++) {
+        const t = i / sr;
+        if ((i & 31) === 0) {
+            bank = formants(t);
+            for (let j = 0; j < filters.length; j++) filters[j].set(bank[j][0], bank[j][1]);
+        }
+        const f0 = pitch(t);
+        phase += (TAU * f0) / sr;
+        if (phase > TAU) phase -= TAU;
+        const count = Math.max(1, Math.min(48, Math.floor(bright / f0)));
+        const c = 2 * Math.cos(phase);
+        let s0 = 0;
+        let s1 = Math.sin(phase);
+        let src = s1;
+        for (let k = 2; k <= count; k++) {
+            const s = c * s1 - s0;
+            s0 = s1;
+            s1 = s;
+            src += s * weights[k - 1];
+        }
+        if (breath) src += breath * air.lowpass(next() * 2 - 1) * 4;
+        let y = 0;
+        for (let j = 0; j < filters.length; j++) y += filters[j].process(src) * bank[j][2];
+        out[i] += y * env(t);
+    }
+}
+
+// An envelope that rises over `a` seconds, holds, and falls away over the last `r` of `len`.
+function swell(a, len, r) {
+    return (t) => Math.min(1, t / a) * Math.max(0, Math.min(1, (len - t) / r));
+}
+
+// A fixed set of formants, for calls whose vowel does not move.
+function vowel(bank) {
+    return () => bank;
+}
+
 //==============================================================================
 // Recipes
 //
@@ -505,14 +562,398 @@ export const recipes = {
         fadeIn(out, sr, 0.001);
         return finish(out, sr, 0.9);
     },
+
+    //--------------------------------------------------------------------------
+    // The farm's voices. Pitches sit on the scale (the cow's C3, the sheep's A3, the hen's A4), so
+    // a field of animals answering each other is still in tune with everything else.
+
+    // A cow: a closed-mouth hum that opens into a long "oo", rising and falling, with a slow wobble.
+    moo(sr, p) {
+        const f = p.f || noteHz(-5, 60);
+        const len = 1.05;
+        const out = makeBuffer(sr, len + 0.02);
+        const pitch = (t) => {
+            const contour =
+                t < 0.28
+                    ? 0.75 + 0.25 * Math.sin((Math.PI / 2) * (t / 0.28))
+                    : 1 - 0.16 * ((t - 0.28) / (len - 0.28));
+            return f * contour * (1 + 0.012 * Math.sin(TAU * 5 * t) * Math.min(1, t / 0.3));
+        };
+        const open = (t) => clamp((t - 0.08) / 0.25, 0, 1);
+        const formants = (t) => {
+            const k = open(t);
+            return [
+                [250 + 140 * k, 3.5, 1],
+                [600 + 220 * k, 5, 0.25 + 0.35 * k],
+                [2400, 6, 0.06 * k],
+            ];
+        };
+        addVoice(out, sr, len, pitch, swell(0.09, len, 0.4), formants, {
+            tilt: 1.1,
+            bright: 2600,
+            breath: 0.02,
+            seed: 42,
+        });
+        fadeIn(out, sr, 0.004);
+        return finish(out, sr, 0.8);
+    },
+
+    // A sheep: a nasal "baa" with the quaver that makes it a sheep and not a goat-shaped trumpet.
+    baa(sr, p) {
+        const f = p.f || noteHz(-2, 60);
+        const len = 0.72;
+        const out = makeBuffer(sr, len + 0.02);
+        const quaver = (t) => Math.sin(TAU * 7.5 * t) * Math.min(1, t / 0.12);
+        const pitch = (t) =>
+            f *
+            (0.92 + 0.08 * Math.min(1, t / 0.05) - 0.1 * Math.max(0, (t - 0.45) / 0.27)) *
+            (1 + 0.035 * quaver(t));
+        const env = (t) => swell(0.03, len, 0.22)(t) * (1 - 0.32 * (0.5 + 0.5 * quaver(t)));
+        const formants = (t) => {
+            const k = clamp(t / 0.04, 0, 1);
+            return [
+                [300 + 500 * k, 4, 1],
+                [1250, 6, 0.6 * k],
+                [2600, 8, 0.2 * k],
+                [280, 4, 0.3],
+            ];
+        };
+        addVoice(out, sr, len, pitch, env, formants, { tilt: 0.9, bright: 4000, breath: 0.03, seed: 43 });
+        fadeIn(out, sr, 0.003);
+        return finish(out, sr, 0.8);
+    },
+
+    // A pig: a short snort into a nasal grunt, the pitch jittering cycle to cycle.
+    oink(sr, p) {
+        const f = p.f || noteHz(-4, 60);
+        const next = rng(p.seed || 44);
+        const len = 0.32;
+        const out = makeBuffer(sr, len + 0.02);
+        const wobble = new OnePole(sr, 40);
+        const pitch = (t) => {
+            const contour = t < 0.08 ? 0.9 + 0.25 * (t / 0.08) : 1.15 - 0.32 * ((t - 0.08) / (len - 0.08));
+            return f * contour * (1 + 0.6 * wobble.lowpass(next() * 2 - 1));
+        };
+        addVoice(
+            out,
+            sr,
+            len,
+            pitch,
+            swell(0.015, len, 0.16),
+            vowel([
+                [350, 3, 1],
+                [1000, 4, 0.5],
+                [2200, 5, 0.12],
+            ]),
+            {
+                tilt: 0.8,
+                bright: 4500,
+                breath: 0.05,
+                seed: 45,
+            }
+        );
+        const snort = new BandPass(sr, 850, 1.2);
+        addBurst(out, sr, next, 0.05, 0.12, (x) => snort.process(x), 0, 1.5);
+        fadeIn(out, sr, 0.002);
+        return finish(out, sr, 0.8);
+    },
+
+    // A hen: three quick "bok"s, the last a little longer and lower.
+    cluck(sr, p) {
+        const f = p.f || noteHz(4, 60);
+        const out = makeBuffer(sr, 0.4);
+        const syllables = [
+            [0, 0.07, 1],
+            [0.12, 0.07, 1.02],
+            [0.23, 0.11, 0.9],
+        ];
+        for (const [at, len, lift] of syllables) {
+            const part = makeBuffer(sr, len + 0.01);
+            const pitch = (t) => f * lift * (1.12 - 0.27 * (t / len));
+            const env = (t) => Math.min(1, t / 0.005) * Math.exp(-t / (len * 0.45));
+            addVoice(
+                part,
+                sr,
+                len,
+                pitch,
+                env,
+                vowel([
+                    [900, 4, 1],
+                    [1700, 5, 0.5],
+                    [3000, 6, 0.1],
+                ]),
+                {
+                    tilt: 0.85,
+                    bright: 6000,
+                    breath: 0.03,
+                    seed: 46,
+                }
+            );
+            fadeOut(part, sr, 0.004);
+            const start = Math.floor(at * sr);
+            for (let i = 0; i < part.length && start + i < out.length; i++) out[start + i] += part[i];
+        }
+        fadeIn(out, sr, 0.001);
+        return finish(out, sr, 0.8);
+    },
+
+    // A duck: nasal, buzzy and short.
+    quack(sr, p) {
+        const f = p.f || noteHz(1, 60);
+        const len = 0.22;
+        const out = makeBuffer(sr, len + 0.02);
+        const pitch = (t) => f * (1.05 - 0.2 * (t / len));
+        addVoice(
+            out,
+            sr,
+            len,
+            pitch,
+            swell(0.012, len, 0.1),
+            vowel([
+                [1100, 6, 1],
+                [2500, 8, 0.6],
+                [600, 4, 0.3],
+            ]),
+            {
+                tilt: 0.7,
+                bright: 7000,
+                breath: 0.06,
+                seed: 47,
+            }
+        );
+        fadeIn(out, sr, 0.002);
+        return finish(out, sr, 0.75);
+    },
+
+    // A frog: two creaky bursts, "rib" and "bit", the second a little higher.
+    ribbit(sr, p) {
+        const f = p.f || noteHz(-2, 60);
+        const out = makeBuffer(sr, 0.3);
+        for (const [at, len, lift] of [
+            [0, 0.1, 1],
+            [0.15, 0.09, 1.12],
+        ]) {
+            const part = makeBuffer(sr, len + 0.01);
+            const env = (t) =>
+                swell(0.006, len, 0.03)(t) * (0.35 + 0.65 * Math.pow(0.5 + 0.5 * Math.sin(TAU * 38 * t), 2));
+            addVoice(
+                part,
+                sr,
+                len,
+                () => f * lift,
+                env,
+                vowel([
+                    [900, 3, 1],
+                    [1800, 4, 0.4],
+                ]),
+                { tilt: 0.8, bright: 5000, seed: 48 }
+            );
+            fadeOut(part, sr, 0.004);
+            const start = Math.floor(at * sr);
+            for (let i = 0; i < part.length && start + i < out.length; i++) out[start + i] += part[i];
+        }
+        fadeIn(out, sr, 0.001);
+        return finish(out, sr, 0.75);
+    },
+
+    // An owl: two soft, breathy hoots, falling a step.
+    hoot(sr, p) {
+        const f = p.f || noteHz(2, 60);
+        const out = makeBuffer(sr, 0.82);
+        for (const [at, lift] of [
+            [0, 1],
+            [0.42, noteHz(1, 60) / noteHz(2, 60)],
+        ]) {
+            const len = 0.32;
+            const part = makeBuffer(sr, len + 0.01);
+            const pitch = (t) => f * lift * (1.02 - 0.04 * (t / len));
+            addVoice(
+                part,
+                sr,
+                len,
+                pitch,
+                swell(0.07, len, 0.16),
+                vowel([
+                    [420, 2, 1],
+                    [850, 3, 0.15],
+                ]),
+                {
+                    tilt: 2.6,
+                    bright: 1500,
+                    breath: 0.05,
+                    airCutoff: 1200,
+                    seed: 49,
+                }
+            );
+            fadeOut(part, sr, 0.004);
+            const start = Math.floor(at * sr);
+            for (let i = 0; i < part.length && start + i < out.length; i++) out[start + i] += part[i];
+        }
+        fadeIn(out, sr, 0.003);
+        return finish(out, sr, 0.75);
+    },
+
+    // A small bird: three quick rising chirps, or for a chick, one falling peep.
+    chirp(sr, p) {
+        const f = p.f || noteHz(2, 96);
+        const peep = p.variant === 'peep';
+        const out = makeBuffer(sr, peep ? 0.14 : 0.3);
+        const marks = peep
+            ? [[0, 0.1]]
+            : [
+                  [0, 0.05],
+                  [0.09, 0.05],
+                  [0.18, 0.06],
+              ];
+        for (const [at, len] of marks) {
+            const n0 = Math.floor(at * sr);
+            let phase = 0;
+            for (let n = n0; n < out.length && n < n0 + len * sr; n++) {
+                const x = (n - n0) / sr / len;
+                const freq = peep ? f * (1.1 - 0.25 * x) : f * (0.8 + 0.45 * x);
+                phase += (TAU * freq) / sr;
+                out[n] += Math.sin(phase) * hump(x) * (1 + 0.2 * Math.sin(phase * 2));
+            }
+        }
+        return finish(out, sr, 0.5);
+    },
+
+    // One beat of a small tractor's engine: a low thump and a puff.
+    putt(sr, p) {
+        const next = rng(p.seed || 50);
+        const out = makeBuffer(sr, 0.12);
+        addSweep(out, sr, 120, 70, 0.012, 1, 0.035);
+        const puff = new OnePole(sr, 600);
+        addBurst(out, sr, next, 0.02, 0.5, (x) => puff.lowpass(x));
+        fadeIn(out, sr, 0.001);
+        return finish(out, sr, 0.8);
+    },
+
+    // A toy horn: a reedy note with a little scoop up into it.
+    toot(sr, p) {
+        const f = p.f || noteHz(3, 60);
+        const len = 0.3;
+        const out = makeBuffer(sr, len + 0.02);
+        const pitch = (t) => f * (1 - 0.03 * Math.exp(-t / 0.02));
+        addVoice(
+            out,
+            sr,
+            len,
+            pitch,
+            swell(0.015, len, 0.08),
+            vowel([
+                [f * 2, 1.5, 1],
+                [f * 4, 2.5, 0.35],
+            ]),
+            {
+                tilt: 1.1,
+                bright: 3200,
+                seed: 51,
+            }
+        );
+        fadeIn(out, sr, 0.002);
+        return finish(out, sr, 0.75);
+    },
+
+    // A rooster, sung rather than shrieked: cock-a-doodle-doo on five notes of the scale.
+    crow(sr, p) {
+        const base = p.f || noteHz(3, 60);
+        const notes = [
+            [0, 0.09, 1],
+            [0.12, 0.07, noteHz(4, 60) / noteHz(3, 60)],
+            [0.22, 0.11, noteHz(5, 60) / noteHz(3, 60)],
+            [0.36, 0.08, noteHz(4, 60) / noteHz(3, 60)],
+            [0.47, 0.5, noteHz(7, 60) / noteHz(3, 60)],
+        ];
+        const out = makeBuffer(sr, 1.02);
+        for (const [at, len, lift] of notes) {
+            const part = makeBuffer(sr, len + 0.01);
+            const last = len > 0.3;
+            const pitch = (t) => base * lift * (last ? 1 - 0.18 * Math.max(0, (t - 0.15) / (len - 0.15)) : 1);
+            addVoice(
+                part,
+                sr,
+                len,
+                pitch,
+                swell(0.012, len, last ? 0.25 : 0.03),
+                vowel([
+                    [1000, 4, 1],
+                    [2200, 5, 0.5],
+                ]),
+                {
+                    tilt: 0.8,
+                    bright: 6000,
+                    breath: 0.04,
+                    seed: 52,
+                }
+            );
+            fadeOut(part, sr, 0.004);
+            const start = Math.floor(at * sr);
+            for (let i = 0; i < part.length && start + i < out.length; i++) out[start + i] += part[i];
+        }
+        fadeIn(out, sr, 0.001);
+        return finish(out, sr, 0.75);
+    },
+
+    // A cat: "mee-ow", the vowel opening as the pitch rises and falls.
+    meow(sr, p) {
+        const f = p.f || noteHz(5, 60);
+        const len = 0.6;
+        const out = makeBuffer(sr, len + 0.02);
+        const pitch = (t) => f * (t < 0.2 ? 0.8 + 0.3 * (t / 0.2) : 1.1 - 0.25 * ((t - 0.2) / (len - 0.2)));
+        const formants = (t) => {
+            const k = clamp((t - 0.12) / 0.3, 0, 1);
+            return [
+                [350 + 400 * k, 4, 1],
+                [2200 - 1200 * k, 6, 0.6],
+                [3000, 8, 0.1],
+            ];
+        };
+        addVoice(out, sr, len, pitch, swell(0.04, len, 0.2), formants, {
+            tilt: 1,
+            bright: 6000,
+            breath: 0.02,
+            seed: 53,
+        });
+        fadeIn(out, sr, 0.003);
+        return finish(out, sr, 0.75);
+    },
+
+    // A dog: one soft, round woof.
+    woof(sr, p) {
+        const f = p.f || noteHz(-2, 60);
+        const len = 0.17;
+        const out = makeBuffer(sr, len + 0.02);
+        const pitch = (t) => f * (1.1 - 0.3 * (t / len));
+        addVoice(
+            out,
+            sr,
+            len,
+            pitch,
+            swell(0.008, len, 0.1),
+            vowel([
+                [500, 3, 1],
+                [1200, 4, 0.5],
+            ]),
+            {
+                tilt: 0.9,
+                bright: 4000,
+                breath: 0.12,
+                airCutoff: 1500,
+                seed: 54,
+            }
+        );
+        fadeIn(out, sr, 0.002);
+        return finish(out, sr, 0.8);
+    },
 };
 
 // The mix: each recipe's level at a relative gain of 1. Toys say only what they mean (1 for the
 // usual, less for a soft variant, an impact's strength for a landing) and the balance between
 // a bell, a switch and a zip lives here. Set from a loudness estimate of each sound (RMS of its
 // loudest 100 ms, with the extremes of the spectrum discounted, as the ear does), and held to it by
-// test.mjs: musical notes near -17 dB, foley near -21, air and paper near -24, single zip teeth,
-// which come in streams, near -27.
+// test.mjs: musical notes near -17 dB, animal voices near -19, foley near -21, air and paper near
+// -24, and the sounds that come in streams (single zip teeth, a tractor's engine beats) near -27.
 export const MIX = {
     marimba: 0.39,
     glock: 0.36,
@@ -534,6 +975,19 @@ export const MIX = {
     creak: 0.72,
     latch: 0.51,
     pat: 0.56,
+    moo: 0.47,
+    baa: 0.57,
+    oink: 0.34,
+    cluck: 0.78,
+    quack: 0.45,
+    ribbit: 0.83,
+    hoot: 0.24,
+    chirp: 0.44,
+    putt: 0.37,
+    toot: 0.4,
+    crow: 0.4,
+    meow: 0.27,
+    woof: 0.44,
 };
 
 export function render(name, sr, params = {}) {
