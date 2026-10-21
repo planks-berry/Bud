@@ -515,6 +515,17 @@ const TEXTURES = {
     // Liquid falling into a vessel. `pitch` steers the band-pass, which is the air column above
     // the liquid ringing: it rises as the vessel fills, the way a filling bottle's note does.
     pour: { source: 'white', filters: [['lowpass', 1600, 0.7]], resonant: true, level: 0.32, wet: 0.2 },
+    // Sand and gravel on the move: poured from a bucket, pushed by a blade. The sandpaper's grains,
+    // lower and fuller.
+    grit: {
+        source: 'sand',
+        filters: [
+            ['bandpass', 1500, 0.6],
+            ['lowpass', 3600, 0.7],
+        ],
+        level: 0.5,
+        wet: 0.15,
+    },
 };
 
 export class Texture {
@@ -685,6 +696,100 @@ export class Whistle {
             nodes.pitch2.dispose();
             nodes.depth.disconnect();
             nodes.octaveGain.disconnect();
+            nodes.amp.disconnect();
+            nodes.out.disconnect();
+        }, 250);
+    }
+}
+
+// A machine's motor: a buzzy tone and a soft one an octave down, through a low-pass, with pitch and
+// level following controls. A toy steps the pitch along the scale as the machine moves, and the
+// control's smoothing makes each step a short glide, so a lifting arm or a winding winch sings
+// rather than whines.
+const MOTORS = {
+    // A digger's hydraulics: higher and smoother.
+    hydraulic: { cutoff: 1300, q: 1.1, sub: 0.45, level: 0.11, wet: 0.14 },
+    // A crane's winch: lower, with more buzz in it.
+    winch: { cutoff: 850, q: 2.2, sub: 0.6, level: 0.13, wet: 0.14 },
+};
+
+export class Motor {
+    constructor(kind) {
+        this.kind = kind;
+        this.nodes = null;
+        state.textures.add(this);
+    }
+
+    build() {
+        const ctx = state.ctx;
+        const spec = MOTORS[this.kind];
+        const out = ctx.createGain();
+        out.gain.value = spec.level;
+        out.connect(nearestBus(0));
+        const send = nearestSend(spec.wet);
+        if (send) out.connect(send);
+        const amp = ctx.createGain();
+        const level = new Control(ctx, amp.gain, 0, 25);
+        amp.connect(out);
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = spec.cutoff;
+        filter.Q.value = spec.q;
+        filter.connect(amp);
+
+        const tone = ctx.createOscillator();
+        tone.type = 'sawtooth';
+        const under = ctx.createOscillator();
+        under.type = 'triangle';
+        const underGain = ctx.createGain();
+        underGain.gain.value = spec.sub;
+        const pitch = new Control(ctx, tone.frequency, 220, 14);
+        const pitch2 = new Control(ctx, under.frequency, 110, 14);
+        tone.connect(filter);
+        under.connect(underGain);
+        underGain.connect(filter);
+        tone.start(0);
+        under.start(0);
+        this.nodes = { out, amp, level, filter, tone, under, underGain, pitch, pitch2 };
+    }
+
+    // Level 0..1 and a pitch in Hz.
+    set(level, frequency) {
+        if (!ready()) return;
+        if (!this.nodes) {
+            if (level <= 0.001) return;
+            this.build();
+        }
+        this.nodes.level.set(clamp(level, 0, 1));
+        this.nodes.pitch.set(frequency);
+        this.nodes.pitch2.set(frequency / 2);
+    }
+
+    silence() {
+        if (this.nodes) this.nodes.level.set(0);
+    }
+
+    stop() {
+        state.textures.delete(this);
+        const nodes = this.nodes;
+        this.nodes = null;
+        if (!nodes) return;
+        nodes.level.set(0);
+        setTimeout(() => {
+            for (const osc of [nodes.tone, nodes.under]) {
+                try {
+                    osc.stop(0);
+                } catch (error) {
+                    /* already stopped */
+                }
+                osc.disconnect();
+            }
+            nodes.level.dispose();
+            nodes.pitch.dispose();
+            nodes.pitch2.dispose();
+            nodes.underGain.disconnect();
+            nodes.filter.disconnect();
             nodes.amp.disconnect();
             nodes.out.disconnect();
         }, 250);

@@ -11,7 +11,7 @@ name: Publish web build
 
 on:
   push:
-    branches: [main, claude/sonicware-deconstruct-emulation-c91vb8]
+    branches: [main]
   workflow_dispatch:
 
 permissions:

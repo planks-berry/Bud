@@ -183,6 +183,13 @@ const PARAMS = {
     crow: [{}],
     meow: [{ f: noteHz(5, 60) }],
     woof: [{ f: noteHz(-2, 60) }],
+    beep: [{ f: noteHz(4, 72) }, { f: noteHz(2, 72) }],
+    clank: [{ f: noteHz(0, 60) }, { f: noteHz(9, 60) }, { f: noteHz(-3, 60) }],
+    rumble: [{}, { variant: 'short' }],
+    rattle: [{}],
+    crunch: [{}, { seed: 3 }],
+    hiss: [{}],
+    slosh: [{}],
 };
 
 const recipeFaults = [];
@@ -260,7 +267,7 @@ function loudness(samples, sr) {
 }
 
 const BANDS = [
-    ['notes', [-19.5, -14.5], ['marimba', 'glock', 'chime', 'musicBox', 'drop', 'wood']],
+    ['notes', [-19.5, -14.5], ['marimba', 'glock', 'chime', 'musicBox', 'drop', 'wood', 'clank']],
     [
         'voices',
         [-21.5, -16.5],
@@ -269,9 +276,24 @@ const BANDS = [
     [
         'foley',
         [-24, -18.5],
-        ['click', 'tick', 'pop', 'thud', 'tink', 'squeak', 'gulp', 'creak', 'latch', 'pat', 'chirp'],
+        [
+            'click',
+            'tick',
+            'pop',
+            'thud',
+            'tink',
+            'squeak',
+            'gulp',
+            'creak',
+            'latch',
+            'pat',
+            'chirp',
+            'beep',
+            'rattle',
+            'crunch',
+        ],
     ],
-    ['air', [-27, -21.5], ['bubble', 'rustle', 'whoosh']],
+    ['air', [-27, -21.5], ['bubble', 'rustle', 'whoosh', 'rumble', 'hiss', 'slosh']],
     ['streams', [-30, -24.5], ['zip', 'putt']],
 ];
 const mixFaults = [];
@@ -540,7 +562,7 @@ async function suite(mode) {
     await page.waitForTimeout(1800);
     check('then the shelf', (await sceneName()) === 'ShelfScene');
     const trays = await scene(() => window.playroom.shelf.items.map((item) => item.toy.id));
-    check('nine trays on the shelf', trays.length === 9, trays.join(' '));
+    check('twelve trays on the shelf', trays.length === 12, trays.join(' '));
     await shot('shelf');
 
     // A still shelf draws nothing: an iPad left on the playroom stays cool.
@@ -1207,6 +1229,27 @@ async function suite(mode) {
     );
     await home();
 
+    // ---- dig -----------------------------------------------------------------------------------
+
+    await open('dig');
+    check('the dig opens', (await sceneName()) === 'DigScene');
+    await shot('dig');
+    check('home from the dig', (await home()) === 'ShelfScene');
+
+    // ---- crane ---------------------------------------------------------------------------------
+
+    await open('crane');
+    check('the crane opens', (await sceneName()) === 'CraneScene');
+    await shot('crane');
+    check('home from the crane', (await home()) === 'ShelfScene');
+
+    // ---- building site ---------------------------------------------------------------------------
+
+    await open('site');
+    check('the building site opens', (await sceneName()) === 'SiteScene');
+    await shot('site');
+    check('home from the building site', (await home()) === 'ShelfScene');
+
     // ---- the grown-up's corner ------------------------------------------------------------------
 
     const gate = await page.evaluate(() => {
@@ -1262,9 +1305,9 @@ async function suite(mode) {
     );
 
     await page.click('[data-toy="busy"] .switch');
-    check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 8);
+    check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 11);
     await page.click('[data-toy="busy"] .switch');
-    check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 9);
+    check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 12);
     await shot('parent-toys');
     await page.click('[data-close]');
     check('Done closes the settings', await page.evaluate(() => document.getElementById('parent').hidden));

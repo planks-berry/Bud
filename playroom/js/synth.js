@@ -946,14 +946,139 @@ export const recipes = {
         fadeIn(out, sr, 0.002);
         return finish(out, sr, 0.8);
     },
+
+    //--------------------------------------------------------------------------
+    // The building site. Machines are big and loud in life; these are small and friendly, and
+    // everything that has a pitch is on the scale, so a beeping truck and a clanking beam are in
+    // tune with the marimba.
+
+    // A reversing beeper, softened: a round tone with a little square-wave edge.
+    beep(sr, p) {
+        const f = p.f || noteHz(4, 72);
+        const len = 0.19;
+        const out = makeBuffer(sr, len + 0.01);
+        const env = swell(0.008, len, 0.05);
+        let phase = 0;
+        for (let n = 0; n < out.length; n++) {
+            phase += (TAU * f) / sr;
+            const tone = Math.sin(phase) + 0.12 * Math.sin(3 * phase) + 0.04 * Math.sin(5 * phase);
+            out[n] = tone * env(n / sr);
+        }
+        return finish(out, sr, 0.6);
+    },
+
+    // A steel beam set down: the inharmonic ring of a free bar, two of its modes a hair apart so it
+    // shimmers, over the thump of its weight. Pitched, so a building going up rings up the scale.
+    clank(sr, p) {
+        const f = p.f || noteHz(0, 60);
+        const next = rng(p.seed || 55);
+        const tau = clamp(0.32 * Math.pow(262 / f, 0.4), 0.14, 0.55);
+        const out = makeBuffer(sr, tau * 5 + 0.05);
+        addMode(out, sr, f, 0.8, tau);
+        addMode(out, sr, f * 1.004, 0.3, tau * 0.8, 0, 0.7);
+        addMode(out, sr, f * 2.756, 0.4, tau * 0.45);
+        addMode(out, sr, f * 5.404, 0.2, tau * 0.2);
+        addMode(out, sr, f * 8.933, 0.08, tau * 0.1);
+        const contact = new OnePole(sr, 3800);
+        addBurst(out, sr, next, 0.003, 0.45, (x) => contact.highpass(x));
+        addSweep(out, sr, 150, 75, 0.02, 0.45, 0.06);
+        fadeIn(out, sr, 0.0004);
+        return finish(out, sr, 0.8);
+    },
+
+    // A load of sand or gravel sliding off a tipped bed: low noise that swells and dies away, with
+    // grains pattering through it. 'short' for a bucketful.
+    rumble(sr, p) {
+        const next = rng(p.seed || 56);
+        const len = p.variant === 'short' ? 0.5 : 0.95;
+        const out = makeBuffer(sr, len);
+        const a = new OnePole(sr, 420);
+        const b = new OnePole(sr, 420);
+        for (let n = 0; n < out.length; n++) {
+            const x = n / out.length;
+            const env = Math.min(1, x / 0.12) * Math.pow(1 - x, 1.4);
+            out[n] = b.lowpass(a.lowpass(next() * 2 - 1)) * env * 3;
+        }
+        const band = new BandPass(sr, 2100, 0.8);
+        const grains = Math.floor(len * 140);
+        for (let g = 0; g < grains; g++) {
+            const at = Math.pow(next(), 1.3) * len * 0.85;
+            const amp = (0.08 + next() * 0.14) * (1 - at / len);
+            addBurst(out, sr, next, 0.0012, amp, (x) => band.process(x), at, 1);
+        }
+        fadeIn(out, sr, 0.01);
+        return finish(out, sr, 0.7);
+    },
+
+    // A chain running over a pulley: a quick, slightly uneven train of small metal ticks.
+    rattle(sr, p) {
+        const next = rng(p.seed || 57);
+        const len = 0.42;
+        const out = makeBuffer(sr, len);
+        for (let t = 0.004; t < len - 0.03; t += 0.026 + next() * 0.012) {
+            const k = 1 - 0.5 * (t / len);
+            addMode(out, sr, 3000 + next() * 900, 0.5 * k, 0.004, t);
+            addMode(out, sr, 1650 + next() * 300, 0.25 * k, 0.006, t);
+        }
+        fadeIn(out, sr, 0.001);
+        return finish(out, sr, 0.7);
+    },
+
+    // Teeth biting into gravel: a dull crunch under a crackle of grains.
+    crunch(sr, p) {
+        const next = rng(p.seed || 58);
+        const len = 0.24;
+        const out = makeBuffer(sr, len);
+        const body = new OnePole(sr, 900);
+        addBurst(out, sr, next, 0.07, 1.3, (x) => body.lowpass(x), 0, 2);
+        const band = new BandPass(sr, 2400, 0.9);
+        for (let g = 0; g < 38; g++) {
+            const at = Math.pow(next(), 1.6) * len * 0.8;
+            const amp = (0.25 + next() * 0.45) * (1 - at / len);
+            addBurst(out, sr, next, 0.0012, amp, (x) => band.process(x), at, 1);
+        }
+        fadeIn(out, sr, 0.001);
+        return finish(out, sr, 0.85);
+    },
+
+    // Air let out of a brake or a ram: a soft "psst".
+    hiss(sr, p) {
+        const next = rng(p.seed || 59);
+        const len = 0.34;
+        const out = makeBuffer(sr, len);
+        const band = new BandPass(sr, 5000, 0.7);
+        for (let n = 0; n < out.length; n++) {
+            const x = n / out.length;
+            out[n] = band.process(next() * 2 - 1) * Math.min(1, x * 10) * Math.pow(1 - x, 1.6);
+        }
+        fadeIn(out, sr, 0.004);
+        return finish(out, sr, 0.35);
+    },
+
+    // Wet concrete turning over in a mixer's drum: a thick, slow slop with a gulp in it.
+    slosh(sr, p) {
+        const next = rng(p.seed || 60);
+        const len = 0.46;
+        const out = makeBuffer(sr, len);
+        const low = new OnePole(sr, 520);
+        for (let n = 0; n < out.length; n++) {
+            const x = n / out.length;
+            out[n] = low.lowpass(next() * 2 - 1) * Math.pow(hump(x), 1.5) * 2.2;
+        }
+        addSweep(out, sr, 105, 165, 0.06, 0.55, 0.11, 0.06);
+        fadeIn(out, sr, 0.004);
+        return finish(out, sr, 0.7);
+    },
 };
 
 // The mix: each recipe's level at a relative gain of 1. Toys say only what they mean (1 for the
 // usual, less for a soft variant, an impact's strength for a landing) and the balance between
 // a bell, a switch and a zip lives here. Set from a loudness estimate of each sound (RMS of its
 // loudest 100 ms, with the extremes of the spectrum discounted, as the ear does), and held to it by
-// test.mjs: musical notes near -17 dB, animal voices near -19, foley near -21, air and paper near
-// -24, and the sounds that come in streams (single zip teeth, a tractor's engine beats) near -27.
+// test.mjs: musical notes (and a beam's clank) near -17 dB, animal voices near -19, foley (a
+// reversing beep, a chain, a crunch) near -21, air and paper (a load sliding out, wet concrete, a
+// brake's hiss) near -24, and the sounds that come in streams (single zip teeth, a tractor's engine
+// beats) near -27.
 export const MIX = {
     marimba: 0.39,
     glock: 0.36,
@@ -988,6 +1113,13 @@ export const MIX = {
     crow: 0.4,
     meow: 0.27,
     woof: 0.44,
+    beep: 0.2,
+    clank: 0.6,
+    rumble: 0.39,
+    rattle: 0.87,
+    crunch: 0.85,
+    hiss: 0.93,
+    slosh: 0.36,
 };
 
 export function render(name, sr, params = {}) {
