@@ -52,6 +52,8 @@ the child does: no reports, no history, nothing sent anywhere.
 Eight toys, ordered as a Montessori shelf is: simple to complex, left to right, top to bottom. The
 first row asks for nothing but a touch. The second asks for a steadier hand, and then for symbols.
 
+Each toy also has its own section, written to be revised, in [PLAYROOM-GAMES.md](PLAYROOM-GAMES.md).
+
 Every toy has three layers, which are found by playing, never unlocked:
 
 - **touch**: something happens at the first contact, always;
