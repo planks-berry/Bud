@@ -594,7 +594,8 @@ secrets.
 - Seed: a table of 5 × 4 tiles, 6 kinds of piece: road, plot, digger, truck, mixer, crane.
   Buildings go up to 3 floors.
 - Sprout: 6 × 5, 9 kinds: adds the pile, the cones and the foreman's hut. Up to 4 floors.
-- Bloom: 7 × 5, all 12 kinds: adds the roller, the bulldozer and the work lamp. Up to 5 floors.
+- Bloom: 7 × 5, all 12 kinds: adds the roller, the bulldozer and the work lamp. Up to 4 floors, as
+  at Sprout.
 
 Each stage starts as a small site with the work half done (a plot marked, a hole dug, a building
 begun), so there is something to tap straight away.
@@ -635,6 +636,10 @@ his whistle.
 - In three dimensions: a building is stacked floors with windows on its walls, a dug plot is a
   real hole in the island, and the crane's jib swings round to face whichever building it works
   on, its mast climbing as the building rises.
+- Buildings stop at four floors, at Bloom as at Sprout. ("Limit the building height to 4, so not
+  blocking anything. Minimal navigation interactions are best for his stage.") Four floors still
+  cover most of a small piece on the tile diagonally behind; the view does not turn and nothing
+  goes see-through.
 - A fresh site every time it comes off the shelf, and hidden things certain, as on the farm.
 - The whistle lets one tap show the whole chain of work.
 

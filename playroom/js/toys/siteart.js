@@ -43,7 +43,6 @@ export const FLOORS = [
     { wall: '#F6E1A3', deep: '#E9CB7A', degree: 2 },
     { wall: '#C2DEB5', deep: '#A3C894', degree: 3 },
     { wall: '#B7D3EC', deep: '#97BCE0', degree: 4 },
-    { wall: '#D6C6EC', deep: '#BCA7DE', degree: 5 },
 ];
 
 //==============================================================================

@@ -113,7 +113,7 @@ const PLANS = [
             'lamp',
         ],
         start: ['LZPPDTY', 'RRRRRRR', 'MHH.CBB', 'KK.O.J ', '       '],
-        floors: 5,
+        floors: 4,
     },
 ];
 
