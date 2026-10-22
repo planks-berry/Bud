@@ -221,7 +221,7 @@ In Node:
 - every module parses as ES2017;
 - no API or CSS newer than Safari 12;
 - the offline copy is complete;
-- all 140 recipe variants render finite, unclipped, click-free and DC-free at 44.1 and 48 kHz;
+- all 148 recipe variants render finite, unclipped, click-free and DC-free at 44.1 and 48 kHz;
 - every sound sits in its band of the mix;
 - all 36 glyphs stay on the writing lines;
 - every sound the toys ask for with fixed parameters renders, so none is missing one it needs;
