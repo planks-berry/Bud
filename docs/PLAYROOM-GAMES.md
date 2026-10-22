@@ -494,6 +494,9 @@ down its own hole, and the car beeps and rolls. Sand poured over a find buries i
 
 **Decisions so far**
 - The bucket digs only while a finger drives it: left resting in the sand, it waits.
+- The digger is a backhoe, like the site's: its bucket faces the cab, digs teeth down, curls to
+  carry and opens out to pour, the arm drawing back as it opens so the load lands where the finger
+  let it go. ("All of the excavator sprites have the bucket backwards.")
 - A fresh sandpit every time it comes off the shelf, and the first find certain, as on the farm.
 - No night here, unlike the crane, the farm and the site.
 

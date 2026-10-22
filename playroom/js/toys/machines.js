@@ -272,12 +272,13 @@ function cab(ctx, x0, y0, x1, y1, o) {
 
 //------------------------------------------------------------------------------
 // The digger: a tracked excavator, its arm a boom from the front of the house, a stick from the
-// boom's end, and a bucket at the stick's end.
+// boom's end, and a bucket at the stick's end. The bucket is a backhoe's: its mouth and teeth face
+// back towards the cab, so it digs by pulling in, and empties by opening out, away from the cab.
 //
 //   boom, stick   the angles of the boom and the stick, in the digger's own frame: 0 is level and
 //                 pointing forwards, positive turns downwards. diggerSolve() finds them for a point.
 //   bucket        the bucket's angle: 0 holds its load with the opening up, about 1 is digging,
-//                 teeth first, and 2.2 is tipped right over, pouring.
+//                 teeth down and towards the cab, and 2.2 is opened right out, pouring.
 //   load          0..1, how full the bucket is, heaped in `loadColour`.
 //   travel        how far the tracks have crawled, so the treads crawl with them.
 //   reach         a longer or shorter arm (1 is the usual).
@@ -296,9 +297,12 @@ export const DIGGER = {
     house: [-0.44, 0.2, -0.7, -0.17],
 };
 
+// A point of the bucket, from the wrist: (lx, ly) in the bucket's own terms, lx from the hinge
+// towards the teeth and ly down into the cup, turned to the bucket's angle and faced back towards
+// the cab.
 function bucketPoint(o, lx, ly) {
     const b = o.bucket || 0;
-    return [lx * Math.cos(b) - ly * Math.sin(b), lx * Math.sin(b) + ly * Math.cos(b)];
+    return [-(lx * Math.cos(b) - ly * Math.sin(b)), lx * Math.sin(b) + ly * Math.cos(b)];
 }
 
 function armPoints(o) {
@@ -416,9 +420,11 @@ export function digger(ctx, cx, by, k, o = {}) {
         pin(ctx, a.px, a.py, 0.028);
         pin(ctx, a.ex, a.ey, 0.026);
 
-        // The bucket: a cup hung at the wrist, its load heaped over the lip.
+        // The bucket: a cup hung at the wrist, its load heaped over the lip, drawn in its own terms
+        // (as bucketPoint), facing the cab.
         ctx.save();
         ctx.translate(a.wx, a.wy);
+        ctx.scale(-1, 1);
         ctx.rotate(o.bucket || 0);
         const bw = DIGGER.bucketW;
         const bd = DIGGER.bucketD;

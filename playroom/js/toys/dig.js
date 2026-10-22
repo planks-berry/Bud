@@ -580,12 +580,12 @@ class DigScene extends Scene {
             const ax = clamp(d.aim.x, 0, this.w);
             const ay = clamp(d.aim.y, 70 * u, this.floor - DIGGER.bucketD * k * 0.55);
             const local = toLocal(d.x, d.by, k, this.pose(d), ax, ay);
-            // Behind the digger: it turns round to face the finger.
-            if (local.x < -0.3 && this.time - d.turned > 0.9) this.turn();
-            // Further than the arm reaches: it crawls towards the finger.
+            // Behind the digger: it turns round to face the finger. Further than the arm reaches: it
+            // crawls towards the finger. Neither while it pours where it was let go.
+            if (local.x < -0.3 && this.time - d.turned > 0.9 && !d.aim.pour) this.turn();
             const reach = this.plan.reach;
             const far = DIGGER.pivot[0] + (DIGGER.boom + DIGGER.stick) * reach * 0.9;
-            if (local.x > far) crawl = Math.min(1, (local.x - far) * 4);
+            if (local.x > far && !d.aim.pour) crawl = Math.min(1, (local.x - far) * 4);
             if (crawl > 0) {
                 const went = this.moveMachine(d, d.facing * crawl * k * 0.6 * dt);
                 d.travel += went * d.facing;
@@ -721,6 +721,7 @@ class DigScene extends Scene {
         if (left <= 1e-9) {
             d.load.length = 0;
             d.pouring = false;
+            if (d.aim && d.aim.pour) d.aim = null;
             return;
         }
         const vx = (j.lip.x - d.cx) / Math.max(dt, 1e-3);
@@ -1231,6 +1232,10 @@ class DigScene extends Scene {
                     d.poured = 0;
                     d.landed = false;
                     audio.play('hiss', {}, { gain: 0.35, pan: this.pan(d.cx) });
+                    // The bucket opens out away from the cab, so the arm draws back as it opens and
+                    // keeps the cup where the finger let it go: the load falls there.
+                    const j = this.joints();
+                    d.aim = { x: j.cup.x, y: j.cup.y, held: true, pour: true };
                 }
             }
         }
