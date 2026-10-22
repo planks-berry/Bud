@@ -1084,7 +1084,8 @@ async function suite(mode) {
 
     // ---- farm ----------------------------------------------------------------------------------
     //
-    // The Sprout farm starts as an island on a table of 6 by 5 tiles (' ' is table, '.' bare grass):
+    // The farm comes out as an empty table. To work on, the tests lay out an island on the Sprout
+    // table of 6 by 5 tiles (' ' is table, '.' bare grass):
     //
     //      . . T . . .      a tree                 c runs down to the right on the screen,
     //      . B P P P .      the barn, a path       r down to the left
@@ -1092,11 +1093,71 @@ async function suite(mode) {
     //      . F F S S .      a field, two sheep
     //      . . W W H .      a pond, the hen house
 
+    // An island laid out at once: in `rows` a letter is land with a piece on it, '.' bare land and
+    // ' ' the table; `codes` maps the letters to kinds, and `props` gives a piece some state by its
+    // letter. A crane beside a foundation turns to face it, as one does when it sets it.
+    const lay = (rows, codes, props = {}) =>
+        scene(
+            ([rows, codes, props]) => {
+                const s = window.playroom.stage.scene;
+                rows.forEach((line, r) => {
+                    for (let c = 0; c < line.length; c++) {
+                        if (line[c] === ' ') continue;
+                        s.land[r][c] = true;
+                        if (codes[line[c]])
+                            s.cells[r][c] = Object.assign(s.make(codes[line[c]]), props[line[c]] || {});
+                    }
+                });
+                if (s.plotBeside) {
+                    for (const [c, r] of s.every('crane')) {
+                        const plot = s.plotBeside(c, r, (n) => n.step >= 3);
+                        if (!plot) continue;
+                        const crane = s.at(c, r);
+                        crane.slew.value = crane.slew.target = Math.atan2(plot[1] - r, plot[0] - c);
+                    }
+                }
+                s.normalise(true);
+                s.drawGround();
+            },
+            [rows, codes, props]
+        );
+    const blankTable = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            return {
+                land: s.landCount(),
+                pieces: s.cells.reduce((n, row) => n + row.filter(Boolean).length, 0),
+                found: s.found.size,
+                broom: !!s.broomButton,
+            };
+        });
+    const FARM_CODES = {
+        P: 'path',
+        F: 'field',
+        W: 'pond',
+        T: 'tree',
+        C: 'cow',
+        R: 'tractor',
+        B: 'barn',
+        S: 'sheep',
+        H: 'coop',
+        N: 'fence',
+        G: 'pig',
+        M: 'windmill',
+        O: 'house',
+    };
+
     await open('farm');
     const farmKinds = await scene(() => window.playroom.stage.scene.kinds);
     check(
         'the farm opens with its tiles and pieces in the tray',
         (await sceneName()) === 'FarmScene' && farmKinds.length === 12 && farmKinds[0] === 'grass'
+    );
+    const farmBlank = await blankTable();
+    check(
+        'on an empty table: no land, nothing on it, and a broom beside the sun',
+        farmBlank.land === 0 && farmBlank.pieces === 0 && farmBlank.broom,
+        JSON.stringify(farmBlank)
     );
     const layout = () =>
         scene(() => {
@@ -1107,7 +1168,8 @@ async function suite(mode) {
                 )
                 .join(' / ');
         });
-    const fresh = await layout();
+    // The fields are already sprouting, so there is something to grow at the first tap.
+    await lay(['  T.  ', ' BPPP ', ' .RCN ', ' FFSS ', '  WWH '], FARM_CODES, { F: { stage: 2 } });
     const frog = await page
         .waitForFunction(() => !!window.playroom.stage.scene.frog, null, { timeout: 3000 })
         .then(
@@ -1432,16 +1494,69 @@ async function suite(mode) {
     await page.waitForTimeout(2800);
     check('and the moon brings the morning', (await scene(() => window.playroom.stage.scene.night)) < 0.1);
 
-    const built = await layout();
     await shot('farm');
+
+    // The broom: a tap only rustles it; held, it sweeps the table empty, every piece back to the
+    // tray, and the farm begins again as it comes off the shelf.
+    const sweepTable = async () => {
+        const broom = await scene(() => window.playroom.stage.scene.broomButton);
+        const before = await layout();
+        await touch.tap(broom.x, broom.y);
+        await page.waitForTimeout(600);
+        const tapped = await layout();
+        await touch.down(broom.x, broom.y);
+        const holding = await page
+            .waitForFunction(() => window.playroom.stage.scene.broomHold > 0.3, null, { timeout: 2000 })
+            .then(
+                () => true,
+                () => false
+            );
+        await page.waitForTimeout(800);
+        await touch.up();
+        const swept = await page
+            .waitForFunction(
+                () => {
+                    const s = window.playroom.stage.scene;
+                    return !s.sweep && s.landCount() === 0;
+                },
+                null,
+                { timeout: 5000 }
+            )
+            .then(
+                () => true,
+                () => false
+            );
+        return {
+            kept: tapped === before && before.indexOf('..') >= 0,
+            holding,
+            swept,
+            after: await blankTable(),
+        };
+    };
+    const farmSweep = await sweepTable();
+    check('a tap on the broom leaves the farm as it is', farmSweep.kept);
+    check(
+        'and held, its ring filling, it sweeps the table empty, and the farm begins again',
+        farmSweep.holding &&
+            farmSweep.swept &&
+            farmSweep.after.land === 0 &&
+            farmSweep.after.pieces === 0 &&
+            farmSweep.after.found === 0 &&
+            (await sceneName()) === 'FarmScene',
+        JSON.stringify(farmSweep)
+    );
+    await carryTo(await trayCentre('cow'), await cellCentre(2, 2));
+    check(
+        'where a piece put down brings its land again',
+        (await kindAt(2, 2)) === 'cow' && (await landCount()) === 1
+    );
     check('home from the farm', (await home()) === 'ShelfScene');
     await open('farm');
-    const reopened = await layout();
-    const foundAgain = await scene(() => window.playroom.stage.scene.found.size);
+    const farmAgain = await blankTable();
     check(
-        'and the farm starts fresh when it comes off the shelf again, the island as small as it began',
-        built !== fresh && reopened === fresh && foundAgain === 0,
-        `${reopened}; found ${foundAgain}`
+        'and the farm comes off the shelf again as an empty table, its surprises new',
+        farmAgain.land === 0 && farmAgain.pieces === 0 && farmAgain.found === 0,
+        JSON.stringify(farmAgain)
     );
     await home();
 
@@ -1987,11 +2102,33 @@ async function suite(mode) {
 
     // ---- building site ---------------------------------------------------------------------------
     //
-    // The Sprout site starts as:   L . P D T .      a pile, a plot, the digger, the truck
+    // The site comes out as an empty table too. The tests lay out, at Sprout:
+    //
+    //                              L . P D T .      a pile, a plot, the digger, the truck
     //                              R R R R R .      a road
     //                              M H H . C B      the mixer, a dug hole, the crane, a building
     //                              K K . O . .      cones, the hut
-    //                              . . . . . .      (and the rest of the table, still to build on)
+    //                                               (and the rest of the table, still to build on)
+    //
+    // where P is a plot marked out, H one dug, F one set, and B one with its first floor on.
+    const SITE_CODES = {
+        R: 'road',
+        P: 'plot',
+        H: 'plot',
+        F: 'plot',
+        B: 'plot',
+        L: 'pile',
+        D: 'digger',
+        T: 'truck',
+        M: 'mixer',
+        C: 'crane',
+        K: 'cones',
+        O: 'hut',
+        Y: 'roller',
+        Z: 'dozer',
+        J: 'lamp',
+    };
+    const PLOTS = { P: { step: 0 }, H: { step: 1 }, F: { step: 3 }, B: { step: 4 } };
 
     await open('site');
     const siteKinds = await scene(() => window.playroom.stage.scene.kinds);
@@ -1999,7 +2136,13 @@ async function suite(mode) {
         'the building site opens with its tiles and pieces in the tray',
         (await sceneName()) === 'SiteScene' && siteKinds.length === 10 && siteKinds[0] === 'earth'
     );
-    const siteFresh = await layout();
+    const siteBlank = await blankTable();
+    check(
+        'on an empty table, with a broom beside the sun',
+        siteBlank.land === 0 && siteBlank.pieces === 0 && siteBlank.broom,
+        JSON.stringify(siteBlank)
+    );
+    await lay(['L.PDT ', 'RRRRR ', 'MHH.CB', 'KK.O  '], SITE_CODES, PLOTS);
     const plotAt = (c, r) => scene(([c, r]) => window.playroom.stage.scene.at(c, r).step, [c, r]);
     await scene(() => {
         const s = window.playroom.stage.scene;
@@ -2169,15 +2312,24 @@ async function suite(mode) {
     await touch.tap(siteSun.x, siteSun.y);
     await page.waitForTimeout(2600);
 
-    const siteBuilt = await layout();
     await shot('site');
+    const siteSweep = await sweepTable();
+    check(
+        'the broom sweeps the site empty too, and a tap alone does not',
+        siteSweep.kept &&
+            siteSweep.swept &&
+            siteSweep.after.land === 0 &&
+            siteSweep.after.pieces === 0 &&
+            (await sceneName()) === 'SiteScene',
+        JSON.stringify(siteSweep)
+    );
     check('home from the building site', (await home()) === 'ShelfScene');
     await open('site');
-    const siteAgain = await layout();
+    const siteAgain = await blankTable();
     check(
-        'and the site starts fresh when it comes off the shelf again',
-        siteBuilt !== siteFresh && siteAgain === siteFresh,
-        siteAgain
+        'and the site comes off the shelf again as an empty table',
+        siteAgain.land === 0 && siteAgain.pieces === 0,
+        JSON.stringify(siteAgain)
     );
     await home();
 
@@ -2334,6 +2486,7 @@ async function suite(mode) {
     // the road it rolls shining, and the lamp lights.
     await page.evaluate(async () => (await import('./js/settings.js')).setStage('site', 'bloom'));
     await open('site');
+    await lay(['LZPPDTY', 'RRRRRRR', 'MHH.CBB', 'KK.O.J '], SITE_CODES, PLOTS);
     const bloomKinds = await scene(() => window.playroom.stage.scene.kinds.length);
     await tapCell(6, 0, -0.05);
     await page.waitForTimeout(2500);

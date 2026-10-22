@@ -76,8 +76,8 @@ Every toy has three layers, which are found by playing, never unlocked:
 | **Sandpaper numerals** | Mathematics | As the letters | As the letters | A bowl lays out that many counters in pairs, Montessori's cards and counters, one rising note each | – |
 | **Dig** | Practical life: transferring, with a material that keeps its shape | Tap the sand and it sprays; tap the digger for its horn, the truck for two beeps | The bucket follows a finger: down into the sand it fills, lifted it carries, let go it pours; the digger crawls after a finger beyond its reach. Drag the truck, and tap its bed to tip it | The ground itself: heaps, holes and ramps, of sand that slumps to its natural slope and is never made or lost; things buried in it, the first always found at the first bite | a digger and a heap / and a dump truck, and things buried / and a bulldozer, and earth under the sand |
 | **Crane** | Sensorial (building with shapes), and the work of the hand at a distance | Tap a part for its colour's note, the cab for the horn, the hook to set it swinging | Drag the hook: the trolley and cable follow, it takes the part it is lowered onto, and drops it where it is let go, onto a grid so a stack stands. A part can also be carried by hand, the crane following | A building of any shape, which moves in by itself: a cat in a window, plants on the ledges, a bird nesting on top; a tap at its foot plays it bottom to top, each part lit. And trucks to load: one in a part's colour waits for the parts marked out on its deck, takes only its own colour, and drives off loaded, and a second crane restocks the pile | 4 big blocks / blocks, beams and windows / and arches, a roof and a wrecking ball |
-| **Farm** | None: after Pok Pok's builder | Tap anything: every piece answers, and tapped grass grows a flower | An island of tiles, seen from a corner like a model on a table: a tile put down on the table makes it bigger, a path, field, pond or stream put down on a tile changes it, and pieces stand on tiles, move, swap and go back to the tray; what is hidden behind a building shows through it | A farm that joins up: paths for the tractor to drive, streams that carry a pond's water along to the fields, fields by water that grow on their own, a pond big enough for ducks; the sun turns it to night, when the lights come on and other things wake | 7 / 11 / 14 kinds of piece and a grass tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
-| **Building site** | None: the farm's builder | Tap anything: every piece answers | As the farm, with earth, roads and plots for tiles | Machines that work in chains: the digger digs a plot and loads the truck, the truck tips onto the pile, the mixer fills the hole with concrete, the crane lifts a building onto the foundation a floor at a time, each floor a note higher, and tops it out with a tree; the foreman's whistle sets them all going | 6 / 9 / 12 kinds of piece and an earth tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
+| **Farm** | None: after Pok Pok's builder | Tap anything: every piece answers, and tapped grass grows a flower | An island of tiles, seen from a corner like a model on a table, on a table that starts empty: a tile put down on the table makes it bigger, a path, field, pond or stream put down on a tile changes it, and pieces stand on tiles, move, swap and go back to the tray; what is hidden behind a building shows through it; a broom, held, sweeps the table empty again | A farm that joins up: paths for the tractor to drive, streams that carry a pond's water along to the fields, fields by water that grow on their own, a pond big enough for ducks; the sun turns it to night, when the lights come on and other things wake | 7 / 11 / 14 kinds of piece and a grass tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
+| **Building site** | None: the farm's builder | Tap anything: every piece answers | As the farm, with earth, roads and plots for tiles, from an empty table, and the broom to sweep it | Machines that work in chains: the digger digs a plot and loads the truck, the truck tips onto the pile, the mixer fills the hole with concrete, the crane lifts a building onto the foundation a floor at a time, each floor a note higher, and tops it out with a tree; the foreman's whistle sets them all going | 6 / 9 / 12 kinds of piece and an earth tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
 
 ### How Montessori and Pok Pok were reconciled
 
@@ -247,8 +247,9 @@ It also checks:
   carrots; that a field by water grows on its own; that a pond grown to three tiles brings ducks;
   that a sheep's neighbour answers it; that pieces move, swap, and go back to the tray; that the
   tractor drives the path, harvests the field beside it and comes home; that the sun brings the
-  night, when the cow jumps over the moon; and that the farm starts fresh when it comes off the
-  shelf again;
+  night, when the cow jumps over the moon; that the broom, tapped, leaves the farm alone, and held,
+  sweeps it back to an empty table; and that the farm comes off the shelf as an empty table, on
+  which the tests lay out an island to work on;
 - in the dig: that a finger in the sand fills the bucket and the ground gives up exactly what it
   takes; that the first proper bite always turns something up; that a load carried over the truck
   pours into its bed with not a grain lost; that the motor sings while the arm moves and is quiet
@@ -266,8 +267,8 @@ It also checks:
   plot and loading the truck, through the truck tipping onto the pile and the mixer pouring
   concrete that sets, to the crane lifting floors and topping the building out; that a building
   plays its floors from the ground up; that the foreman's whistle sets the machines going; the
-  night; at Bloom, a roller that leaves the road fresh and a lamp that lights; and that the site
-  starts fresh;
+  night; at Bloom, a roller that leaves the road fresh and a lamp that lights; that the broom sweeps
+  the site empty too; and that the site comes off the shelf as an empty table;
 - that leaving a toy stops its sounds;
 - that the grown-ups' gate needs a three-second hold;
 - that one toy's stage can be moved on by itself, and the shared stage clears it again;

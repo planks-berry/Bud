@@ -1,16 +1,16 @@
 // The building site: an island of earth to build a site on, a tile at a time, and a tray of pieces
 // to build it with.
 //
-// The farm's board and the farm's grammar (board.js): tiles of earth put down on the table make the
-// island bigger, a road or a plot put down on a tile changes it, and pieces are dragged from the
-// tray, snap to a tile, move, swap and go back. What is new is that the site's machines work in
-// chains. A digger
-// beside a marked-out plot digs it out and loads the earth into a truck beside it; the truck drives
-// the road and tips the earth onto a pile; a mixer beside the hole fills it with concrete; and a
-// crane beside the set foundation lifts a building onto it, a floor at a time, each floor a note
-// higher and the next of the playroom's colours, until it is topped out with a little tree. None
-// of it has to happen in order, and none of it is a goal: every piece answers a tap whatever stands
-// beside it, and a building is finished only when it is as tall as the crane can reach.
+// The farm's board and the farm's grammar (board.js): an empty table to start, tiles of earth put
+// down on it make the island bigger, a road or a plot put down on a tile changes it, and pieces are
+// dragged from the tray, snap to a tile, move, swap and go back. What is new is that the site's
+// machines work in chains. A digger beside a marked-out plot digs it out and loads the earth into a
+// truck beside it; the truck drives the road and tips the earth onto a pile; a mixer beside the
+// hole fills it with concrete; and a crane beside the set foundation lifts a building onto it, a
+// floor at a time, each floor a note higher and the next of the playroom's colours, until it is
+// topped out with a little tree. None of it has to happen in order, and none of it is a goal: every
+// piece answers a tap whatever stands beside it, and a building is finished only when it is as tall
+// as the crane can reach.
 //
 // Every piece does three things, as on the farm:
 //   - it connects: roads join, and plots join plots at the same step, so two buildings side by
@@ -57,41 +57,18 @@ const DUG = 1;
 const POURED = 2;
 const SET = 3;
 
-// What each stage puts in the tray, how big the table is, the little island the site starts as, and
-// how tall the crane can build. In the plans, H is a plot already dug, F one already set, and B one
-// with its first floor on; '.' is bare earth, ' ' the table still to build on.
-const CODES = {
-    R: 'road',
-    P: 'plot',
-    H: 'plot',
-    F: 'plot',
-    B: 'plot',
-    L: 'pile',
-    D: 'digger',
-    T: 'truck',
-    M: 'mixer',
-    C: 'crane',
-    K: 'cones',
-    O: 'hut',
-    Y: 'roller',
-    Z: 'dozer',
-    J: 'lamp',
-};
-const STEPS = { P: MARKED, H: DUG, F: SET, B: SET + 1 };
-
+// What each stage puts in the tray, how big the table is, and how tall the crane can build.
 const PLANS = [
     {
         cols: 5,
         rows: 4,
         kinds: ['earth', 'road', 'plot', 'digger', 'truck', 'mixer', 'crane'],
-        start: ['PDT  ', 'RRRR ', 'MHCB ', '     '],
         floors: 3,
     },
     {
         cols: 6,
         rows: 5,
         kinds: ['earth', 'road', 'plot', 'pile', 'digger', 'truck', 'mixer', 'crane', 'cones', 'hut'],
-        start: ['L.PDT ', 'RRRRR ', 'MHH.CB', 'KK.O  ', '      '],
         floors: 4,
     },
     {
@@ -112,7 +89,6 @@ const PLANS = [
             'dozer',
             'lamp',
         ],
-        start: ['LZPPDTY', 'RRRRRRR', 'MHH.CBB', 'KK.O.J ', '       '],
         floors: 4,
     },
 ];
@@ -150,20 +126,7 @@ class SiteScene extends BoardScene {
             dust: '226, 210, 180',
         };
         this.workId = 0;
-        this.begin(CODES);
-        for (let r = 0; r < this.rows; r++) {
-            for (let c = 0; c < this.cols; c++) {
-                const p = this.at(c, r);
-                if (p && p.kind === 'plot') p.step = STEPS[this.plan.start[r][c]];
-            }
-        }
-        for (const [c, r] of this.every('crane')) {
-            const p = this.at(c, r);
-            const plot = this.plotBeside(c, r, (n) => n.step >= SET);
-            if (!plot) continue;
-            p.slew.value = Math.atan2(plot[1] - r, plot[0] - c);
-            p.slew.target = p.slew.value;
-        }
+        this.begin();
         this.normalise(true);
     }
 
@@ -1886,7 +1849,7 @@ function icon(ctx, x, y, w, h) {
 export const toy = {
     id: 'site',
     title: 'Building site',
-    about: 'Build a site from tiles. Its machines work together: the digger digs, the truck carries, the mixer pours and the crane builds, a floor at a time.',
+    about: 'Build a site from tiles on an empty table. Its machines work together: the digger digs, the truck carries, the mixer pours and the crane builds, a floor at a time. Hold the broom to sweep the table clean.',
     stages: ['a small site, 6 kinds of piece', 'a bigger site, 9 kinds', 'the biggest site, all 12 kinds'],
     mat: '#E6E0D5',
     icon,

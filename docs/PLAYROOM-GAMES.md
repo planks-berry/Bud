@@ -415,15 +415,15 @@ touched, and keep a few secrets.
   goes back. Grass put down on a tile makes it bare grass again.
 - Make: a farm that joins up, as big as the table: paths for the tractor, streams carrying a pond's
   water to the fields, a pond big enough for ducks. The sun in the corner turns day to night and
-  back.
+  back. The broom beside it, held a moment, sweeps the table empty again: every piece flies back to
+  the tray, a line at a time, and the land goes with it.
 
 **Stages**
 - Seed: a table of 5 × 4 tiles, 7 kinds of piece: path, field, pond, stream, tree, cow, tractor.
 - Sprout: 6 × 5, 11 kinds: adds the fence, barn, hen house and sheep.
 - Bloom: 7 × 5, all 14 kinds: adds the farmhouse, windmill and pig.
 
-Each stage starts as a small island in the middle of the table with a few pieces on it, so there
-is something to tap straight away and room to grow.
+Each stage starts as an empty table, and the broom brings it back to that whenever it is wanted.
 
 **Every piece: how it connects, what a tap does, what it hides**
 
@@ -477,6 +477,12 @@ morning, with a rooster if there is a hen house.
 - Nothing is lost behind anything: a piece behind the barn, the farmhouse, the windmill, a tree or
   the hen house shows through it as a pale silhouette, and a touch on the silhouette takes it, as on
   the building site. ("He looks around for it.")
+- A blank start, and a way back to one: "For both the farm and site games, they should start blank.
+  And also add a 'reset' button that wipes the slate clean to a blank starting point." The table
+  comes out empty, and anything put down on it brings its own land, so the first piece is where
+  the island begins. The reset is a broom beside the sun. It sweeps only when held a moment, its
+  ring filling, so a brush of the hand cannot clear the table by accident; a tap just rustles it.
+  After the sweep the farm begins again exactly as it comes off the shelf, its surprises new.
 - No Montessori parallel, by choice.
 
 **Questions**
@@ -644,7 +650,8 @@ secrets.
 - Touch: tap anything. Every piece answers, whatever stands beside it.
 - Move: as on the farm. A tile of earth put down on the table adds land; a road or a plot put down
   on a tile changes it; a piece put down on a tile stands there. Drag a piece to move it; dropped
-  on another piece it swaps places, and dropped on the tray it goes back.
+  on another piece it swaps places, and dropped on the tray it goes back. The broom, held a moment,
+  sweeps the table empty again.
 - Make: a site that works. A digger beside a marked-out plot digs it out and loads the earth into a
   truck beside it; the truck drives the road and tips the earth onto a pile; a mixer beside the
   hole fills it with concrete, which sets by itself; a crane beside the foundation lifts a building
@@ -659,8 +666,7 @@ secrets.
 - Bloom: 7 × 5, all 12 kinds: adds the roller, the bulldozer and the work lamp. Up to 4 floors, as
   at Sprout.
 
-Each stage starts as a small site with the work half done (a plot marked, a hole dug, a building
-begun), so there is something to tap straight away.
+Each stage starts as an empty table, as the farm does, and the broom brings it back to that.
 
 **Every piece: how it connects, what a tap does, what it hides**
 
@@ -703,7 +709,8 @@ his whistle.
   cover most of a small piece on the tile diagonally behind, so what a building or the hut hides
   shows through it as a pale silhouette, always, and a touch on the silhouette takes the hidden
   piece; the view does not turn, and there is nothing to do to see. ("He looks around for it.")
-- A fresh site every time it comes off the shelf, and hidden things certain, as on the farm.
+- An empty table every time it comes off the shelf, a broom to clear it again, and hidden things
+  certain, as on the farm. ("For both the farm and site games, they should start blank.")
 - The whistle lets one tap show the whole chain of work.
 
 **Questions**

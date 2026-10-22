@@ -2,11 +2,12 @@
 // the farm and the building site.
 //
 // After Pok Pok's builder, and seen the way a child sees a model on a table: from a corner and a
-// little above, so the land is an island of small blocks of earth, and whatever stands on it shows a
-// front and a side. The table is marked out in tiles. The island starts small and grows wherever a
-// tile from the tray is put down on the table, and any tile can be changed: a ground dropped on it
-// (a pond, a path, a road) takes the place of what was there, and a piece dropped on it stands
-// there. Dragged again, pieces move, swap places, or go back to the tray. One piece to a tile.
+// little above, so the land is an island of small blocks of earth, and whatever stands on it shows
+// a front and a side. The table is marked out in tiles, and starts empty. The island grows wherever
+// a tile or a piece from the tray is put down on the table, and any tile can be changed: a ground
+// dropped on it (a pond, a path, a road) takes the place of what was there, and a piece dropped on
+// it stands there. Dragged again, pieces move, swap places, or go back to the tray. One piece to a
+// tile. The broom in the corner, held a moment, sweeps the table empty again.
 //
 // What lies flat is drawn as if from straight above, into the plan of the island, and the plan is
 // laid at the island's angle by one transform, so a pond is drawn as a pond and comes out lying on
@@ -18,10 +19,10 @@
 // sounds. Everything about the land, and about holding, carrying, dropping and joining, is here, so
 // a pond on the farm and a road on the site are put down, swapped and put back in the same way.
 //
-// Coordinates. A tile is (c, r): c runs down to the right on the screen, r down to the left, and
-// the plans' rows of letters read the same way. The plan of the island is a grid of squares of side
-// `cell`, from (0, 0); `iso` takes a point on the grid, in tiles, to the screen. `cellRect` is the
-// frame an upright piece is drawn in, a square of side `cell` whose ground is at FOOT of its height.
+// Coordinates. A tile is (c, r): c runs down to the right on the screen and r down to the left. The
+// plan of the island is a grid of squares of side `cell`, from (0, 0); `iso` takes a point on the
+// grid, in tiles, to the screen. `cellRect` is the frame an upright piece is drawn in, a square of
+// side `cell` whose ground is at FOOT of its height.
 
 import { Scene } from '../stage.js';
 import { SHADOW_SOFT, makeLayer, freeLayer, grain, fillRound, disc, woodPanel, PALETTE } from '../draw.js';
@@ -63,16 +64,18 @@ const HEADROOM = 0.45;
 const SPRITES = 48;
 // The largest piece a silhouette is made of, in a piece's frame widths: a building of four floors.
 const GHOST = [1.8, 2.6];
+// How long the broom is held before it sweeps, in seconds: long enough that a brush of the hand
+// does not clear the table, short enough for a small hand to mean it.
+const BROOM = 0.8;
 
 export function key(c, r) {
     return c * 100 + r;
 }
 
 export class BoardScene extends Scene {
-    // `plans` has one entry a stage: { cols, rows, kinds, start }. The table is cols by rows; `start`
-    // is the island it begins as, a row of letter codes to a line: a letter is land with a piece on
-    // it, '.' bare land, and ' ' the table, still to build on. `plain` is the kind of the tile that
-    // is only land (the farm's grass, the site's earth); it is in the tray, never on the board.
+    // `plans` has one entry a stage: { cols, rows, kinds }. The table is cols by rows. `plain` is
+    // the kind of the tile that is only land (the farm's grass, the site's earth); it is in the
+    // tray, never on the board.
     constructor(app, plans, plain) {
         super(app);
         this.level = app.level();
@@ -90,6 +93,12 @@ export class BoardScene extends Scene {
         this.sprites = {};
         this.press = this.kinds.map(() => new Spring(0, 420, 18));
         this.sunPress = new Spring(0, 420, 18);
+        // The broom: how far through being held it is, the finger holding it, and the sweep once
+        // it has begun.
+        this.broomPress = new Spring(0, 420, 18);
+        this.broomHold = 0;
+        this.broomHand = null;
+        this.sweep = null;
         this.night = 0;
         this.nightTarget = 0;
         // Which hidden things have shown themselves this time out.
@@ -100,20 +109,17 @@ export class BoardScene extends Scene {
         this.by = 0;
     }
 
-    // Set out the island the stage begins as. A fresh one every time it comes off the shelf: the
-    // building is the game, so nothing is kept, not even while the playroom is open.
-    begin(codes) {
+    // An empty table, as the board begins every time it comes off the shelf and as the broom leaves
+    // it: the building is the game, so nothing is kept, not even while the playroom is open.
+    begin() {
         this.cells = [];
         this.land = [];
         for (let r = 0; r < this.rows; r++) {
             const row = [];
             const ground = [];
             for (let c = 0; c < this.cols; c++) {
-                const code = this.plan.start[r][c] || ' ';
-                const piece = codes[code] ? this.make(codes[code]) : null;
-                if (piece) this.starting(piece);
-                row.push(piece);
-                ground.push(code !== ' ');
+                row.push(null);
+                ground.push(false);
             }
             this.cells.push(row);
             this.land.push(ground);
@@ -270,6 +276,7 @@ export class BoardScene extends Scene {
             });
         }
         this.sunButton = { x: w - 48, y: 48, r: 30 };
+        this.broomButton = { x: w - 124, y: 48, r: 30 };
         this.freeSprites();
         freeLayer(this.ghostLayer);
         freeLayer(this.maskLayer);
@@ -746,6 +753,14 @@ export class BoardScene extends Scene {
 
     update(dt) {
         this.time += dt;
+        if (this.sweep) return this.sweeping(dt);
+        if (this.broomHand) {
+            this.broomHold = Math.min(1, this.broomHold + dt / BROOM);
+            if (this.broomHold >= 1) this.startSweep();
+        } else if (this.broomHold > 0) {
+            this.broomHold = Math.max(0, this.broomHold - dt / 0.25);
+        }
+        this.broomPress.update(dt);
         const due = this.queue.filter((q) => q.at <= this.time);
         if (due.length) {
             this.queue = this.queue.filter((q) => q.at > this.time);
@@ -854,6 +869,15 @@ export class BoardScene extends Scene {
 
     down(p) {
         const u = this.u;
+        if (this.sweep) return;
+        const b = this.broomButton;
+        if (dist(p.x, p.y, b.x, b.y) < b.r + 10 * u) {
+            p.owner = { type: 'broom' };
+            if (!this.broomHand) this.broomHand = p;
+            this.broomPress.kick(-6);
+            audio.play('rustle', {}, { gain: 0.35, pan: this.pan(b.x) });
+            return;
+        }
         if (dist(p.x, p.y, this.sunButton.x, this.sunButton.y) < this.sunButton.r + 10 * u) {
             p.owner = { type: 'sun' };
             this.sunPress.kick(-6);
@@ -888,6 +912,12 @@ export class BoardScene extends Scene {
         }
         const o = p.owner;
         if (!o) return;
+        if (o.type === 'broom') {
+            // Slid off the broom, the hold is let go.
+            const b = this.broomButton;
+            if (this.broomHand === p && dist(p.x, p.y, b.x, b.y) > b.r + 30 * this.u) this.broomHand = null;
+            return;
+        }
         if (o.type === 'tray' && p.travel > 6 * this.u) {
             this.drag = { pointer: p, piece: this.make(o.kind), from: null, x: p.x, y: p.y };
             audio.play('tick', { f: noteHz(5, 72) }, { gain: 0.4, pan: this.pan(p.x) });
@@ -910,7 +940,9 @@ export class BoardScene extends Scene {
             return;
         }
         if (!o) return;
-        if (o.type === 'sun') {
+        if (o.type === 'broom') {
+            if (this.broomHand === p) this.broomHand = null;
+        } else if (o.type === 'sun') {
             if (dist(p.x, p.y, this.sunButton.x, this.sunButton.y) < this.sunButton.r + 20 * this.u)
                 this.toggleNight();
         } else if (o.type === 'target') {
@@ -931,6 +963,7 @@ export class BoardScene extends Scene {
     }
 
     cancel(p) {
+        if (this.broomHand === p) this.broomHand = null;
         if (this.drag && this.drag.pointer === p) {
             const d = this.drag;
             this.drag = null;
@@ -1053,11 +1086,11 @@ export class BoardScene extends Scene {
     }
 
     // A piece going back to the tray, which it flies to as it shrinks.
-    poof(piece, x, y) {
+    poof(piece, x, y, gain = 0.4) {
         const item = this.trayItem(piece.kind);
         const to = item ? { x: item.x + item.s / 2, y: item.y + item.s / 2 } : { x, y: this.h };
         this.puff(x, y, 1);
-        audio.play('whoosh', { variant: 'down' }, { gain: 0.4, pan: this.pan(x) });
+        if (gain > 0) audio.play('whoosh', { variant: 'down' }, { gain, pan: this.pan(x) });
         const s = this.cell;
         this.fx.push({
             t: 0,
@@ -1128,6 +1161,141 @@ export class BoardScene extends Scene {
                 sparkle(ctx, x, y, s * 0.035 * (0.6 + 0.4 * Math.sin(k * Math.PI)), colour);
             },
         });
+    }
+
+    //--------------------------------------------------------------------------
+    // The broom
+
+    // Held long enough, the broom sweeps the table: a line of tiles at a time, from the broom's
+    // side across, every piece flies back to the tray and the land sinks into the table, and day
+    // comes back. Then the board starts again as it comes off the shelf, so nothing of the old one
+    // is left to wake up later: no animal on its way somewhere, no machine halfway through its
+    // work.
+    startSweep() {
+        this.broomHand = null;
+        this.broomHold = 0;
+        this.queue = [];
+        if (this.drag) {
+            const d = this.drag;
+            this.drag = null;
+            this.poof(d.piece, d.x, d.y, 0);
+        }
+        // Tiles whose middles are about as far across the screen go together, in a line from the
+        // back of the table to the front.
+        const tiles = [];
+        for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+                if (this.land[r][c] || this.cells[r][c]) tiles.push({ c, r, x: this.center(c, r).x });
+            }
+        }
+        tiles.sort((a, b) => b.x - a.x);
+        const lines = [];
+        for (const t of tiles) {
+            const last = lines[lines.length - 1];
+            if (last && last.x - t.x < this.tw * 0.25) last.tiles.push(t);
+            else lines.push({ x: t.x, tiles: [t] });
+        }
+        lines.forEach((line, i) => (line.at = 0.06 + i * 0.07));
+        this.sweep = { t: 0, lines, end: (lines.length ? lines[lines.length - 1].at : 0) + 0.6, stroke: 0 };
+        audio.play('whoosh', { variant: 'down' }, { gain: 0.5, pan: this.pan(this.broomButton.x) });
+    }
+
+    sweeping(dt) {
+        const sw = this.sweep;
+        sw.t += dt;
+        while (sw.lines.length && sw.lines[0].at <= sw.t) this.sweepLine(sw.lines.shift());
+        this.night += (0 - this.night) * (1 - Math.exp(-dt / 0.25));
+        this.nightTarget = 0;
+        for (const p of this.press) p.update(dt);
+        this.sunPress.update(dt);
+        this.broomPress.update(dt);
+        this.fx = this.fx.filter((f) => {
+            f.t += dt;
+            return f.t < f.life;
+        });
+        if (!sw.lines.length && sw.t >= sw.end) {
+            // A new board of the same kind, as if just taken off the shelf.
+            audio.note('chime', 4, 60, { gain: 0.35, wet: 0.4 });
+            this.app.stage.show(new this.constructor(this.app));
+        }
+        return true;
+    }
+
+    // One line of the table swept: its pieces back to the tray, its land into the table, with the
+    // broom's brush every other line.
+    sweepLine(line) {
+        for (const { c, r } of line.tiles) {
+            const at = this.center(c, r);
+            const piece = this.cells[r][c];
+            if (piece) {
+                this.cells[r][c] = null;
+                this.poof(piece, at.x, at.y - this.th * 0.3, 0);
+            }
+            this.clearTile(c, r);
+            if (!this.land[r][c]) continue;
+            this.land[r][c] = false;
+            this.puff(at.x, at.y + this.th * 0.3, 0.9, this.look.dust);
+            const top = hexToRgb(this.look.base);
+            this.fx.push({
+                t: 0,
+                life: 0.35,
+                draw: (ctx, f) => {
+                    const k = f.t / f.life;
+                    ctx.beginPath();
+                    this.diamond(ctx, c, r, k * 0.3, k * this.depth);
+                    ctx.fillStyle = rgbString(top, 1 - k);
+                    ctx.fill();
+                },
+            });
+        }
+        // What lived on what has gone goes with it: a frog with its pond, ducks with their water.
+        this.normalise(true);
+        this.drawGround();
+        if (this.sweep.stroke++ % 2 === 0) audio.play('rustle', {}, { gain: 0.45, pan: this.pan(line.x) });
+    }
+
+    drawBroom(ctx) {
+        const b = this.broomButton;
+        const press = this.broomPress.value * 0.012;
+        const back = rgbString(
+            hexToRgb('#FBF6EE').map((v, i) => lerp(v, [124, 131, 184][i], this.night)),
+            0.92
+        );
+        ctx.save();
+        ctx.translate(b.x, b.y);
+        ctx.scale(1 + press, 1 + press);
+        fillRound(ctx, -32, -32 + 4, 64, 64, 20, 'rgba(112, 84, 58, 0.14)');
+        fillRound(ctx, -32, -32, 64, 64, 20, back);
+        if (this.broomHold > 0) {
+            // How long it has been held, as a ring filling round it.
+            ctx.beginPath();
+            ctx.arc(0, 0, 25, -Math.PI / 2, -Math.PI / 2 + this.broomHold * TAU);
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = 'rgba(205, 150, 88, 0.9)';
+            ctx.stroke();
+        }
+        // The broom, rocking as it sweeps while it is held.
+        ctx.rotate(0.55 + Math.sin(this.time * 16) * 0.16 * Math.min(1, this.broomHold * 3));
+        fillRound(ctx, -2, -19, 4, 24, 2, '#B98A5E');
+        ctx.beginPath();
+        ctx.moveTo(-6, 3);
+        ctx.lineTo(6, 3);
+        ctx.lineTo(10, 18);
+        ctx.lineTo(-10, 18);
+        ctx.closePath();
+        ctx.fillStyle = '#EBC872';
+        ctx.fill();
+        ctx.strokeStyle = '#C9A04E';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (const x of [-5, -1.7, 1.7, 5]) {
+            ctx.moveTo(x * 0.75, 7);
+            ctx.lineTo(x * 1.25, 17);
+        }
+        ctx.stroke();
+        fillRound(ctx, -6.5, 2, 13, 3.5, 1.5, '#A8744A');
+        ctx.restore();
     }
 
     //--------------------------------------------------------------------------
@@ -1224,6 +1392,7 @@ export class BoardScene extends Scene {
 
         this.drawTray(ctx);
         this.drawSun(ctx);
+        this.drawBroom(ctx);
 
         if (this.drag) {
             const d = this.drag;
@@ -1367,9 +1536,6 @@ export class BoardScene extends Scene {
     make(kind) {
         return { kind, bounce: new Spring(0, 320, 11), away: null };
     }
-
-    // A piece the board begins with, before anyone has touched it.
-    starting() {}
 
     // Flat pieces: drawn into the ground layer, under everything standing.
     isGround() {

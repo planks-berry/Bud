@@ -1,11 +1,11 @@
 // The farm: an island of grass to build on, a tile at a time, and a tray of pieces to build it with.
 //
 // After Pok Pok's builder rather than any Montessori material, on the board in board.js: a little
-// farm seen from a corner and above, like a model on a table. A tile of grass from the tray, put
-// down on the table, makes the island bigger; a path, a field or a pond put down on a tile changes
-// it to that; a barn, a tree or a cow stands on it. Dragged again, they move, swap places, or go
-// back to the tray. Nothing is a goal and nothing is wrong: a pond can go anywhere and a cow can
-// stand in a row of barns.
+// farm seen from a corner and above, like a model on a table, which starts as an empty table. A
+// tile of grass from the tray, put down on the table, makes the island bigger; a path, a field or a
+// pond put down on a tile changes it to that; a barn, a tree or a cow stands on it. Dragged again,
+// they move, swap places, or go back to the tray. Nothing is a goal and nothing is wrong: a pond
+// can go anywhere and a cow can stand in a row of barns.
 //
 // Every piece does three things:
 //   - it connects: paths, fields, ponds, streams and fences join their neighbours; water runs from a
@@ -40,30 +40,12 @@ const GROUND = ['path', 'field', 'pond', 'stream'];
 const ANIMALS = ['cow', 'sheep', 'pig'];
 const CROPS = ['carrot', 'pumpkin', 'sunflower', 'cabbage'];
 
-// What each stage puts in the tray, how big the table is, and the little island the farm starts as:
-// '.' is grass with nothing on it, ' ' the table still to build on.
-const CODES = {
-    P: 'path',
-    F: 'field',
-    W: 'pond',
-    T: 'tree',
-    C: 'cow',
-    R: 'tractor',
-    B: 'barn',
-    S: 'sheep',
-    H: 'coop',
-    N: 'fence',
-    G: 'pig',
-    M: 'windmill',
-    O: 'house',
-};
-
+// What each stage puts in the tray, and how big the table is.
 const PLANS = [
     {
         cols: 5,
         rows: 4,
         kinds: ['grass', 'path', 'field', 'pond', 'stream', 'tree', 'cow', 'tractor'],
-        start: [' T.  ', ' PPP ', ' FRW ', ' FCW '],
     },
     {
         cols: 6,
@@ -82,7 +64,6 @@ const PLANS = [
             'sheep',
             'tractor',
         ],
-        start: ['  T.  ', ' BPPP ', ' .RCN ', ' FFSS ', '  WWH '],
     },
     {
         cols: 7,
@@ -104,7 +85,6 @@ const PLANS = [
             'pig',
             'tractor',
         ],
-        start: ['  T.BO ', ' PPPPP ', ' FFR.NN', ' FMCSS ', ' GWW.H '],
     },
 ];
 
@@ -151,13 +131,8 @@ class FarmScene extends BoardScene {
             deepDark: shade(FARM.soilEdge, -0.12),
             dust: '232, 222, 196',
         };
-        this.begin(CODES);
+        this.begin();
         this.normalise(true);
-    }
-
-    // The starting fields are already sprouting, so there is something to grow at the first tap.
-    starting(piece) {
-        if (piece.kind === 'field') piece.stage = 2;
     }
 
     isGround(kind) {
@@ -2553,7 +2528,7 @@ function icon(ctx, x, y, w, h) {
 export const toy = {
     id: 'farm',
     title: 'Farm',
-    about: 'Build a farm from tiles: paths, fields, ponds, streams, animals, a tractor. Every piece joins up, answers a tap, and hides something; streams carry the water along.',
+    about: 'Build a farm from tiles on an empty table: paths, fields, ponds, streams, animals, a tractor. Every piece joins up, answers a tap, and hides something; streams carry the water along. Hold the broom to sweep the table clean.',
     stages: ['a small farm, 7 kinds of piece', 'a bigger farm, 11 kinds', 'the biggest farm, all 14 kinds'],
     mat: '#DCEBC9',
     icon,
