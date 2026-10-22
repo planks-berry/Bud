@@ -61,14 +61,15 @@ Every toy has three layers, which are found by playing, never unlocked:
 
 - **touch**: something happens at the first contact, always;
 - **move**: dragging, carrying, turning, combining;
-- **make**: structure that rewards staying a while: a tune, a tower, a mixed colour, a shape.
+- **make**: structure that rewards staying a while: a tune, a loop, a building, a mixed colour, a
+  shape.
 
 | Toy | Montessori area | touch | move | make | What the stage changes |
 |---|---|---|---|---|---|
 | **Pond** | Nature, care of animals | Tap the water: a ripple and a water drop, pitched left-low to right-high | Push lily pads; open and close a lotus | Hold a finger still and the fish come to nibble; scatter food from the pot and they gather to eat | 3 / 4 / 5 fish, 2 / 3 / 4 pads |
 | **Busy board** | Practical life (dressing frames, bolt boards) | Lamp switch; a little door with a different picture behind it each time | A colour dial that clicks up the scale; a sun on a slider with a slide whistle; a zip | Crank a music box (Twinkle, Twinkle) at any speed; at Bloom the door has a bolt to slide first | 4 controls at Seed, 6 after; bolt at Bloom |
 | **Tone bars** | Music, auditory sense | Tap a bar; sweep for a glissando; chords with several fingers | Choose a wooden or a metal mallet | The shell plays back the last phrase; at Bloom, hold a bar to lift it and move it | 5 / 8 / 10 bars |
-| **Colour tower** | Sensorial: dimension and colour; music | Tap any cube: its whole row plays, column by column from the left, bottom to top, each cube glowing in its colour as it sounds | Carry, stack, line up (a cube set down just short of another slides against it), pull one from the middle, throw one at a tower | Each colour has its own note, the one it has as paint on the easel, so a pattern built in colour plays as a tune; a new set of colours and sizes each time it comes out | 2 colours of 3 cubes / 3 of 3 / 5 of 2, the smallest down to Montessori's 1 : 10 |
+| **Colour beats** | Music; sensorial: colour | Tap an empty cubby on the shelf and its cube drops in, sounding; tap a cube and it comes out. A light runs along the shelf, round and round, and plays every cube it reaches | Draw a line of cubes with a finger, or empty one; hold the ball under the shelf and the light goes where the finger takes it, playing as it goes | A loop of tune and beat: each column a beat, each row a sound, the colours their notes (as on the easel) and plain wooden cubes a drum, a clap and a shaker; what a column holds sounds together; new colours each time it comes out | 4 columns, 2 colours and a drum / 8, 3 colours, a drum and a shaker / 8, all 5 colours, a drum, a clap and a shaker |
 | **Pouring** | Practical life | Tap a glass: it rings lower the fuller it is | Carry a pitcher over a glass and it tilts and pours | Colours mix as paint does; glasses overflow onto the tray and the sponge wipes it up; a pitcher put back in its place fills again | 1 / 2 / 3 pitchers, 2 / 3 / 4 glasses |
 | **Easel** | Art; metal insets for the hand | Paint with a finger, or several | Choose a pot; lay a metal inset frame on the paper | Paint through the frame and lift it to leave a clean shape; watercolour glazes, so colours mix on the paper | 3 / 6 / 6 paints; 0 / 4 / 8 insets; brush smaller as it grows |
 | **Sandpaper letters** | Language | Choose a board from the box; trace it | A guide's finger shows how each is written, once, and again on request | Only the sand makes a sound; the smooth board is silent | – |
@@ -98,22 +99,22 @@ What is kept from Montessori is the honesty of the materials. Where an order exi
 - A part the crane sets down clanks a step of the scale higher for every half-block it stands above
   the ground, so a building going up rings up the scale.
 
-The colour tower goes further. It began as the pink tower, which has one right order, largest at
-the bottom, and a material that shows a mistake. Here the cubes still differ in size, so an order
-by size is there to be found by eye, but the sound is the colour's, not the size's. Each colour
-comes both large and small, and the sizes in order spell no pattern, so a tower built by size plays
-nothing that a tower built any other way does not. What plays is whatever pattern the child makes:
-red-blue-red-blue is heard as a repeating tune, as a stack or as a row along the rug, and a tap
-anywhere on it plays the whole of it, the light running along the row with the tune. Size shows
-only in how full the knock is. A colour's note is the same as on the easel, where red is also C.
+The colour beats go furthest. They began as the pink tower, which has one right order, largest at
+the bottom, and a material that shows a mistake; became the colour tower, where the sound was the
+colour's and no order was the right one; and are now a step sequencer. The cubes sit in a shelf of
+cubbies, a column for each beat of a loop and a row for each sound, and a light plays the columns
+in turn, round and round, so whatever pattern the child makes is heard again and again while it
+changes: a line of one colour, a staircase that climbs the scale, a chord, a rhythm on the drum
+under a tune. No cubby is a wrong place for a cube: every note is on the scale, so any column is a
+chord that sounds well, and a gap is a rest. A colour's note is the same as on the easel, where red
+is also C.
 
-It also parts from Montessori in one more way, deliberately. A Montessori material is the same
-every day; the tower brings a new set each time it comes off the shelf, as Pok Pok's toys do. At
-Seed and Sprout the colours change (never the same ones twice running), and at every stage the
-sizes are spaced afresh and the colours fall differently across them. The rules stay fixed: each
-colour keeps its note, every cube is a different size, at least 8% smaller than the next, and
-colour and size never line up. [`js/toys/cubes.js`](../playroom/js/toys/cubes.js) rolls the sets,
-and the suite rolls 2000 of them per stage to check every rule.
+They also part from Montessori in one more way, deliberately. A Montessori material is the same
+every day; the colour beats bring a new choice of colours each time they are taken out, as Pok Pok's
+toys do, at Seed and Sprout never the same ones twice running. The rules stay fixed: each colour
+keeps its note, and the rows run from the drum at the bottom to the highest note at the top.
+[`js/toys/cubes.js`](../playroom/js/toys/cubes.js) rolls the choices, and the suite rolls 2000 of
+them per stage to check every rule.
 
 Montessori's other principles are here too:
 
@@ -135,10 +136,10 @@ panel is the only text.
 
 - **One tuning.** Every pitched sound in every toy is on C major pentatonic (A4 = 440 Hz). Any two
   notes from any two toys are consonant, so nothing a child does can sound wrong, and the pond, the
-  tower and the bars can all be played at once. The farm's animals are on it too: the cow's moo is
-  a C, the sheep's baa an A, and a herd answering itself climbs the scale. So is the building site:
-  a reversing truck beeps on the scale, a beam's clank is a note, and the floors of a building and
-  the parts of the crane's sound the playroom's colour-and-note pairs.
+  colour beats and the bars can all be played at once. The farm's animals are on it too: the cow's
+  moo is a C, the sheep's baa an A, and a herd answering itself climbs the scale. So is the building
+  site: a reversing truck beeps on the scale, a beam's clank is a note, and the floors of a building
+  and the parts of the crane's sound the playroom's colour-and-note pairs.
 - **Synthesised, not recorded.** Each sound is rendered from a recipe in
   [`js/synth.js`](../playroom/js/synth.js). Struck things (bars, bells, wood, glass, music-box tines)
   use modal synthesis: a sum of damped sinusoids with the material's mode ratios, upper modes dying
@@ -153,11 +154,16 @@ panel is the only text.
 - **Rendered once, played cheaply.** Recipes render into buffers, ahead of need, a few at a time
   while the shelf is showing. A note at play time is one buffer source and one gain node, which an
   A7 can do by the dozen.
+- **A beat on the sound's own clock.** The colour beats' loop keeps time by the audio context's
+  clock, not the frames: each column's sounds are started a moment (0.12 s) ahead at their exact
+  time, so the beat stays even when a frame is late, and the light and the ball are placed by the
+  same clock.
 - **A mix, written down.** Each recipe has one level in `MIX` (in `synth.js`), and the toys pass
   only relative gain. The levels were set from a loudness estimate of every sound:
-  - musical notes (and a beam's clank) sit near −17 dB;
+  - musical notes (and a beam's clank, and the colour beats' drum) sit near −17 dB;
   - animal voices near −19;
-  - foley (clicks, latches, pats, a reversing beep, a chain, a crunch, a whistle) near −21;
+  - foley (clicks, latches, pats, a reversing beep, a chain, a crunch, a whistle, a clap, a
+    shaker) near −21;
   - air and paper (a load sliding out, wet concrete, a brake's hiss) near −24;
   - a single zip tooth or engine beat, which come in streams, near −27.
 
@@ -218,7 +224,8 @@ In Node:
 - all 140 recipe variants render finite, unclipped, click-free and DC-free at 44.1 and 48 kHz;
 - every sound sits in its band of the mix;
 - all 36 glyphs stay on the writing lines;
-- every set of cubes the colour tower can roll keeps its rules, over 2000 rolls a stage.
+- every sound the toys ask for with fixed parameters renders, so none is missing one it needs;
+- every choice of colours the colour beats can roll keeps its rules, over 2000 rolls a stage.
 
 Then in Chromium, as an iPad (1024 × 768 at 2×, touch), the suite drives every toy with real touch
 events. It measures the audio that reaches the speaker through an analyser after the compressor.
@@ -226,11 +233,14 @@ It also checks:
 
 - that the first touch is what starts sound;
 - that the frame loop sleeps when nothing moves;
-- that each colour in the tower has one note, the same as its paint on the easel, and comes in
-  both large and small sizes;
-- that a tap anywhere plays the whole tower or row, from the left and the bottom, each cube lit in
-  turn over a band on the rug;
-- that the tower brings different colours the next time it comes out;
+- in the colour beats: that the shelf opens with its rows lowest note lowest and a heartbeat on
+  the drum; that a tap puts a cube in, sounding, and takes it out again; that a stroke fills or
+  empties a row; that the light plays a column at a time, a column's cubes together, each column
+  booked on the audio clock exactly a beat after the last; that the ball, held, plays each column
+  it is rolled to and the loop carries on from there; that the ball hops back when the loop goes
+  round; that the loop rests when left alone, and the frames stop, until a touch; and that the
+  shelf brings different colours the next time it comes out;
+- that each colour is the same note as its paint on the easel;
 - on the farm: that a frog comes to the pond within seconds; that a hidden thing shows itself the
   first time whatever chance says, and by chance after that; that a piece from the tray joins its
   neighbours; that a joined field grows as one, is harvested ripe and hides a rabbit among the
@@ -297,7 +307,7 @@ playroom/
     start.js, shelf.js      the bud, and the shelf
     settings.js, parent.js  the grown-ups' corner
     toys/                   one file per toy; glyphs.js holds the letters and numerals, cubes.js
-                            the colour tower's sets, farmart.js the farm's pictures, board.js the
+                            the colour beats' cubes, farmart.js the farm's pictures, board.js the
                             isometric board the farm and the building site are built on, iso.js
                             its boxes, roofs and walls, machines.js the site's palette and
                             machines, and digart.js, craneart.js and siteart.js the rest of the

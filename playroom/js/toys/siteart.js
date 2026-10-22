@@ -7,7 +7,7 @@
 //
 // The floors of a building take the playroom's colour-and-note pairs, from the bottom up: red C,
 // yellow E, green G, blue A, purple the C above. A building played from the ground up sings the
-// scale, and its colours are the easel's and the colour tower's.
+// scale, and its colours are the easel's and the colour beats'.
 
 import { fillRound, disc, ellipse } from '../draw.js';
 import { TAU, clamp, shade } from '../util.js';

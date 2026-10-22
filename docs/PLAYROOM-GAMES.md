@@ -66,7 +66,7 @@ What was asked, and the answers that have shaped everything since.
 - **A set mix.** Each sound has one level, and the tests hold it in its band: notes loudest, then
   knocks and clicks, then air and paper.
 - **Colours have notes.** Red is C, yellow E, green G, blue A, purple the C above. The easel and the
-  colour tower use the same pairs.
+  colour beats use the same pairs.
 
 ---
 
@@ -179,43 +179,48 @@ latch, zip teeth, music box notes, chimes.
 **Ideas**
 -
 
-### 4. Colour tower
+### 4. Colour beats (was the colour tower)
 
-**What it is:** wooden cubes of different sizes, in a few colours, on a work rug. Each colour has
-its own note, and anything built from them can be played.
+**What it is:** the colour tower's cubes on a low wooden shelf of cubbies that plays itself. Each
+column of cubbies is a beat of a short loop; each row is a sound. A light runs along the shelf,
+column by column, round and round, with a wooden ball rolling beneath it, and every cube it reaches
+sounds. The colours are notes, a higher row a higher note; along the bottom, plain wooden cubes are
+a drum, a clap and a shaker. What a column holds sounds together, so a column is a chord and a row
+is a tune or a rhythm.
 
-**Roots:** it began as the Montessori pink tower (the senses: size). It is now also about colour,
-pattern and music.
+**Roots:** it began as the Montessori pink tower (the senses: size), became the colour tower
+(colour, pattern and music), and is now a step sequencer, the simplest kind of drum machine: a grid
+of steps that a loop plays in turn.
 
 **Layers**
-- Touch: tap any cube and its whole row or tower plays: each column from the left, bottom to top,
-  about five cubes a second. Each cube glows in its colour as it sounds. A pale band on the rug
-  marks the row while it plays, and a light in the sounding cube's colour runs along it. Tap again
-  mid-play and the row starts over.
-- Move: carry, stack, line up. A cube set down just short of another slides against it, so rows
-  are easy to make; a thrown or knocked cube lands where it lands. Pull one from the middle of a
-  tower and the ones above drop. Throw one at a tower.
-- Make: a pattern in colour (red-blue-red-blue) is heard as a tune. Towers by size are there to
-  find too. There are two orders to discover, and neither is the right one.
+- Touch: tap an empty cubby and its cube drops in, sounding; tap a cube and it comes out. The loop
+  is already running when the shelf comes out, with a heartbeat on the drum, so the first cube put
+  in is heard again every time the light comes round.
+- Move: draw with a finger. A stroke begun on an empty cubby fills every cubby it crosses; one begun
+  on a cube empties them. Hold the ball, or anywhere along the board it runs on, and the light goes
+  where the finger takes it, playing each column it reaches; let go, and the loop carries on from
+  there. When the loop goes round, the ball hops back over the front of the shelf to the start.
+- Make: a loop of tune and beat, heard every time round and changed a cube at a time: a line of one
+  colour, a staircase that climbs the scale, a chord, a rhythm on the drum and shaker under a tune.
 
 **Stages**
-- Seed: 6 cubes in 2 colours, 3 of each; the smallest 0.42 of the largest.
-- Sprout: 9 cubes in 3 colours, 3 of each; the smallest 0.26 of the largest.
-- Bloom: 10 cubes in 5 colours, 2 of each; the smallest a tenth of the largest, as in
-  Montessori's tower.
+- Seed: 4 columns, a column every 0.46 seconds; 2 colours and a drum.
+- Sprout: 8 columns, a column every 0.36 seconds; 3 colours, a drum and a shaker.
+- Bloom: 8 columns, a column every 0.3 seconds; all 5 colours, a drum, a clap and a shaker.
 
 **A new set each time it comes out**
-- What changes:
-  - which colours, at Seed and Sprout (never the same ones twice running);
-  - how the sizes are spaced;
-  - how the colours fall across the sizes.
-- What never changes:
-  - each colour keeps its note;
-  - every cube is a different size, each at least 8% smaller than the next;
-  - colour and size never line up, so building by size plays nothing special.
+- At Seed and Sprout the colours change, never the same ones twice running; at Bloom all five are
+  out.
+- What never changes: each colour keeps its note, the rows run from the drum at the bottom to the
+  highest note at the top, and the shelf starts with the same heartbeat.
 
 **Sound:** a wooden knock in the colour's note (red C, yellow E, green G, blue A, purple the C
-above). Bigger cubes knock fuller and thud on the rug. A lifted cube gives a light tick.
+above), as before. The beats are new and as plain as a small band's: a soft hand drum tuned to the
+C below middle C, a clap and an egg shaker, each short and each carrying its weight where an iPad's
+speakers can give it. A cube taken out gives a light tick. The notes in one column share their
+loudness, so a chord of five is fuller than one note, not five times louder. The loop keeps time by
+the sound's own clock: each column is booked a moment ahead, to the sample, so the beat stays even
+when the iPad drops a frame.
 
 **Decisions so far**
 1. First version, the pink tower: a cube's note went with its size, so a tower built largest-first
@@ -227,18 +232,40 @@ above). Bigger cubes knock fuller and thud on the rug. A lifted cube gives a lig
    - colours that repeat, so patterns can be made;
    - graduated sizes kept, with the colours mixed across them;
    - a pattern that plays itself.
-4. Fourth version, now: any tap plays the whole row, lit up as it plays. Size and colour are two
-   things to discover, and the set of colours and sizes is new each time.
+4. Fourth version: any tap played the whole row, lit up as it played. Size and colour were two
+   things to discover, and the set of colours and sizes was new each time.
+5. Fifth version, now: "Change the block stacking game for a simple step sequencer style music and
+   beat creator. Keep the main theme, but something with more creative pattern ability while
+   staying with simple sounds."
+   - Kept: the cubes, each colour's note, the wooden knock, the work rug, cubes that glow as they
+     sound, and new colours each outing.
+   - Changed: the cubes sit in a grid instead of standing free, so time runs left to right and
+     pitch bottom to top, and the loop plays by itself, round and round. Patterns can now have
+     rests, chords and a beat under them, and a pattern is heard many times while it is changed.
+   - The graded sizes have gone: a grid wants cubes of one size, and size never changed the note.
+   - Beats are wooden cubes with a mark burnt into the face: a drum's skin, a clap's burst, a
+     shaker's seeds. They are plain wood so that colour still means only a note.
+   - A tap puts a cube in or takes it out, the way a step sequencer works; a stroke fills or
+     empties a line, so a long pattern is one movement.
+   - The ball under the shelf gives the loop something to watch travelling, and a way to play the
+     shelf by hand at any speed.
+   - Left untouched for three minutes, the loop plays to its end and rests, so a shelf left open
+     does not play all evening; any touch starts it again.
 
 **Questions**
-- Only the colour-to-note pairs survive from one set to the next. What do you expect him to carry
-  over, and what would show you he has? For example, would he reach for a red cube to get "that"
-  sound?
-- A row plays at about five cubes a second. Is that slow enough for him to follow the light cube
-  by cube?
+- Does he follow the light along the shelf, or listen without watching it? If he watches, a shelf
+  that is longer (16 columns, two rows of eight) is the next step; if he listens, more kinds of
+  sound in the same eight columns.
+- Should the shelf come out empty instead of with the heartbeat?
+-
 
 **Ideas**
--
+- A glass rings lower as it fills, and the pouring sound rises, as real water does.
+- Sand in the dig is never made or lost: what the bucket takes is what the ground gives up, and
+  every grain poured lands somewhere. It heaps and slides to its own slope, as sand does.
+- A part the crane sets down clanks a step of the scale higher for every half-block it stands above
+  the ground, so a building going up rings up the scale.
+- A speed for the loop, a tortoise and a hare to slide between, at Bloom.
 
 ### 5. Pouring
 
@@ -299,7 +326,7 @@ glass, a tray, and a sponge for what goes astray.
   brush.
 
 **Sound:** the brush on paper follows the finger. Each pot sounds its colour's note when chosen,
-the same notes as the colour tower. The frames latch and lift, and the paper rustles.
+the same notes as the colour beats. The frames latch and lift, and the paper rustles.
 
 **Decisions so far**
 - The painting stays on the easel while the playroom is open, so a trip to the shelf doesn't throw
@@ -520,8 +547,9 @@ down its own hole, and the car beeps and rolls. Sand poured over a find buries i
 **What it is:** a tower crane, a pile of building parts, open ground to build on, and trucks that
 come to be loaded.
 
-**Roots:** the colour tower, with a tool in between. A child of three can carry a block with a
-finger; lifting it with a crane is the same work done at a distance, through a hook that swings.
+**Roots:** the colour tower (now the colour beats), with a tool in between. A child of three can
+carry a block with a finger; lifting it with a crane is the same work done at a distance, through a
+hook that swings.
 
 **Layers**
 - Touch: tap a part for its note, the ground at a building's foot to play the whole building from
@@ -706,7 +734,7 @@ his whistle.
 ## Where things are
 
 - `playroom/`: the playroom itself. One file per game in `playroom/js/toys/`, with its drawings
-  beside it (`farmart.js`, `digart.js`, `craneart.js`, `siteart.js`), the colour tower's sets in
+  beside it (`farmart.js`, `digart.js`, `craneart.js`, `siteart.js`), the colour beats' cubes in
   `cubes.js`, the machines the dig and the site share in `machines.js`, and the board the farm and
   the site share in `board.js`.
 - `docs/PLAYROOM.md`: how it is built, why, and how it is tested.

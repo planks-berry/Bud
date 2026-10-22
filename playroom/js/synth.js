@@ -1085,16 +1085,81 @@ export const recipes = {
         fadeIn(out, sr, 0.004);
         return finish(out, sr, 0.7);
     },
+
+    //--------------------------------------------------------------------------
+    // The colour beats' beats: a drum, a clap and a shaker, the plainest a small band has. Each is
+    // short, so a beat a third of a second long stays a beat, and each carries its weight in the
+    // middle of the spectrum, where an iPad's small speakers can give it.
+
+    // A soft drum, a hand on a skin: a low note that sags a little as it rings, the skin's upper
+    // modes, and the felt of the beater. Tuned to the scale, an octave below middle C.
+    drum(sr, p) {
+        const f = p.f || noteHz(-5, 60);
+        const next = rng(p.seed || 61);
+        const out = makeBuffer(sr, 0.5);
+        addSweep(out, sr, f * 1.45, f, 0.018, 1, 0.15);
+        addMode(out, sr, f * 1.59, 0.32, 0.07);
+        addMode(out, sr, f * 2.14, 0.16, 0.045);
+        addMode(out, sr, f * 2.65, 0.07, 0.03);
+        const felt = new OnePole(sr, 1200);
+        addBurst(out, sr, next, 0.009, 0.55, (x) => felt.lowpass(x));
+        fadeIn(out, sr, 0.0008);
+        return finish(out, sr, 0.85);
+    },
+
+    // Hands clapping: three slaps a hair apart as the palms meet, and a short tail of the room.
+    clap(sr, p) {
+        const next = rng(p.seed || 62);
+        const out = makeBuffer(sr, 0.2);
+        const palms = new BandPass(sr, 1250, 1.3);
+        for (const [at, amp] of [
+            [0, 0.75],
+            [0.01, 0.55],
+            [0.019, 1],
+        ])
+            addBurst(out, sr, next, 0.009, amp, (x) => palms.process(x), at, 1.4);
+        const room = new BandPass(sr, 1500, 0.8);
+        addBurst(out, sr, next, 0.11, 0.4, (x) => room.process(x), 0.026, 3);
+        fadeIn(out, sr, 0.0005);
+        return finish(out, sr, 0.9);
+    },
+
+    // An egg shaker: the seeds thrown against the shell, a short rush of high noise that swells and
+    // falls, and a few seeds landing late.
+    shaker(sr, p) {
+        const next = rng(p.seed || 63);
+        const out = makeBuffer(sr, 0.13);
+        const shell = new BandPass(sr, 6200, 1.1);
+        for (let n = 0; n < out.length; n++) {
+            const t = n / sr;
+            const env = Math.min(1, t / 0.014) * Math.exp(-Math.max(0, t - 0.014) / 0.034);
+            out[n] = shell.process(next() * 2 - 1) * env;
+        }
+        const seed = new BandPass(sr, 4300, 2.2);
+        for (let g = 0; g < 6; g++)
+            addBurst(
+                out,
+                sr,
+                next,
+                0.0018,
+                0.35 * (1 - g / 6),
+                (x) => seed.process(x),
+                0.03 + next() * 0.06,
+                1
+            );
+        fadeIn(out, sr, 0.001);
+        return finish(out, sr, 0.8);
+    },
 };
 
 // The mix: each recipe's level at a relative gain of 1. Toys say only what they mean (1 for the
-// usual, less for a soft variant, an impact's strength for a landing) and the balance between
-// a bell, a switch and a zip lives here. Set from a loudness estimate of each sound (RMS of its
+// usual, less for a soft variant, an impact's strength for a landing) and the balance between a
+// bell, a switch and a zip lives here. Set from a loudness estimate of each sound (RMS of its
 // loudest 100 ms, with the extremes of the spectrum discounted, as the ear does), and held to it by
-// test.mjs: musical notes (and a beam's clank) near -17 dB, animal voices near -19, foley (a
-// reversing beep, a chain, a crunch) near -21, air and paper (a load sliding out, wet concrete, a
-// brake's hiss) near -24, and the sounds that come in streams (single zip teeth, a tractor's engine
-// beats) near -27.
+// test.mjs: musical notes (and a beam's clank, and the colour beats' drum) near -17 dB, animal
+// voices near -19, foley (a reversing beep, a chain, a crunch, a clap, a shaker) near -21, air and
+// paper (a load sliding out, wet concrete, a brake's hiss) near -24, and the sounds that come in
+// streams (single zip teeth, a tractor's engine beats) near -27.
 export const MIX = {
     marimba: 0.39,
     glock: 0.36,
@@ -1137,6 +1202,9 @@ export const MIX = {
     crunch: 0.85,
     hiss: 0.93,
     slosh: 0.36,
+    drum: 0.64,
+    clap: 1.0,
+    shaker: 0.89,
 };
 
 export function render(name, sr, params = {}) {

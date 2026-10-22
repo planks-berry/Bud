@@ -1,13 +1,14 @@
 // The crane: a tower crane on a building site, a pile of parts, and open ground to build on.
 //
-// After the colour tower, with a tool in between. A child of three can carry a block with a finger;
-// lifting it with a crane is the same work done at a distance, through a hook that swings. So the
-// hook goes wherever the finger takes it: the trolley runs along the jib after it and the cable
-// winds to its height. Lowered onto a part, the hook takes it; let go, the part drops and settles
-// on whatever is under it. Parts snap to a grid of half-blocks as they land, so a stack stands
-// and a row is a row, and there is no physics to fight: a part rests on the highest thing beneath
-// it, and when something is taken from under it, it drops. A child who does not get on with the
-// hook can carry a part straight to where it should go, and the hook comes along with it.
+// After the colour tower (now the colour beats), with a tool in between. A child of three can carry
+// a block with a finger; lifting it with a crane is the same work done at a distance, through a
+// hook that swings. So the hook goes wherever the finger takes it: the trolley runs along the jib
+// after it and the cable winds to its height. Lowered onto a part, the hook takes it; let go, the
+// part drops and settles on whatever is under it. Parts snap to a grid of half-blocks as they land,
+// so a stack stands and a row is a row, and there is no physics to fight: a part rests on the
+// highest thing beneath it, and when something is taken from under it, it drops. A child who does
+// not get on with the hook can carry a part straight to where it should go, and the hook comes
+// along with it.
 //
 // Nothing is correct. A building is whatever stands, and whatever stands comes alive: windows
 // light at night, a cat moves into one, plants appear on the ledges, and a bird comes to nest on

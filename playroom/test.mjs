@@ -191,6 +191,9 @@ const PARAMS = {
     crunch: [{}, { seed: 3 }],
     hiss: [{}],
     slosh: [{}],
+    drum: [{}, { f: noteHz(-3, 60) }],
+    clap: [{}],
+    shaker: [{}],
 };
 
 const recipeFaults = [];
@@ -298,7 +301,7 @@ function loudness(samples, sr) {
 }
 
 const BANDS = [
-    ['notes', [-19.5, -14.5], ['marimba', 'glock', 'chime', 'musicBox', 'drop', 'wood', 'clank']],
+    ['notes', [-19.5, -14.5], ['marimba', 'glock', 'chime', 'musicBox', 'drop', 'wood', 'clank', 'drum']],
     [
         'voices',
         [-21.5, -16.5],
@@ -323,6 +326,8 @@ const BANDS = [
             'whistle',
             'rattle',
             'crunch',
+            'clap',
+            'shaker',
         ],
     ],
     ['air', [-27, -21.5], ['bubble', 'rustle', 'whoosh', 'rumble', 'hiss', 'slosh']],
@@ -373,58 +378,48 @@ check(
     shapeFaults.join('; ')
 );
 
-// ---- every set of cubes the colour tower can roll keeps its rules ---------------------------
+// ---- every choice of colours the colour beats can roll keeps its rules ----------------------
 
 {
     const cubes = await import(pathToFileURL(join(here, 'js/toys/cubes.js')).href);
     const noteOf = {};
     for (const kind of cubes.COLOURS) noteOf[kind.name] = kind.degree;
     const faults = [];
-    const looks = cubes.STAGES.map(() => new Set());
     const palettes = cubes.STAGES.map(() => new Set());
     cubes.STAGES.forEach((stage, level) => {
         let last = '';
         for (let roll = 0; roll < 2000 && faults.length < 5; roll++) {
-            const set = cubes.makeSet(level, (roll * 2654435761) >>> 0, last);
+            const colours = cubes.pickColours(level, (roll * 2654435761) >>> 0, last);
             const where = `stage ${level}, roll ${roll}`;
-            const names = set.map((c) => c.name);
-            const kinds = Array.from(new Set(names));
-            const n = set.length;
-            if (kinds.length !== stage.colours || n !== stage.colours * stage.each)
-                faults.push(`${where}: ${kinds.length} colours in ${n} cubes`);
-            for (const k of kinds)
-                if (names.filter((x) => x === k).length !== stage.each) faults.push(`${where}: uneven ${k}`);
-            if (set.some((c) => c.degree !== noteOf[c.name])) faults.push(`${where}: a colour off its note`);
-            if (set[0].size !== 1 || Math.abs(set[n - 1].size - stage.smallest) > 1e-9)
-                faults.push(`${where}: sizes run ${set[0].size}..${set[n - 1].size}`);
-            for (let i = 0; i + 1 < n; i++)
-                if (set[i].size / set[i + 1].size < cubes.MIN_STEP - 1e-9)
-                    faults.push(`${where}: cubes ${i} and ${i + 1} too alike in size`);
-            for (const k of kinds) {
-                const ranks = names.map((x, i) => (x === k ? i : -1)).filter((i) => i >= 0);
-                if (!ranks.some((i) => i < n / 2) || !ranks.some((i) => i >= n / 2))
-                    faults.push(`${where}: ${k} only ${ranks[0] < n / 2 ? 'large' : 'small'}`);
-            }
-            for (let period = 1; period <= n / 2; period++)
-                if (names.every((x, i) => i + period >= n || x === names[i + period]))
-                    faults.push(`${where}: by size the colours repeat every ${period}`);
-            const key = cubes.colourKey(set);
+            const names = colours.map((kind) => kind.name);
+            if (names.length !== stage.colours || new Set(names).size !== names.length)
+                faults.push(`${where}: ${names.join(' ')}`);
+            if (colours.some((kind) => kind.degree !== noteOf[kind.name]))
+                faults.push(`${where}: a colour off its note`);
+            for (let i = 1; i < colours.length; i++)
+                if (colours[i].degree <= colours[i - 1].degree) faults.push(`${where}: not lowest first`);
+            const key = cubes.colourKey(colours);
             if (stage.colours < cubes.COLOURS.length && key === last)
                 faults.push(`${where}: the same colours twice running`);
             last = key;
             palettes[level].add(key);
-            looks[level].add(set.map((c) => `${c.name}${c.size.toFixed(2)}`).join(' '));
+            const rows = cubes.rowsFor(level, colours).map((row) => row.name);
+            if (rows.join(' ') !== stage.beats.concat(names).join(' ') || rows[0] !== 'drum')
+                faults.push(`${where}: rows ${rows.join(' ')}`);
         }
+        const start = cubes.starter(level);
+        if (!start.length || start.some(([row, col]) => row !== 0 || col < 0 || col >= stage.steps))
+            faults.push(`stage ${level}: starts with ${JSON.stringify(start)}`);
     });
     check(
-        'every set of cubes keeps its rules, over 2000 rolls a stage',
+        'every choice of colours keeps its rules, over 2000 rolls a stage: each its note, lowest first, the beats below, never the same twice running',
         faults.length === 0,
         faults.slice(0, 3).join('; ')
     );
     check(
-        'and the sets vary: many colourings and sizings, and every pair of colours at Seed',
-        looks.every((l) => l.size > 1500) && palettes[0].size === 10 && palettes[1].size === 10,
-        `${looks.map((l) => l.size).join(' / ')} distinct sets; ${palettes[0].size} and ${palettes[1].size} palettes`
+        'and the choices vary: every pair of colours at Seed, every three at Sprout',
+        palettes[0].size === 10 && palettes[1].size === 10 && palettes[2].size === 1,
+        `${palettes.map((p) => p.size).join(' / ')} palettes`
     );
 }
 
@@ -725,178 +720,229 @@ async function suite(mode) {
     await shot('bars');
     check('home from the bars', (await home()) === 'ShelfScene');
 
-    // ---- colour tower ------------------------------------------------------------
+    // ---- colour beats ------------------------------------------------------------
 
     await open('tower');
-    const cubes = await scene(() =>
-        window.playroom.stage.scene.cubes.map((c) => ({
-            rank: c.rank,
-            x: c.x,
-            y: c.y,
-            s: c.s,
-            colour: c.colour,
-            degree: c.degree,
-        }))
-    );
-    const byColour = {};
-    for (const c of cubes) (byColour[c.colour] = byColour[c.colour] || []).push(c);
-    const colours = Object.keys(byColour);
+    const beatShelf = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return {
+            rows: s.rows.map((k) => ({ name: k.name, beat: k.beat, colour: k.colour, degree: k.degree })),
+            steps: s.steps,
+            period: s.period,
+            grid: s.grid.map((row) => row.map((c) => (c ? 1 : 0)).join('')),
+        };
+    });
+    const noteRows = beatShelf.rows.filter((k) => !k.beat);
     check(
-        'three colours of three cubes, each colour its own note',
-        colours.length === 3 &&
-            colours.every((k) => byColour[k].length === 3) &&
-            colours.every((k) => byColour[k].every((c) => c.degree === byColour[k][0].degree)) &&
-            new Set(colours.map((k) => byColour[k][0].degree)).size === 3,
-        colours.map((k) => `${k} x${byColour[k].length}`).join(', ')
+        'the colour beats open at Sprout: 8 columns, a drum and a shaker under 3 colours, the lowest note lowest',
+        beatShelf.steps === 8 &&
+            beatShelf.rows
+                .slice(0, 2)
+                .map((k) => k.name)
+                .join(' ') === 'drum shaker' &&
+            noteRows.length === 3 &&
+            noteRows.every((k, i) => i === 0 || k.degree > noteRows[i - 1].degree),
+        beatShelf.rows.map((k) => k.name).join(' ')
     );
     check(
-        'and every colour comes both large and small, so size and note never line up',
-        colours.every(
-            (k) =>
-                byColour[k].some((c) => c.rank < cubes.length / 2) &&
-                byColour[k].some((c) => c.rank >= cubes.length / 2)
-        )
+        'with a heartbeat on the drum to start with',
+        beatShelf.grid[0] === '10001000' && beatShelf.grid.slice(1).every((row) => row === '00000000'),
+        beatShelf.grid.join(' ')
     );
     const towerNotes = {};
-    for (const c of cubes) towerNotes[c.colour] = c.degree;
+    for (const k of noteRows) towerNotes[k.colour] = k.degree;
 
-    const big = cubes.find((c) => c.rank === 0);
-    const small = cubes.find((c) => c.rank === cubes.length - 1);
-    await touch.drag(line(small.x, small.y - small.s / 2, big.x, big.y - big.s - 80, 24), 16, 300);
-    await page.waitForTimeout(1200);
-    const landed = await scene((rank) => {
-        const s = window.playroom.stage.scene;
-        const c = s.cubes.find((c) => c.rank === rank);
-        return { state: c.state, y: c.y, floor: s.floor };
-    }, small.rank);
-    check(
-        'a cube carried onto another stacks on it',
-        landed.state === 'rest' && landed.y < landed.floor - 20,
-        `${landed.state} at ${Math.round(landed.y)}`
-    );
-    const state = () =>
-        scene(() =>
-            window.playroom.stage.scene.cubes.map((c) => ({
-                rank: c.rank,
-                state: c.state,
-                x: c.x,
-                y: c.y,
-                s: c.s,
-            }))
+    const cubby = (row, col) =>
+        scene(
+            ([row, col]) => {
+                const q = window.playroom.stage.scene.cellRect(row, col);
+                return { x: q.x + q.w / 2, y: q.y + q.h / 2 };
+            },
+            [row, col]
         );
-    const playOrder = (rank) =>
-        scene((rank) => {
-            const s = window.playroom.stage.scene;
-            return s.playOrder(s.cubes.find((c) => c.rank === rank)).map((c) => c.rank);
-        }, rank);
+    const shelfRows = () =>
+        scene(() => window.playroom.stage.scene.grid.map((row) => row.map((c) => (c ? 1 : 0)).join('')));
+    const tapCubby = async (row, col) => {
+        const q = await cubby(row, col);
+        await touch.tap(q.x, q.y);
+    };
 
-    // No order is the right one: a big cube goes on the smallest.
-    let now = await state();
-    const top = now.find((c) => c.rank === small.rank);
-    const second = now.find((c) => c.rank === 1);
-    const carry = top.y - top.s - 70 - second.s / 2;
-    await touch.drag(
-        [
-            ...line(second.x, second.y - second.s / 2, second.x, carry, 12),
-            ...line(second.x, carry, top.x, carry, 16).slice(1),
-            ...line(top.x, carry, top.x, carry + 30, 4).slice(1),
-        ],
-        16,
-        300
-    );
-    await page.waitForTimeout(1200);
-    const tower = await playOrder(1);
+    // Quiet first, the heartbeat taken out, so what a tap sounds is heard on its own.
+    await tapCubby(0, 0);
+    await tapCubby(0, 4);
+    await page.waitForTimeout(1600);
+    const hush = await peak(300);
+    await tapCubby(2, 2);
+    const knock = await peak(300);
+    const one = await shelfRows();
     check(
-        'a big cube stacks on a small one, and a tap at the top plays the tower from the bottom up',
-        tower.join(' ') === [0, small.rank, 1].join(' '),
-        tower.join(' ')
+        'a tap on an empty cubby drops its cube in, sounding',
+        one[0] === '00000000' && one[2] === '00100000' && knock > 0.02 && knock > hush * 2,
+        `${one.join(' ')}; ${hush.toFixed(3)} then ${knock.toFixed(3)}`
     );
+    await tapCubby(2, 2);
+    await page.waitForTimeout(100);
+    check('and a tap on the cube takes it out again', (await shelfRows())[2] === '00000000');
 
-    // A row: a cube set down just short of another slides up against it, and the row plays on.
-    // Two neighbours on the rug, with nothing between them and neither in the tower.
-    now = await state();
-    const rug = now.filter((c) => c.state === 'rest' && c.y >= landed.floor - 0.5).sort((a, b) => a.x - b.x);
-    const inTower = (c) => [0, 1, small.rank].indexOf(c.rank) >= 0;
-    const pair = rug.findIndex((c, i) => i + 1 < rug.length && !inTower(c) && !inTower(rug[i + 1]));
-    const first = rug[pair];
-    const next = rug[pair + 1];
-    const target = first.x + (first.s + next.s) / 2 + 8;
-    const lift = next.y - next.s / 2 - 50;
-    await touch.drag(
-        [
-            ...line(next.x, next.y - next.s / 2, next.x, lift, 6),
-            ...line(next.x, lift, target, lift, 12).slice(1),
-            ...line(target, lift, target, lift + 30, 4).slice(1),
-        ],
-        16,
-        300
-    );
-    await page.waitForTimeout(1200);
-    const row = await scene(
-        ([a, b]) => {
-            const s = window.playroom.stage.scene;
-            const ca = s.cubes.find((c) => c.rank === a);
-            const cb = s.cubes.find((c) => c.rank === b);
-            return {
-                gap: cb.x - cb.s / 2 - (ca.x + ca.s / 2),
-                fromFirst: s.playOrder(ca).map((c) => c.rank),
-                fromSecond: s.playOrder(cb).map((c) => c.rank),
-                second: { x: cb.x, y: cb.y - cb.s / 2 },
-            };
-        },
-        [first.rank, next.rank]
-    );
+    const rowStart = await cubby(3, 0);
+    const rowEnd = await cubby(3, 7);
+    await touch.drag(line(rowStart.x, rowStart.y, rowEnd.x, rowEnd.y, 14));
+    const stroked = await shelfRows();
+    const rowMid = await cubby(3, 3);
+    await touch.drag(line(rowStart.x, rowStart.y, rowMid.x, rowMid.y, 8));
+    const erased = await shelfRows();
+    check('a stroke along a row fills every cubby it crosses', stroked[3] === '11111111', stroked.join(' '));
     check(
-        'a cube set down beside another slides against it',
-        Math.abs(row.gap) < 1,
-        `gap ${row.gap.toFixed(1)}`
-    );
-    const whole = [first.rank, next.rank].join(' ');
-    check(
-        'and a tap on either cube plays the whole row, from the left',
-        row.fromFirst.join(' ') === whole && row.fromSecond.join(' ') === whole,
-        `${row.fromFirst.join(' ')} / ${row.fromSecond.join(' ')}`
+        'and a stroke begun on a cube empties the ones it crosses',
+        erased[3] === '00001111',
+        erased.join(' ')
     );
 
-    // Tapped on its second cube: the first lights and sounds, then the second, over a band.
-    await touch.tap(row.second.x, row.second.y);
-    const lit = await page.evaluate(
-        async ([a, b]) => {
-            const s = window.playroom.stage.scene;
-            const ca = s.cubes.find((c) => c.rank === a);
-            const cb = s.cubes.find((c) => c.rank === b);
-            const seen = { a: -1, b: -1, band: 0, peak: 0 };
-            const start = Date.now();
-            while (Date.now() - start < 900) {
-                const t = Date.now() - start;
-                if (seen.a < 0 && ca.glow > 0.5) seen.a = t;
-                if (seen.b < 0 && cb.glow > 0.5) seen.b = t;
-                seen.band = Math.max(seen.band, s.bands.length);
-                seen.peak = Math.max(seen.peak, window.playroom.audio.peak());
-                await new Promise((r) => setTimeout(r, 12));
+    // Two colours in one column and a drum two columns on: the light reaches each in turn, the
+    // two in the column together, a column every beat, round and round, booked to the sample.
+    await tapCubby(2, 1);
+    await tapCubby(4, 1);
+    await tapCubby(0, 3);
+    const looped = await page.evaluate(async () => {
+        const s = window.playroom.stage.scene;
+        const watch = { a: s.grid[2][1], b: s.grid[4][1], c: s.grid[0][3] };
+        const rose = { a: [], b: [], c: [] };
+        const was = { a: 0, b: 0, c: 0 };
+        let gap = 0;
+        let worst = 0;
+        let loudest = 0;
+        const start = Date.now();
+        const span = s.period * s.steps * 2000 + 400;
+        while (Date.now() - start < span) {
+            const t = Date.now() - start;
+            for (const k of Object.keys(watch)) {
+                if (watch[k].glow > was[k] + 0.2) rose[k].push(t);
+                was[k] = watch[k].glow;
             }
-            return seen;
-        },
-        [first.rank, next.rank]
+            for (let i = 1; i < s.booked.length; i++) {
+                gap = s.booked[i].at - s.booked[i - 1].at;
+                worst = Math.max(worst, Math.abs(gap - s.period));
+            }
+            loudest = Math.max(loudest, window.playroom.audio.peak());
+            await new Promise((r) => setTimeout(r, 8));
+        }
+        return { rose, worst, loudest, clock: s.clock };
+    });
+    const beatMs = beatShelf.period * 1000;
+    const loopMs = beatMs * beatShelf.steps;
+    const firstA = looped.rose.a[0];
+    const nextC = looped.rose.c.find((t) => t > firstA);
+    check(
+        'the light plays a column at a time: the two cubes in one column together, the drum two beats on',
+        looped.rose.a.length >= 2 &&
+            looped.rose.a.join(' ') === looped.rose.b.join(' ') &&
+            Math.abs(nextC - firstA - 2 * beatMs) < 120 &&
+            looped.loudest > 0.02,
+        JSON.stringify(looped)
     );
     check(
-        'each cube lights as it sounds, the row in order, over a band on the rug',
-        lit.a >= 0 && lit.b > lit.a && lit.band === 1 && lit.peak > 0.02,
-        `lit at ${lit.a} and ${lit.b} ms, ${lit.band} band, peak ${lit.peak.toFixed(3)}`
+        'round and round, a loop at a time, each column booked on the audio clock exactly a beat after the last',
+        Math.abs(looped.rose.a[1] - looped.rose.a[0] - loopMs) < 150 &&
+            looped.clock === 'audio' &&
+            looped.worst < 1e-6,
+        `${looped.rose.a.join(' ')} ms; ${looped.clock}, ${looped.worst}`
     );
-    await touch.tap(row.second.x, row.second.y);
-    await page.waitForTimeout(120);
-    await shot('tower');
-    check('home from the tower', (await home()) === 'ShelfScene');
 
-    // The next outing brings a different set.
-    const palette = (list) => Array.from(new Set(list)).sort().join(' ');
-    await open('tower');
-    const again = await scene(() => window.playroom.stage.scene.cubes.map((c) => c.colour));
+    // Held, the ball plays each column it is rolled to, and the loop waits; let go, the loop carries
+    // on from the next column.
+    const runway = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { y: s.groove, from: s.colX(2), to: s.colX(6) };
+    });
+    await touch.down(runway.from, runway.y);
+    const grabbed = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { held: !!s.held, lit: s.lastCol };
+    });
+    const rolledOver = [];
+    for (const [x, y] of line(runway.from, runway.y, runway.to, runway.y, 16).slice(1)) {
+        await page.waitForTimeout(30);
+        await touch.move(x, y);
+        rolledOver.push(await scene(() => window.playroom.stage.scene.lastCol));
+    }
+    await page.waitForTimeout(700);
+    const waited = await scene(() => window.playroom.stage.scene.lastCol);
+    await touch.up();
+    const carried = await page
+        .waitForFunction(() => window.playroom.stage.scene.lastCol !== 6, null, { timeout: 3000 })
+        .then(
+            () => scene(() => window.playroom.stage.scene.lastCol),
+            () => -1
+        );
     check(
-        'the next time the tower comes out, it brings other colours',
-        again.length === cubes.length && palette(again) !== palette(cubes.map((c) => c.colour)),
-        `${palette(cubes.map((c) => c.colour))} then ${palette(again)}`
+        'held, the ball plays each column it is rolled to, in turn, and the loop waits for it',
+        grabbed.held &&
+            grabbed.lit === 2 &&
+            Array.from(new Set(rolledOver)).join(' ') === '2 3 4 5 6' &&
+            waited === 6,
+        `${grabbed.lit}: ${rolledOver.join(' ')}, then ${waited}`
+    );
+    check('and let go, the loop carries on from the next column', carried === 7, `${carried}`);
+
+    const hop = await page.evaluate(async () => {
+        const s = window.playroom.stage.scene;
+        let highest = s.groove;
+        const start = Date.now();
+        while (Date.now() - start < s.period * s.steps * 1000 + 500) {
+            highest = Math.min(highest, s.ballAt(s.now()).y);
+            await new Promise((r) => setTimeout(r, 8));
+        }
+        return { rise: s.groove - highest, cell: s.cellH };
+    });
+    check(
+        'when the loop goes round, the ball hops back over the front of the shelf to the start',
+        hop.rise > hop.cell * 0.3,
+        `${hop.rise.toFixed(0)} of ${hop.cell.toFixed(0)}`
+    );
+    await shot('tower');
+
+    // Untouched for minutes, the loop plays to its end and rests, and the frames stop; a touch
+    // starts it again from the first column.
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        s.touched = s.time - 1000;
+    });
+    const rested = await page
+        .waitForFunction(() => !window.playroom.stage.scene.playing, null, { timeout: 8000 })
+        .then(
+            () => scene(() => window.playroom.stage.scene.lastCol),
+            () => -1
+        );
+    const asleep = await page
+        .waitForFunction(() => !window.playroom.stage.raf, null, { timeout: 4000 })
+        .then(
+            () => true,
+            () => false
+        );
+    await tapCubby(1, 5);
+    const woke = await page
+        .waitForFunction(() => window.playroom.stage.scene.lastCol === 0, null, { timeout: 3000 })
+        .then(
+            () => true,
+            () => false
+        );
+    check(
+        'left alone, the loop plays to its end and rests, and the frames stop',
+        rested === beatShelf.steps - 1 && asleep,
+        `rested after column ${rested}; ${asleep ? 'asleep' : 'still drawing'}`
+    );
+    check('and a touch starts it again from the first column', woke);
+    check('home from the colour beats', (await home()) === 'ShelfScene');
+
+    // The next outing brings other colours.
+    await open('tower');
+    const again = await scene(() =>
+        window.playroom.stage.scene.rows.filter((k) => !k.beat).map((k) => k.name)
+    );
+    check(
+        'the next time the shelf comes out, it brings other colours',
+        again.length === 3 && again.join(' ') !== noteRows.map((k) => k.name).join(' '),
+        `${noteRows.map((k) => k.name).join(' ')} then ${again.join(' ')}`
     );
     await home();
 
@@ -2210,11 +2256,14 @@ async function suite(mode) {
     check('the busy board, moved on by itself, opens at Bloom', board.count === 6 && board.latch);
     await home();
     await open('tower');
-    const seed = await scene(() => window.playroom.stage.scene.cubes.map((c) => c.colour));
+    const seed = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { steps: s.steps, rows: s.rows.map((k) => k.name) };
+    });
     check(
-        'while the others stay at Seed: two colours of three cubes in the tower',
-        seed.length === 6 && new Set(seed).size === 2,
-        `${seed.length} cubes, ${new Set(seed).size} colours`
+        'while the others stay at Seed: the colour beats loop 4 columns, with 2 colours over a drum',
+        seed.steps === 4 && seed.rows.length === 3 && seed.rows[0] === 'drum',
+        `${seed.steps} columns: ${seed.rows.join(' ')}`
     );
     await home();
 

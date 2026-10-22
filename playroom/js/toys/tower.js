@@ -1,21 +1,27 @@
-// The colour tower: wooden cubes in graded sizes and a few colours, on a work rug.
+// The colour beats: the colour tower's cubes on a shelf that plays itself.
 //
-// It began as the Montessori pink tower, which is built largest at the bottom and corrects itself:
-// a big cube on a small one looks wrong and wobbles. This playroom chose open-ended play, so the
-// sizes stay graded but no order is the right one. What a cube sounds is its colour. Each colour
-// has its own note, the note it has as a paint on the easel, and the colours are mixed across the
-// sizes, so building by size plays nothing special. There are two orders to find, by size and by
-// colour, and a new set of both each time the tower comes off the shelf (see cubes.js).
+// A low wooden shelf of cubbies stands on the work rug: a column for each beat of a short loop, a
+// row for each sound. A light travels along it, column by column, round and round, with a wooden
+// ball rolling beneath it, and every cube the light reaches sounds. The colours sound their notes,
+// as they always have (red C, yellow E, green G, blue A, purple the C above), a higher row a higher
+// note; along the bottom, plain wooden cubes are a drum, a clap and a shaker. What a column holds
+// sounds together, so a column is a chord and a row is a tune or a rhythm.
 //
-// A tower or a row of colours is a pattern. A tap anywhere on it plays the whole of it: each column
-// from the left, bottom to top, every cube lighting up as it sounds, over a pale band on the rug
-// that marks what is playing.
+// It began as the Montessori pink tower, became the colour tower ("each block is a different
+// colour, which is a different tone; a pattern can be built and played"), and is now a step
+// sequencer: "a simple step sequencer style music and beat creator. Keep the main theme, but
+// something with more creative pattern ability while staying with simple sounds."
 //
-//   touch  - tap a cube: its whole row plays, column by column.
-//   move   - carry cubes and stack them or line them up; they settle with a knock, and one set
-//            down beside another slides up against it. Pull one from the middle and the ones above
-//            it drop.
-//   make   - build a pattern in colour, or in size, and hear it played; or throw a cube at a tower.
+//   touch  - tap an empty cubby and its cube drops in, sounding; tap a cube and it comes out.
+//   move   - draw with a finger: a stroke begun on an empty cubby fills every cubby it crosses, one
+//            begun on a cube empties them. Hold the ball, or the board it runs along, and the light
+//            goes where the finger takes it, playing each column it reaches.
+//   make   - a loop of tune and beat, heard every time round and changed a cube at a time.
+//
+// The loop keeps time by the audio clock, not the frames: each column's sounds are booked a moment
+// ahead, to the sample, so the beat stays even when an old iPad drops a frame, and the light and
+// the ball follow the same clock. Left alone for a few minutes, the loop plays to its end and rests
+// until the next touch.
 
 import { Scene } from '../stage.js';
 import {
@@ -28,107 +34,167 @@ import {
     ellipse,
     stitches,
     woodPanel,
+    bead,
+    roundRect,
 } from '../draw.js';
-import { Spring, clamp, shade, shuffle, rng, approach, hexToRgb, mixRgb, rgbString } from '../util.js';
+import {
+    Spring,
+    clamp,
+    lerp,
+    dist,
+    approach,
+    shade,
+    hexToRgb,
+    mixRgb,
+    rgbString,
+    easeInOutSine,
+    TAU,
+} from '../util.js';
 import { noteHz } from '../synth.js';
 import * as audio from '../audio.js';
-import { COLOURS, makeSet, colourKey } from './cubes.js';
+import { COLOURS, BEATS, STAGES, pickColours, rowsFor, starter, colourKey } from './cubes.js';
 
-// The time between two cubes of a pattern playing back, and how long a cube stays lit, in seconds.
-const STEP = 0.18;
-const GLOW = 0.7;
+// How far ahead of the clock a column's sounds are booked, in seconds: enough to ride out a
+// dropped frame, little enough that a cube put down is heard the next time round.
+const AHEAD = 0.12;
+// How long a cube glows after it sounds, and a column's light lasts, in seconds.
+const GLOW = 0.55;
+const BAND = 0.6;
+// Left untouched this long, in seconds, the loop plays to its end and rests.
+const IDLE = 180;
+// The least time between two sounds from one stroke of a finger, so a quick stroke strums rather
+// than roars.
+const STRUM = 0.06;
 
 const tint = (name) => COLOURS.find((kind) => kind.name === name);
 
-// The last set's colours, so the next outing brings different ones.
+// The last outing's colours, so the next brings different ones.
 let lastColours = '';
 
 class TowerScene extends Scene {
     constructor(app) {
         super(app);
         this.level = app.level();
-        const set = makeSet(this.level, (Math.random() * 4294967296) >>> 0, lastColours);
-        lastColours = colourKey(set);
-        this.count = set.length;
-        this.time = 0;
-        this.sequence = [];
+        const stage = STAGES[this.level];
+        const colours = pickColours(this.level, (Math.random() * 4294967296) >>> 0, lastColours);
+        lastColours = colourKey(colours);
+        this.rows = rowsFor(this.level, colours);
+        this.steps = stage.steps;
+        this.period = stage.step;
+        this.grid = this.rows.map(() => {
+            const row = [];
+            for (let col = 0; col < this.steps; col++) row.push(null);
+            return row;
+        });
+        for (const [row, col] of starter(this.level)) this.grid[row][col] = this.makeCube(row, col, false);
+        this.leaving = [];
         this.bands = [];
-        this.cubes = [];
-        for (let rank = 0; rank < this.count; rank++) {
-            this.cubes.push({
-                rank,
-                x: 0,
-                y: 0,
-                s: 0,
-                d: 0,
-                vx: 0,
-                vy: 0,
-                angle: 0,
-                va: 0,
-                state: 'rest',
-                below: null,
-                ignore: null,
-                ignoreTime: 0,
-                alignTo: null,
-                slideTo: null,
-                placing: false,
-                squash: new Spring(0, 520, 14),
-                settle: new Spring(0, 260, 12),
-                glow: 0,
-                name: set[rank].name,
-                colour: set[rank].colour,
-                degree: set[rank].degree,
-                size: set[rank].size,
-            });
-        }
+        this.time = 0;
+        this.touched = 0;
+        // The loop: whether it runs, which clock it keeps, the next column to book and when, the
+        // columns booked and not yet lit, and the last column lit.
+        this.playing = true;
+        this.stopping = false;
+        this.ended = false;
+        this.clock = '';
+        this.nextCol = 0;
+        this.nextAt = null;
+        this.booked = [];
+        this.lastCol = -1;
+        // The ball: where it last stood and when, where it rests when the loop does, and the finger
+        // holding it, with the column it holds it over.
+        this.prevX = 0;
+        this.prevAt = 0;
+        this.rest = 0;
+        this.held = null;
+        this.heldX = 0;
+        this.heldCol = -1;
         this.bg = null;
+        this.sprites = {};
         this.placed = false;
     }
 
+    makeCube(row, col, dropping = true) {
+        return { row, col, squash: new Spring(0, 520, 14), glow: 0, fall: dropping ? 1 : 0, lift: 0 };
+    }
+
     layout() {
-        freeLayer(this.bg);
         const { w, h, u } = this;
-        this.floor = h * 0.84;
-        this.left = w * 0.03;
-        this.right = w * 0.97;
-        this.gravity = 2600 * u;
-
-        // The largest size that lets every cube stand on the rug side by side, and the whole tower
-        // stand below the top of the screen.
-        const sizes = this.cubes.reduce((sum, c) => sum + c.size, 0);
-        const gaps = 18 * u * (this.count + 1);
-        const byWidth = (w * 0.92 - gaps) / sizes;
-        const byHeight = (this.floor - 100 * u) / (sizes * 1.05);
-        const largest = Math.min(byWidth, byHeight, 170 * u);
-        this.largest = largest;
-        for (const c of this.cubes) {
-            c.s = largest * c.size;
-            c.d = c.s * 0.22;
+        this.floor = h * 0.74;
+        this.stand = h * 0.9;
+        const rows = this.rows.length;
+        const top = 96 * u;
+        // Cubbies as big as there is room for, up to a size a small hand cannot miss: up to half as
+        // wide again as they are tall, or, on a narrow screen, a third as tall again as they are wide.
+        let cellH = Math.min((this.stand - top) / (rows + 0.95), 150 * u);
+        const cellW = Math.min((w * 0.92) / (this.steps + 0.3), cellH * 1.5, 175 * u);
+        cellH = Math.min(cellH, cellW * 1.35);
+        this.cellW = cellW;
+        this.cellH = cellH;
+        const unit = Math.min(cellW, cellH);
+        this.board = Math.max(5 * u, unit * 0.14);
+        this.inset = this.board * 0.3;
+        this.size = unit * 0.64;
+        this.depth = this.size * 0.2;
+        this.gridW = cellW * this.steps;
+        this.gridH = cellH * rows;
+        this.x0 = (w - this.gridW) / 2;
+        this.plinth = unit * 0.62;
+        this.y1 = this.stand - this.plinth;
+        this.y0 = this.y1 - this.gridH;
+        this.groove = this.y1 + this.plinth * 0.45;
+        this.ballR = this.plinth * 0.27;
+        if (!this.placed) {
+            this.rest = this.restX();
+            this.prevX = this.rest;
+            this.placed = true;
+        } else {
+            this.rest = this.restX();
+            this.prevX = this.lastCol >= 0 ? this.colX(this.lastCol) : this.rest;
         }
-        this.bands = [];
-
-        // Laid out on the rug in no particular order, the way a child might find them.
-        const order = this.placed
-            ? this.cubes.slice().sort((a, b) => a.x - b.x)
-            : shuffle(this.cubes, rng(Date.now() % 100000));
-        const total = order.reduce((sum, c) => sum + c.s, 0);
-        const gap = Math.max(6 * u, (w * 0.92 - total) / (this.count + 1));
-        let x = w * 0.04 + gap;
-        for (const c of order) {
-            c.x = x + c.s / 2;
-            c.y = this.floor;
-            c.vx = 0;
-            c.vy = 0;
-            c.angle = 0;
-            c.state = 'rest';
-            c.below = null;
-            c.alignTo = null;
-            c.slideTo = null;
-            x += c.s + gap;
-        }
-        this.placed = true;
+        freeLayer(this.bg);
+        for (const name of Object.keys(this.sprites)) freeLayer(this.sprites[name]);
+        this.sprites = {};
         this.drawBackground();
     }
+
+    colX(col) {
+        return this.x0 + (col + 0.5) * this.cellW;
+    }
+
+    // Where the ball waits when the loop rests: the left end of its board.
+    restX() {
+        return this.x0 + this.cellW * 0.12 + this.ballR;
+    }
+
+    panOf(col) {
+        return (((col + 0.5) / this.steps) * 2 - 1) * 0.5;
+    }
+
+    // A cubby, by its row from the bottom and its column from the left.
+    cellRect(row, col) {
+        return {
+            x: this.x0 + col * this.cellW,
+            y: this.y1 - (row + 1) * this.cellH,
+            w: this.cellW,
+            h: this.cellH,
+        };
+    }
+
+    cellAt(x, y) {
+        if (x < this.x0 || x >= this.x0 + this.gridW || y < this.y0 || y >= this.y1) return null;
+        const col = Math.floor((x - this.x0) / this.cellW);
+        const row = this.rows.length - 1 - Math.floor((y - this.y0) / this.cellH);
+        return { row, col };
+    }
+
+    // The middle of a cube's bottom edge, standing in its cubby.
+    footOf(c) {
+        return { x: this.colX(c.col), y: this.y1 - c.row * this.cellH - this.inset };
+    }
+
+    //--------------------------------------------------------------------------
+    // The room and the shelf, drawn once a layout.
 
     drawBackground() {
         const { w, h, u } = this;
@@ -139,23 +205,13 @@ class TowerScene extends Scene {
         wall.addColorStop(1, '#F5E6DE');
         ctx.fillStyle = wall;
         ctx.fillRect(0, 0, w, h);
-        woodPanel(
-            ctx,
-            -10,
-            this.floor - 46 * u,
-            w + 20,
-            h - this.floor + 60 * u,
-            0,
-            PALETTE.wood,
-            33,
-            this.scale
-        );
+        woodPanel(ctx, -10, this.floor, w + 20, h - this.floor + 20, 0, PALETTE.wood, 33, this.scale);
 
-        // The work rug: where the work happens, and where it stays until it is put away.
+        // The work rug, under the shelf.
         const rx = w * 0.03;
-        const ry = this.floor - 30 * u;
+        const ry = this.stand - 34 * u;
         const rw = w * 0.94;
-        const rh = 74 * u;
+        const rh = Math.min(84 * u, h - ry - 8 * u);
         fillRound(ctx, rx, ry + 6 * u, rw, rh, 16 * u, SHADOW_SOFT);
         fillRound(ctx, rx, ry, rw, rh, 16 * u, '#EADFCB');
         stitches(
@@ -169,584 +225,640 @@ class TowerScene extends Scene {
             2 * u,
             8 * u
         );
+
+        const left = this.x0 - this.board;
+        const right = this.x0 + this.gridW + this.board;
+        const top = this.y0 - this.board;
+        ellipse(ctx, (left + right) / 2 + 6 * u, this.stand + 2 * u, (right - left) / 2 + 12 * u, 11 * u);
+        ctx.fillStyle = 'rgba(112, 84, 58, 0.16)';
+        ctx.fill();
+        woodPanel(
+            ctx,
+            left,
+            top,
+            right - left,
+            this.stand - top,
+            this.board * 0.8,
+            PALETTE.wood,
+            41,
+            this.scale
+        );
+
+        // The plinth, a shade darker, and the groove along it that the ball runs in.
+        ctx.save();
+        roundRect(ctx, left, top, right - left, this.stand - top, this.board * 0.8);
+        ctx.clip();
+        ctx.fillStyle = 'rgba(150, 105, 62, 0.13)';
+        ctx.fillRect(left, this.y1, right - left, this.stand - this.y1);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.fillRect(left, this.y1, right - left, Math.max(1, this.board * 0.12));
+        ctx.restore();
+        const r = this.ballR;
+        const g0 = this.x0 + this.cellW * 0.12;
+        const g1 = this.x0 + this.gridW - this.cellW * 0.12;
+        fillRound(ctx, g0, this.groove - r * 1.15, g1 - g0, r * 2.3, r * 1.15, shade(PALETTE.woodDark, -0.1));
+        fillRound(ctx, g0, this.groove - r * 1.15, g1 - g0, r * 0.9, r * 0.9, 'rgba(90, 60, 35, 0.16)');
+
+        // The cubbies: each a recess, its back faintly the colour of what goes in it, shadowed under
+        // the board above, and showing, fainter still, the cube that belongs there.
+        for (let row = 0; row < this.rows.length; row++) {
+            const kind = this.rows[row];
+            const back = kind.beat
+                ? shade(PALETTE.wood, -0.09)
+                : rgbString(mixRgb(hexToRgb(kind.colour), [247, 238, 226], 0.8));
+            for (let col = 0; col < this.steps; col++) {
+                const cell = this.cellRect(row, col);
+                const x = cell.x + this.inset;
+                const y = cell.y + this.inset;
+                const cw = cell.w - this.inset * 2;
+                const ch = cell.h - this.inset * 2;
+                const radius = this.inset * 1.6;
+                fillRound(ctx, x, y, cw, ch, radius, back);
+                const shadow = ctx.createLinearGradient(0, y, 0, y + ch * 0.4);
+                shadow.addColorStop(0, 'rgba(90, 60, 35, 0.2)');
+                shadow.addColorStop(1, 'rgba(90, 60, 35, 0)');
+                ctx.fillStyle = shadow;
+                roundRect(ctx, x, y, cw, ch, radius);
+                ctx.fill();
+                this.drawGhost(ctx, kind, cell);
+            }
+        }
+        // A firmer board between the beats and the colours.
+        const beats = this.rows.filter((kind) => kind.beat).length;
+        if (beats && beats < this.rows.length) {
+            const y = this.y1 - beats * this.cellH;
+            fillRound(
+                ctx,
+                left + this.board * 0.4,
+                y - this.inset,
+                right - left - this.board * 0.8,
+                this.inset * 2,
+                this.inset,
+                shade(PALETTE.woodDark, -0.02)
+            );
+        }
         grain(ctx, 0, 0, w, h, 0.3, this.scale);
         this.bg = layer;
     }
 
-    //--------------------------------------------------------------------------
-    // Physics: just enough to stack, slide off an edge, tumble and land. Cubes collide as their
-    // front faces; the top face is drawn, never hit.
-
-    // Where `upper`'s bottom rests when it sits centred in depth on `lower`'s top face.
-    surface(lower, upper) {
-        return lower.y - lower.s - (lower.d - upper.d) / 2;
-    }
-
-    overlapX(a, b) {
-        return (a.s + b.s) / 2 - Math.abs(a.x - b.x);
-    }
-
-    support(c, from) {
-        let best = { y: this.floor, under: [] };
-        for (const o of this.cubes) {
-            if (o === c || o.state !== 'rest') continue;
-            if (c.ignore === o && this.time < c.ignoreTime) continue;
-            if (this.overlapX(c, o) <= 1) continue;
-            const top = this.surface(o, c);
-            if (top < from - 2) continue;
-            if (top < best.y - 0.5) best = { y: top, under: [o] };
-            else if (Math.abs(top - best.y) <= 0.5) best.under.push(o);
+    // The faint outline of the cube that goes in an empty cubby.
+    drawGhost(ctx, kind, cell) {
+        const s = this.size;
+        const x = cell.x + cell.w / 2;
+        const foot = cell.y + cell.h - this.inset;
+        const radius = Math.max(2, s * 0.06);
+        ctx.save();
+        if (kind.beat) {
+            ctx.globalAlpha = 0.3;
+            this.mark(ctx, kind.mark, x, foot - s / 2, s, shade(kind.colour, -0.3));
+        } else {
+            // A dashed edge, so the cubby still reads as empty.
+            const e = s * 0.92;
+            ctx.setLineDash([s * 0.09, s * 0.07]);
+            ctx.lineWidth = Math.max(1.5, s * 0.035);
+            ctx.strokeStyle = rgbString(mixRgb(hexToRgb(kind.colour), [96, 74, 60], 0.15), 0.55);
+            roundRect(ctx, x - e / 2, foot - (s + e) / 2, e, e, radius);
+            ctx.stroke();
         }
-        return best;
+        ctx.restore();
     }
 
-    balanced(c, under) {
-        if (!under.length) return true;
-        let lo = Infinity;
-        let hi = -Infinity;
-        for (const o of under) {
-            lo = Math.min(lo, o.x - o.s / 2);
-            hi = Math.max(hi, o.x + o.s / 2);
-        }
-        return c.x >= lo && c.x <= hi;
-    }
-
-    knock(o, vx) {
-        if (o.state !== 'rest') return;
-        o.state = 'fall';
-        o.placing = false;
-        o.vx = vx;
-        o.vy = -140 * this.u;
-        o.va = Math.sign(vx) * (2 + Math.random() * 2);
-        o.below = null;
-    }
-
-    // A big cube knocks fuller than a small one; that, and the thud on the rug, is all size does to
-    // the sound. The note is the colour's.
-    fullness(c) {
-        return 0.55 + 0.45 * c.size;
-    }
-
-    sound(c, gain, wet) {
-        audio.note('wood', c.degree, 60, {
-            gain: gain * this.fullness(c),
-            pan: (c.x / this.w) * 2 - 1,
-            wet,
-        });
-    }
-
-    land(c, impact, onFloor) {
-        // Harder landings knock louder, from a soft settle to a little above a tap.
-        const strength = clamp(impact / (1400 * this.u), 0.2, 1.4);
-        c.squash.kick(clamp(impact / (300 * this.u), 1, 9));
-        this.sound(c, strength * 0.85, 0.15);
-        if (onFloor && impact > 700 * this.u && c.rank < this.count / 2) {
-            audio.play('thud', { f: 85 }, { gain: strength * 0.5, pan: (c.x / this.w) * 2 - 1 });
-        }
-    }
-
-    rest(c, sup) {
-        c.state = 'rest';
-        c.vx = 0;
-        c.vy = 0;
-        c.va = 0;
-        // Settle onto the nearest face: a tumbling cube lands flat, with a little rock.
-        const quarter = Math.PI / 2;
-        const remainder = c.angle - Math.round(c.angle / quarter) * quarter;
-        c.angle = 0;
-        c.settle.value = remainder;
-        c.settle.target = 0;
-        c.below = sup.under.length ? sup.under[0] : null;
-        // Near enough to centred is taken as centred, which is how a careful hand builds.
-        if (sup.under.length === 1) {
-            const o = sup.under[0];
-            if (Math.abs(c.x - o.x) < o.s * 0.16) c.alignTo = o;
-        }
-        // And set down on the rug near enough to another is taken as against it, so a row is easy
-        // to make. Only a cube put down by a hand: one thrown or knocked flying lands where it lands.
-        if (!sup.under.length && c.placing) c.slideTo = this.besideOnRug(c);
-        c.placing = false;
-    }
-
-    // Where `c` would stand against its nearest neighbour on the rug, if one is near enough and it
-    // is not already against another.
-    besideOnRug(c) {
-        let best = null;
-        let bestGap = Infinity;
-        for (const o of this.cubes) {
-            if (o === c || o.state !== 'rest' || o.y < this.floor - 0.5) continue;
-            const gap = Math.abs(c.x - o.x) - (c.s + o.s) / 2;
-            if (gap <= 0.5) return null;
-            const reach = Math.max(14 * this.u, 0.3 * Math.min(c.s, o.s));
-            if (gap > reach || gap >= bestGap) continue;
-            bestGap = gap;
-            best = o.x + ((c.x < o.x ? -1 : 1) * (c.s + o.s)) / 2;
-        }
-        return best;
-    }
-
-    stepFalling(c, dt) {
-        const u = this.u;
-        const from = c.y;
-        c.vy += this.gravity * dt;
-        c.x += c.vx * dt;
-        c.y += c.vy * dt;
-        c.angle += c.va * dt;
-        c.vx *= Math.exp(-dt * 0.4);
-
-        if (c.x - c.s / 2 < this.left) {
-            c.x = this.left + c.s / 2;
-            c.vx = Math.abs(c.vx) * 0.35;
-        } else if (c.x + c.s / 2 > this.right) {
-            c.x = this.right - c.s / 2;
-            c.vx = -Math.abs(c.vx) * 0.35;
-        }
-
-        // Side hits: push out sideways; a fast one knocks the other cube over.
-        for (const o of this.cubes) {
-            if (o === c || o.state !== 'rest') continue;
-            const ox = this.overlapX(c, o);
-            if (ox <= 0) continue;
-            const overlapY = Math.min(c.y, o.y) - Math.max(c.y - c.s, o.y - o.s);
-            if (overlapY <= 0) continue;
-            if (from <= this.surface(o, c) + 1) continue;
-            const dir = c.x < o.x ? -1 : 1;
-            c.x += dir * ox;
-            if (Math.abs(c.vx) > 320 * u) {
-                this.sound(o, 0.7, 0.15);
-                this.knock(o, c.vx * 0.55 * Math.sqrt(c.s / o.s));
+    // What is burnt into a beat's face: a drum's skin, a clap's burst, a shaker's seeds.
+    mark(ctx, mark, x, y, s, colour) {
+        ctx.save();
+        ctx.strokeStyle = colour;
+        ctx.fillStyle = colour;
+        ctx.lineWidth = Math.max(1.5, s * 0.06);
+        ctx.lineCap = 'round';
+        if (mark === 'skin') {
+            ctx.beginPath();
+            ctx.arc(x, y, s * 0.27, 0, TAU);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(x, y, s * 0.08, 0, TAU);
+            ctx.fill();
+        } else if (mark === 'burst') {
+            ctx.beginPath();
+            for (let i = 0; i < 8; i++) {
+                const a = (i / 8) * TAU;
+                ctx.moveTo(x + Math.cos(a) * s * 0.1, y + Math.sin(a) * s * 0.1);
+                ctx.lineTo(x + Math.cos(a) * s * 0.27, y + Math.sin(a) * s * 0.27);
             }
-            c.vx = dir * Math.abs(c.vx) * 0.3;
-        }
-
-        const sup = this.support(c, from);
-        if (c.y < sup.y) return;
-        c.y = sup.y;
-        const impact = c.vy;
-        if (!this.balanced(c, sup.under)) {
-            // Over the edge: slide off and keep falling.
-            let lo = Infinity;
-            let hi = -Infinity;
-            for (const o of sup.under) {
-                lo = Math.min(lo, o.x);
-                hi = Math.max(hi, o.x);
+            ctx.stroke();
+        } else {
+            for (const [dx, dy] of [
+                [-1, -1],
+                [1, -1],
+                [0, 0],
+                [-1, 1],
+                [1, 1],
+            ]) {
+                ctx.beginPath();
+                ctx.arc(x + dx * s * 0.18, y + dy * s * 0.18, s * 0.065, 0, TAU);
+                ctx.fill();
             }
-            const dir = c.x < (lo + hi) / 2 ? -1 : 1;
-            c.vx = dir * (110 * u + Math.abs(c.vx));
-            c.va = dir * 4.5;
-            c.vy = -40 * u;
-            c.ignore = sup.under[0];
-            c.ignoreTime = this.time + 0.35;
-            this.land(c, impact * 0.6, false);
-            return;
         }
-        if (impact > 650 * u) {
-            c.vy = -impact * 0.22;
-            c.vx *= 0.6;
-            c.va *= 0.5;
-            this.land(c, impact, !sup.under.length);
-            return;
-        }
-        this.rest(c, sup);
-        this.land(c, impact, !sup.under.length);
+        ctx.restore();
     }
 
-    stillSupported(c) {
-        if (c.y >= this.floor - 0.5) return { ok: true, under: [] };
-        const under = [];
-        for (const o of this.cubes) {
-            if (o === c || o.state !== 'rest') continue;
-            if (this.overlapX(c, o) <= 1) continue;
-            if (Math.abs(this.surface(o, c) - c.y) < 1.5) under.push(o);
-        }
-        return { ok: under.length > 0 && this.balanced(c, under), under };
-    }
-
-    // The cube at the bottom of the column `c` stands in.
-    baseOf(c) {
-        let base = c;
-        for (let i = 0; i < this.count; i++) {
-            const under = this.stillSupported(base).under;
-            if (!under.length) break;
-            base = under.reduce((best, o) => (this.overlapX(base, o) > this.overlapX(base, best) ? o : best));
-        }
-        return base;
-    }
-
-    // The column standing against `base` on the rug, on its right (`side` 1) or its left (-1).
-    beside(base, side) {
-        if (base.y < this.floor - 0.5) return null;
-        let best = null;
-        for (const o of this.cubes) {
-            if (o === base || o.state !== 'rest' || o.y < this.floor - 0.5) continue;
-            if ((o.x - base.x) * side <= 0) continue;
-            if (Math.abs(o.x - base.x) - (o.s + base.s) / 2 > 3 * this.u) continue;
-            if (!best || Math.abs(o.x - base.x) < Math.abs(best.x - base.x)) best = o;
-        }
-        return best;
-    }
-
-    // What a tap on `c` plays, in order: the whole row `c` is part of, wherever it was tapped. Each
-    // column from the left, bottom to top; a cube resting on two columns plays once.
-    playOrder(c) {
-        let first = this.baseOf(c);
-        for (let prev = this.beside(first, -1); prev; prev = this.beside(prev, -1)) first = prev;
-        const order = [];
-        for (let base = first; base; base = this.beside(base, 1)) {
-            for (const o of this.above(base)) if (order.indexOf(o) < 0) order.push(o);
-        }
-        // One tapped in mid-air, on nothing, still sounds.
-        if (order.indexOf(c) < 0) order.unshift(c);
-        return order;
-    }
-
-    // The chain of cubes resting on `c`, then on those, upwards.
-    above(c) {
-        const chain = [c];
-        let level = [c];
-        while (level.length && chain.length < this.count) {
-            const next = [];
-            for (const o of this.cubes) {
-                if (o.state !== 'rest' || chain.indexOf(o) >= 0) continue;
-                for (const l of level) {
-                    if (this.overlapX(o, l) > 1 && Math.abs(this.surface(l, o) - o.y) < 1.5) {
-                        next.push(o);
-                        break;
-                    }
-                }
-            }
-            next.sort((a, b) => a.x - b.x);
-            for (const o of next) chain.push(o);
-            level = next;
-        }
-        return chain;
+    // A cube's picture, made once a layout: its top, its face and, for a beat, its mark.
+    sprite(kind) {
+        let layer = this.sprites[kind.name];
+        if (layer) return layer;
+        const s = this.size;
+        const d = this.depth;
+        layer = makeLayer(s, s + d, this.scale);
+        const ctx = layer.ctx;
+        const r = Math.max(2, s * 0.06);
+        fillRound(ctx, 0, 0, s, d + r * 2, r, shade(kind.colour, 0.38));
+        fillRound(ctx, 0, d, s, s, r, kind.colour);
+        fillRound(ctx, 0, d + s * 0.88, s, s * 0.12, r, shade(kind.colour, -0.08));
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.fillRect(r, d + 1, s - r * 2, Math.max(1.5, s * 0.025));
+        if (kind.beat) this.mark(ctx, kind.mark, s / 2, d + s / 2, s, shade(kind.colour, -0.32));
+        this.sprites[kind.name] = layer;
+        return layer;
     }
 
     //--------------------------------------------------------------------------
-    // Touch
+    // Sound
 
-    cubeAt(x, y) {
-        const order = this.drawOrder();
-        for (let i = order.length - 1; i >= 0; i--) {
-            const c = order[i];
-            const pad = 10 * this.u;
-            if (
-                x > c.x - c.s / 2 - pad &&
-                x < c.x + c.s / 2 + pad &&
-                y > c.y - c.s - c.d - pad &&
-                y < c.y + pad
-            )
-                return c;
-        }
-        return null;
+    // One cube's sound: a colour's note, knocked on wood, or a beat.
+    voice(kind, gain, pan, delay) {
+        if (kind.beat) audio.play(kind.name, {}, { gain, pan, wet: 0.08, delay });
+        else audio.note('wood', kind.degree, 60, { gain, pan, wet: 0.2, delay });
     }
 
-    down(p) {
-        const c = this.cubeAt(p.x, p.y);
-        if (!c || c.state === 'held') return;
-        p.owner = { cube: c, dx: c.x - p.x, dy: c.y - p.y, lifted: false };
-        c.squash.kick(2);
-    }
-
-    move(p) {
-        const o = p.owner;
-        if (!o) return;
-        const c = o.cube;
-        const u = this.u;
-        if (!o.lifted) {
-            if (p.travel < 8 * u) return;
-            o.lifted = true;
-            c.state = 'held';
-            c.below = null;
-            c.alignTo = null;
-            c.slideTo = null;
-            c.angle = 0;
-            c.settle.set(0);
-            audio.play('tick', { f: noteHz(c.degree, 72) }, { gain: 0.25, pan: (c.x / this.w) * 2 - 1 });
+    // What a column holds, sounded together `delay` seconds from now. The notes share their
+    // loudness, so a chord of five is fuller than one note, not five times louder.
+    sound(col, delay) {
+        let notes = 0;
+        for (let row = 0; row < this.rows.length; row++) {
+            if (this.grid[row][col] && !this.rows[row].beat) notes++;
         }
-        c.x = clamp(p.x + o.dx, this.left + c.s / 2, this.right - c.s / 2);
-        c.y = clamp(p.y + o.dy, c.s + c.d + 4 * u, this.floor);
-
-        // Swept fast through a resting cube, the held one knocks it over.
-        if (Math.abs(p.vx) > 450 * u) {
-            for (const other of this.cubes) {
-                if (other === c || other.state !== 'rest') continue;
-                const overlapY = Math.min(c.y, other.y) - Math.max(c.y - c.s, other.y - other.s);
-                if (this.overlapX(c, other) > 4 * u && overlapY > 4 * u) {
-                    this.sound(other, 0.75, 0.15);
-                    this.knock(other, p.vx * 0.5);
-                }
-            }
+        const share = 1 / Math.sqrt(Math.max(1, notes));
+        const pan = this.panOf(col);
+        for (let row = 0; row < this.rows.length; row++) {
+            if (!this.grid[row][col]) continue;
+            const kind = this.rows[row];
+            this.voice(kind, kind.beat ? 0.9 : 0.85 * share, pan, delay);
         }
-    }
-
-    up(p) {
-        const o = p.owner;
-        if (!o) return;
-        const c = o.cube;
-        const u = this.u;
-        if (!o.lifted) {
-            this.play(this.playOrder(c));
-            return;
-        }
-        c.state = 'fall';
-        const limit = 1800 * u;
-        c.vx = clamp(p.vx, -limit, limit);
-        c.vy = clamp(p.vy, -limit, limit * 0.6);
-        c.va = clamp(c.vx / (260 * u), -6, 6);
-        // Set down, not thrown.
-        c.placing = Math.abs(c.vx) < 500 * u && Math.abs(c.vy) < 500 * u;
-    }
-
-    // Play a row from its start. Tapped again while it plays, it starts again rather than echoing;
-    // two rows can play at once.
-    play(order) {
-        this.sequence = this.sequence.filter((e) => order.indexOf(e.cube) < 0);
-        let x0 = Infinity;
-        let x1 = -Infinity;
-        for (const c of order) {
-            x0 = Math.min(x0, c.x - c.s / 2);
-            x1 = Math.max(x1, c.x + c.s / 2);
-        }
-        this.bands = this.bands.filter((b) => b.x1 < x0 || b.x0 > x1);
-        const end = this.time + (order.length - 1) * STEP;
-        this.bands.push({ x0, x1, start: this.time, end });
-        order.forEach((cube, i) => this.sequence.push({ cube, at: this.time + i * STEP }));
-        this.sequence.sort((a, b) => a.at - b.at);
-    }
-
-    cancel(p) {
-        if (!p.owner || !p.owner.lifted) return;
-        p.owner.cube.state = 'fall';
-        p.owner.cube.placing = true;
     }
 
     //--------------------------------------------------------------------------
+    // The loop
+
+    // The clock the loop keeps: the audio context's while sound runs, so what is booked ahead plays
+    // to the sample; the frames' otherwise, so the light still travels in silence. A change of
+    // clock starts the count again.
+    now() {
+        const audible = audio.ready() && audio.now() > 0;
+        const clock = audible ? 'audio' : 'frames';
+        const now = audible ? audio.now() : this.time;
+        if (clock !== this.clock) {
+            this.clock = clock;
+            this.nextAt = null;
+            this.booked = [];
+            this.prevAt = now;
+        }
+        return now;
+    }
+
+    // Book the columns due in the next moment: their sounds to the sample, their light for when
+    // they sound.
+    book(now) {
+        if (this.nextAt === null || this.nextAt < now - 0.2) {
+            // A fresh start, or back from a stall: the ball rolls on from where it is into the next
+            // column, which plays when it gets there.
+            this.prevAt = now;
+            this.nextAt = now + this.period;
+            this.booked = [];
+        }
+        while (!this.ended && this.nextAt < now + AHEAD) {
+            if (this.stopping && this.nextCol === 0 && this.lastCol >= 0) {
+                this.ended = true;
+                break;
+            }
+            this.sound(this.nextCol, Math.max(0, this.nextAt - now));
+            this.booked.push({ col: this.nextCol, at: this.nextAt });
+            this.nextCol = (this.nextCol + 1) % this.steps;
+            this.nextAt += this.period;
+        }
+    }
+
+    // A column's time has come: it lights, and every cube in it jumps.
+    light(e) {
+        this.lastCol = e.col;
+        this.prevX = this.colX(e.col);
+        this.prevAt = e.at;
+        this.bands.push({ col: e.col, at: this.time });
+        for (let row = 0; row < this.rows.length; row++) {
+            const c = this.grid[row][e.col];
+            if (!c) continue;
+            c.glow = 1;
+            c.squash.kick(this.rows[row].beat ? 9 : 6);
+        }
+    }
+
+    // A touch keeps the loop going, or starts it again from the first column.
+    rouse() {
+        this.touched = this.time;
+        this.stopping = false;
+        if (this.playing) {
+            this.ended = false;
+            return;
+        }
+        this.playing = true;
+        this.ended = false;
+        this.nextCol = 0;
+        this.nextAt = null;
+        this.booked = [];
+        this.lastCol = -1;
+        this.prevX = this.rest;
+    }
+
+    // The ball held over a column plays it, once each time it comes to it.
+    holdAt(x) {
+        this.heldX = clamp(x, this.colX(0), this.colX(this.steps - 1));
+        const col = clamp(Math.floor((x - this.x0) / this.cellW), 0, this.steps - 1);
+        if (col === this.heldCol) return;
+        this.heldCol = col;
+        this.sound(col, 0);
+        this.light({ col, at: this.now() });
+    }
+
+    // Let go, the ball rolls on from where it was left into the next column, and the loop with it.
+    letGo() {
+        const now = this.now();
+        this.held = null;
+        this.prevX = this.heldX;
+        this.prevAt = now;
+        this.lastCol = this.heldCol;
+        this.nextCol = (this.heldCol + 1) % this.steps;
+        this.nextAt = now + this.period;
+        this.booked = [];
+    }
+
+    // Where the ball is: in the hand; rolling from the last column to the next, with a hop over the
+    // front of the shelf when the loop goes round; or resting.
+    ballAt(now) {
+        if (this.held) return { x: this.heldX, y: this.groove - 3 * this.u };
+        if (!this.playing) return { x: this.rest, y: this.groove };
+        const next = this.booked.length
+            ? this.booked[0]
+            : this.nextAt !== null && !this.ended
+              ? { col: this.nextCol, at: this.nextAt }
+              : null;
+        if (!next) return { x: this.prevX, y: this.groove };
+        const span = Math.max(0.01, next.at - this.prevAt);
+        const f = clamp((now - this.prevAt) / span, 0, 1);
+        const to = this.colX(next.col);
+        if (to < this.prevX - 1 && this.lastCol >= 0) {
+            const k = easeInOutSine(f);
+            return { x: lerp(this.prevX, to, k), y: this.groove - Math.sin(Math.PI * k) * this.cellH * 0.7 };
+        }
+        return { x: lerp(this.prevX, to, f), y: this.groove };
+    }
 
     update(dt) {
         this.time += dt;
-        let busy = this.sequence.length > 0;
-
-        const steps = Math.ceil(dt / (1 / 120));
-        const h = dt / steps;
-        for (let s = 0; s < steps; s++) {
-            for (const c of this.cubes) if (c.state === 'fall') this.stepFalling(c, h);
-            // Anything whose support has gone, falls; it carries a little of its support's motion.
-            for (const c of this.cubes) {
-                if (c.state !== 'rest') continue;
-                const sup = this.stillSupported(c);
-                if (!sup.ok) {
-                    c.state = 'fall';
-                    c.vy = 0;
-                    if (c.below) {
-                        c.vx = c.below.vx * 0.7;
-                        c.va = c.below.va * 0.5;
-                    }
-                    c.below = null;
-                }
-            }
+        const now = this.now();
+        if (this.playing && !this.held) {
+            if (!this.stopping && this.time - this.touched > IDLE) this.stopping = true;
+            this.book(now);
+        }
+        while (this.booked.length && this.booked[0].at <= now) this.light(this.booked.shift());
+        if (this.playing && this.ended && !this.booked.length && !this.held) {
+            // Played to its end, untouched: rest.
+            this.playing = false;
+            this.rest = this.prevX;
+            this.nextAt = null;
         }
 
-        for (const c of this.cubes) {
-            if (c.state === 'fall' || c.state === 'held') busy = true;
-            if (c.alignTo) {
-                if (c.state !== 'rest' || c.alignTo.state !== 'rest') c.alignTo = null;
-                else {
-                    c.x = approach(c.x, c.alignTo.x, 16, dt);
-                    if (Math.abs(c.x - c.alignTo.x) < 0.1) c.alignTo = null;
+        let busy = this.playing || !!this.held;
+        for (const row of this.grid) {
+            for (const c of row) {
+                if (!c) continue;
+                if (c.fall > 0) {
+                    c.fall = Math.max(0, c.fall - dt / 0.15);
+                    if (c.fall === 0) c.squash.kick(9);
+                    busy = true;
+                }
+                // A settled spring is left alone: there are as many as there are cubes.
+                const sq = c.squash;
+                if ((sq.value !== sq.target || sq.velocity !== 0) && sq.update(dt)) busy = true;
+                if (c.glow > 0) {
+                    c.glow = Math.max(0, c.glow - dt / GLOW);
                     busy = true;
                 }
             }
-            if (c.slideTo !== null) {
-                if (c.state !== 'rest') c.slideTo = null;
-                else {
-                    c.x = approach(c.x, c.slideTo, 16, dt);
-                    // Exactly against it at the end, so the row is a row.
-                    if (Math.abs(c.x - c.slideTo) < 0.1) {
-                        c.x = c.slideTo;
-                        c.slideTo = null;
-                    }
-                    busy = true;
-                }
-            }
-            if (c.squash.update(dt)) busy = true;
-            if (c.settle.update(dt)) busy = true;
-            if (c.glow > 0) {
-                c.glow = Math.max(0, c.glow - dt / GLOW);
-                busy = true;
-            }
         }
-        this.bands = this.bands.filter((b) => this.time < b.end + 0.8);
+        this.leaving = this.leaving.filter((c) => {
+            c.lift += dt / 0.22;
+            return c.lift < 1;
+        });
+        if (this.leaving.length) busy = true;
+        this.bands = this.bands.filter((b) => this.time - b.at < BAND);
         if (this.bands.length) busy = true;
-
-        while (this.sequence.length && this.sequence[0].at <= this.time) {
-            const c = this.sequence.shift().cube;
-            c.squash.kick(7);
-            c.glow = 1;
-            this.sound(c, 1, 0.2);
+        if (!this.playing && !this.held) {
+            // At rest, the ball rolls back to the start of its board.
+            const home = this.restX();
+            this.rest = approach(this.rest, home, 5, dt);
+            if (Math.abs(this.rest - home) < 0.5) this.rest = home;
+            else busy = true;
         }
         return busy;
     }
 
     //--------------------------------------------------------------------------
+    // Touch
 
-    drawOrder() {
-        const resting = this.cubes.filter((c) => c.state === 'rest').sort((a, b) => b.y - a.y);
-        const moving = this.cubes.filter((c) => c.state !== 'rest');
-        return resting.concat(moving);
+    // The ball, or anywhere along the board it runs on; not below it, where a hand resting on the
+    // rug would hold the loop up.
+    onBoard(x, y) {
+        return (
+            x > this.x0 - this.board &&
+            x < this.x0 + this.gridW + this.board &&
+            y >= this.y1 &&
+            y < this.stand
+        );
     }
+
+    down(p) {
+        this.rouse();
+        if (this.onBoard(p.x, p.y)) {
+            if (this.held) return;
+            this.held = p;
+            this.heldCol = -1;
+            this.booked = [];
+            p.owner = { ball: true };
+            this.holdAt(p.x);
+            return;
+        }
+        const at = this.cellAt(p.x, p.y);
+        if (!at) return;
+        const fill = !this.grid[at.row][at.col];
+        p.owner = { ball: false, fill, x: p.x, y: p.y, sounded: -Infinity };
+        this.set(at.row, at.col, fill, p.owner);
+    }
+
+    move(p) {
+        const o = p.owner;
+        if (!o) return;
+        if (o.ball) {
+            this.holdAt(p.x);
+            return;
+        }
+        // Every cubby the finger crossed since it was last seen, not only the one under it now, so a
+        // quick stroke misses none.
+        const n = Math.max(
+            1,
+            Math.ceil(dist(o.x, o.y, p.x, p.y) / (Math.min(this.cellW, this.cellH) * 0.25))
+        );
+        for (let i = 1; i <= n; i++) {
+            const at = this.cellAt(lerp(o.x, p.x, i / n), lerp(o.y, p.y, i / n));
+            if (!at) continue;
+            const empty = !this.grid[at.row][at.col];
+            if (empty === o.fill) this.set(at.row, at.col, o.fill, o);
+        }
+        o.x = p.x;
+        o.y = p.y;
+    }
+
+    up(p) {
+        if (p.owner && p.owner.ball && this.held === p) this.letGo();
+    }
+
+    // Put a cube into a cubby, or take one out. A stroke sounds what it puts in, but no faster than
+    // a strum.
+    set(row, col, fill, stroke) {
+        const kind = this.rows[row];
+        const pan = this.panOf(col);
+        const sounding = this.time - stroke.sounded >= STRUM;
+        if (sounding) stroke.sounded = this.time;
+        if (fill) {
+            this.grid[row][col] = this.makeCube(row, col);
+            if (sounding) this.voice(kind, 0.8, pan, 0);
+            return;
+        }
+        const c = this.grid[row][col];
+        this.grid[row][col] = null;
+        this.leaving.push(c);
+        if (sounding) audio.play('tick', { f: noteHz(kind.beat ? 0 : kind.degree, 72) }, { gain: 0.3, pan });
+    }
+
+    //--------------------------------------------------------------------------
+    // Drawing
 
     draw(ctx) {
-        const u = this.u;
         ctx.drawImage(this.bg.canvas, 0, 0, this.w, this.h);
+        const now = this.now();
 
-        // A pale band on the rug under a row that is playing: in quickly, out slowly after its last
-        // note.
+        // The light on a column as it plays: in at once, out slowly, so it seems to travel.
         for (const b of this.bands) {
-            const fade =
-                clamp((this.time - b.start) / 0.12, 0, 1) * clamp(1 - (this.time - b.end - 0.3) / 0.5, 0, 1);
-            if (fade <= 0) continue;
-            const x = b.x0 - 12 * u;
+            const k = 1 - (this.time - b.at) / BAND;
+            const cell = this.cellRect(0, b.col);
             fillRound(
                 ctx,
-                x,
-                this.floor - 8 * u,
-                b.x1 - b.x0 + 24 * u,
-                24 * u,
-                12 * u,
-                `rgba(255, 250, 232, ${0.9 * fade})`
+                cell.x + this.inset,
+                this.y0 + this.inset,
+                cell.w - this.inset * 2,
+                this.gridH - this.inset * 2,
+                this.inset * 1.6,
+                `rgba(255, 250, 228, ${0.55 * k * k})`
             );
         }
-        // And under each cube as it sounds, a light in its colour, so the light runs along the row
-        // with the tune.
-        for (const c of this.cubes) {
-            if (c.glow <= 0) continue;
-            const half = c.s / 2 + 4 * u;
-            const light = rgbString(mixRgb(hexToRgb(c.colour), [255, 252, 246], 0.45), 0.95 * c.glow);
-            fillRound(ctx, c.x - half, this.floor - 8 * u, half * 2, 24 * u, 12 * u, light);
-        }
 
-        // Shadows on the rug, shrinking as a cube rises.
-        for (const c of this.cubes) {
-            const height = this.floor - c.y;
-            const fade = clamp(1 - height / (this.floor * 0.8), 0.25, 1);
-            ellipse(ctx, c.x + 4 * u, this.floor + 4 * u, (c.s / 2 + 6 * u) * fade, 9 * u * fade);
-            ctx.fillStyle = `rgba(112, 84, 58, ${0.14 * fade})`;
-            ctx.fill();
-        }
+        // Every glow goes down before any cube, so none lies over a neighbour.
+        for (const row of this.grid) for (const c of row) if (c && c.glow > 0) this.drawGlow(ctx, c);
+        for (const row of this.grid) for (const c of row) if (c) this.drawCube(ctx, c, 1);
+        for (const c of this.leaving) this.drawCube(ctx, c, 1 - c.lift);
 
-        // A sounding cube glows in its own colour: two soft layers, for want of a blur that Safari 12
-        // can afford. All the glows go down before any cube, so none lies over a neighbour.
-        for (const c of this.cubes) {
-            if (c.glow <= 0) continue;
-            const rgb = mixRgb(hexToRgb(c.colour), [255, 252, 246], 0.2);
-            this.enter(ctx, c);
-            for (const [reach, alpha] of [
-                [20, 0.32],
-                [8, 0.55],
-            ]) {
-                const pad = reach * (0.5 + 0.5 * c.glow) * u;
-                fillRound(
-                    ctx,
-                    -c.s / 2 - pad,
-                    -c.s / 2 - c.d - pad,
-                    c.s + pad * 2,
-                    c.s + c.d + pad * 2,
-                    pad * 1.3,
-                    rgbString(rgb, alpha * c.glow)
-                );
-            }
-            ctx.restore();
-        }
-
-        for (const c of this.drawOrder()) this.drawCube(ctx, c);
+        const ball = this.ballAt(now);
+        const r = this.ballR;
+        ellipse(ctx, ball.x + r * 0.15, this.groove + r * 0.75, r * 0.9, r * 0.32);
+        ctx.fillStyle = 'rgba(80, 52, 30, 0.22)';
+        ctx.fill();
+        bead(ctx, ball.x, ball.y, r, '#F4E6CC', 0);
     }
 
-    // Into a cube's own frame, centred on its front face, as it rocks and squashes. The caller
-    // restores.
-    enter(ctx, c) {
+    drawGlow(ctx, c) {
+        const kind = this.rows[c.row];
+        const rgb = mixRgb(hexToRgb(kind.colour), [255, 252, 246], 0.2);
+        const foot = this.footOf(c);
+        const s = this.size;
+        const d = this.depth;
+        for (const [reach, alpha] of [
+            [0.2, 0.3],
+            [0.08, 0.5],
+        ]) {
+            const pad = s * reach * (0.5 + 0.5 * c.glow);
+            fillRound(
+                ctx,
+                foot.x - s / 2 - pad,
+                foot.y - s - d - pad,
+                s + pad * 2,
+                s + d + pad * 2,
+                pad * 1.3,
+                rgbString(rgb, alpha * c.glow)
+            );
+        }
+    }
+
+    drawCube(ctx, c, alpha) {
+        const kind = this.rows[c.row];
+        const s = this.size;
+        const d = this.depth;
+        const foot = this.footOf(c);
+        const sprite = this.sprite(kind).canvas;
+        if (c.squash.value === 0 && !c.fall && !c.lift && !c.glow && alpha >= 1) {
+            // At rest, as most are: no need to move the canvas for it.
+            ctx.drawImage(sprite, foot.x - s / 2, foot.y - s - d, s, s + d);
+            return;
+        }
+        // Dropping in from above the cubby, or lifting out of it.
+        const y = foot.y - c.fall * c.fall * this.cellH * 0.45 - c.lift * this.cellH * 0.3;
         const squash = c.squash.value * 0.012;
         ctx.save();
-        ctx.translate(c.x, c.y);
-        ctx.rotate(c.angle + c.settle.value);
+        if (alpha < 1) ctx.globalAlpha = Math.max(0, alpha);
+        ctx.translate(foot.x, y);
         ctx.scale(1 + squash, 1 - squash * 1.3);
-        ctx.translate(0, -c.s / 2);
-    }
-
-    drawCube(ctx, c) {
-        const s = c.s;
-        const d = c.d;
-        const r = Math.max(2, s * 0.06);
-        this.enter(ctx, c);
-        if (c.state === 'held') {
+        ctx.drawImage(sprite, -s / 2, -s - d, s, s + d);
+        if (c.glow > 0) {
             fillRound(
                 ctx,
-                -s / 2 + 6 * this.u,
-                -s / 2 - d + 10 * this.u,
+                -s / 2,
+                -s - d,
                 s,
                 s + d,
-                r,
-                'rgba(112, 84, 58, 0.12)'
+                Math.max(2, s * 0.06),
+                `rgba(255, 250, 235, ${0.22 * c.glow})`
             );
         }
-        fillRound(ctx, -s / 2, -s / 2 - d, s, d + r * 2, r, shade(c.colour, 0.38));
-        fillRound(ctx, -s / 2, -s / 2, s, s, r, c.colour);
-        fillRound(ctx, -s / 2, s / 2 - s * 0.12, s, s * 0.12, r, shade(c.colour, -0.08));
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.fillRect(-s / 2 + r, -s / 2 + 1, s - r * 2, Math.max(1.5, s * 0.025));
-        // Lit while it sounds.
-        if (c.glow > 0)
-            fillRound(ctx, -s / 2, -s / 2 - d, s, s + d, r, `rgba(255, 250, 235, ${0.2 * c.glow})`);
         ctx.restore();
     }
 
     exit() {
         freeLayer(this.bg);
         this.bg = null;
+        for (const name of Object.keys(this.sprites)) freeLayer(this.sprites[name]);
+        this.sprites = {};
     }
 }
 
+// The shelf's picture: a small shelf with a few cubes in it, a column lit, the ball beneath.
 function icon(ctx, x, y, w, h) {
-    const base = y + h * 0.88;
-    const sizes = [h * 0.32, h * 0.24, h * 0.17, h * 0.11];
-    const tower = ['blue', 'red', 'yellow', 'red'].map(tint);
-    let bottom = base;
-    sizes.forEach((s, i) => {
-        const d = s * 0.22;
-        const cx = x + w / 2;
-        const colour = tower[i].colour;
-        fillRound(ctx, cx - s / 2 + 3, bottom - s + 4, s, s, s * 0.06, 'rgba(112, 84, 58, 0.14)');
-        fillRound(ctx, cx - s / 2, bottom - s - d, s, d + 4, s * 0.06, shade(colour, 0.38));
-        fillRound(ctx, cx - s / 2, bottom - s, s, s, s * 0.06, colour);
-        const next = sizes[i + 1] || 0;
-        bottom = bottom - s - (d - next * 0.22) / 2;
-    });
-    ['red', 'blue'].map(tint).forEach((kind, i) => {
-        const s = h * (0.14 - i * 0.04);
-        const cx = x + w * (0.2 + i * 0.62);
-        fillRound(ctx, cx - s / 2, base - s - s * 0.22, s, s * 0.22 + 4, s * 0.06, shade(kind.colour, 0.38));
-        fillRound(ctx, cx - s / 2, base - s, s, s, s * 0.06, kind.colour);
-    });
+    const cols = 4;
+    const rows = 3;
+    const cw = w * 0.2;
+    const ch = h * 0.21;
+    const board = cw * 0.1;
+    const gx = x + (w - cw * cols) / 2;
+    const gy = y + h * 0.1;
+    const plinth = ch * 0.5;
+    fillRound(
+        ctx,
+        gx - board + 3,
+        gy - board + 4,
+        cw * cols + board * 2,
+        ch * rows + board + plinth,
+        board * 1.5,
+        'rgba(112, 84, 58, 0.14)'
+    );
+    fillRound(
+        ctx,
+        gx - board,
+        gy - board,
+        cw * cols + board * 2,
+        ch * rows + board + plinth,
+        board * 1.5,
+        PALETTE.wood
+    );
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            fillRound(
+                ctx,
+                gx + c * cw + board * 0.4,
+                gy + r * ch + board * 0.4,
+                cw - board * 0.8,
+                ch - board * 0.8,
+                board,
+                shade(PALETTE.wood, -0.1)
+            );
+        }
+    }
+    fillRound(
+        ctx,
+        gx + cw + board * 0.4,
+        gy + board * 0.4,
+        cw - board * 0.8,
+        ch * rows - board * 0.8,
+        board,
+        'rgba(255, 250, 228, 0.6)'
+    );
+    const drum = BEATS[0];
+    const cubes = [
+        [0, 1, tint('blue').colour],
+        [1, 0, tint('yellow').colour],
+        [1, 1, tint('red').colour],
+        [1, 3, tint('yellow').colour],
+        [2, 0, drum.colour],
+        [2, 2, drum.colour],
+    ];
+    const s = Math.min(cw, ch) * 0.68;
+    const d = s * 0.2;
+    for (const [r, c, colour] of cubes) {
+        const cx = gx + (c + 0.5) * cw;
+        const foot = gy + (r + 1) * ch - board * 0.4;
+        fillRound(ctx, cx - s / 2, foot - s - d, s, d + 3, s * 0.06, shade(colour, 0.38));
+        fillRound(ctx, cx - s / 2, foot - s, s, s, s * 0.06, colour);
+    }
+    for (const c of [0, 2]) {
+        const cx = gx + (c + 0.5) * cw;
+        const cy = gy + 3 * ch - board * 0.4 - s / 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, s * 0.27, 0, TAU);
+        ctx.lineWidth = Math.max(1, s * 0.07);
+        ctx.strokeStyle = shade(drum.colour, -0.32);
+        ctx.stroke();
+    }
+    const by = gy + ch * rows + plinth * 0.45;
+    fillRound(
+        ctx,
+        gx + cw * 0.1,
+        by - plinth * 0.3,
+        cw * cols - cw * 0.2,
+        plinth * 0.6,
+        plinth * 0.3,
+        shade(PALETTE.woodDark, -0.1)
+    );
+    bead(ctx, gx + cw * 1.5, by, plinth * 0.26, '#F4E6CC', 0);
 }
 
 export const toy = {
     id: 'tower',
-    title: 'Colour tower',
-    about: 'A new set of cubes each time, every one a different size, and each colour its own note. Tap any cube to hear its whole row.',
-    stages: ['6 cubes in 2 colours', '9 cubes in 3 colours', '10 cubes in 5 colours'],
+    title: 'Colour beats',
+    about: 'A shelf of cubbies that plays itself: a light runs along it, round and round, and every cube it reaches sounds, each colour its own note, the wooden ones a drum, a clap or a shaker. Tap a cubby to put a cube in or take it out, draw a line of them with a finger, or hold the ball under the shelf and play it by hand.',
+    stages: [
+        'a loop of 4 beats: 2 colours and a drum',
+        'a loop of 8 beats: 3 colours, a drum and a shaker',
+        'a loop of 8 beats: all 5 colours, a drum, a clap and a shaker',
+    ],
     mat: '#E4ECF3',
     icon,
     create: (app) => new TowerScene(app),
-    // Any colour can come out, at any stage.
-    sounds() {
-        const list = [['thud', { f: 85 }]];
+    // Any colour can come out, at any stage; the beats are the stage's.
+    sounds(level) {
+        const list = [];
         for (const kind of COLOURS)
             list.push(['wood', { f: noteHz(kind.degree, 60) }], ['tick', { f: noteHz(kind.degree, 72) }]);
+        for (const name of STAGES[level].beats) list.push([name, {}]);
         return list;
     },
     signature() {
-        ['red', 'blue', 'red'].forEach((name, i) =>
-            audio.note('wood', tint(name).degree, 60, { gain: 0.6, delay: 0.05 + i * 0.12 })
+        audio.play('drum', {}, { gain: 0.7, delay: 0.05 });
+        ['red', 'blue'].forEach((name, i) =>
+            audio.note('wood', tint(name).degree, 60, { gain: 0.6, delay: 0.21 + i * 0.16 })
         );
     },
 };
