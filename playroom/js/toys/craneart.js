@@ -5,7 +5,7 @@
 // and stands still. The parts are drawn in their own frame, top-left at (0, 0), with `g` (the side
 // of the half-block grid the parts snap to) as their unit, so that each can be drawn once into a
 // sprite and copied from there. The colours are the site's (machines.js) and, for the parts, the
-// colour beats', which are also the easel's: a red part is a C wherever it is.
+// colour beats': a red part is a C wherever it is.
 
 import { fillRound, disc, ellipse, circle, roundRect } from '../draw.js';
 import { TAU, shade, hexToRgb, rgbString, mixRgb } from '../util.js';

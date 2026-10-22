@@ -69,9 +69,9 @@ Every toy has three layers, which are found by playing, never unlocked:
 | **Pond** | Nature, care of animals | Tap the water: a ripple and a water drop, pitched left-low to right-high | Push lily pads; open and close a lotus | Hold a finger still and the fish come to nibble; scatter food from the pot and they gather to eat | 3 / 4 / 5 fish, 2 / 3 / 4 pads |
 | **Busy board** | Practical life (dressing frames, bolt boards) | Lamp switch; a little door with a different picture behind it each time | A colour dial that clicks up the scale; a sun on a slider with a slide whistle; a zip | Crank a music box (Twinkle, Twinkle) at any speed; at Bloom the door has a bolt to slide first | 4 controls at Seed, 6 after; bolt at Bloom |
 | **Tone bars** | Music, auditory sense | Tap a bar; sweep for a glissando; chords with several fingers | Choose a wooden or a metal mallet | The shell plays back the last phrase; at Bloom, hold a bar to lift it and move it | 5 / 8 / 10 bars |
-| **Colour beats** | Music; sensorial: colour | Tap an empty cubby on the shelf and its cube drops in, sounding; tap a cube and it comes out. A light runs along the shelf, round and round, and plays every cube it reaches | Draw a line of cubes with a finger, or empty one; hold the ball under the shelf and the light goes where the finger takes it, playing as it goes | A loop of tune and beat: each column a beat, each row a sound, the colours their notes (as on the easel) and plain wooden cubes a drum, a clap and a shaker; what a column holds sounds together; new colours each time it comes out | 4 columns, 2 colours and a drum / 8, 3 colours, a drum and a shaker / 8, all 5 colours, a drum, a clap and a shaker |
+| **Colour beats** | Music; sensorial: colour | Tap an empty cubby on the shelf and its cube drops in, sounding; tap a cube and it comes out. A light runs along the shelf, round and round, and plays every cube it reaches | Draw a line of cubes with a finger, or empty one; hold the ball under the shelf and the light goes where the finger takes it, playing as it goes | A loop of tune and beat: each column a beat, each row a sound, the colours their notes (as on the crane) and plain wooden cubes a drum, a clap and a shaker; what a column holds sounds together; new colours each time it comes out | 4 columns, 2 colours and a drum / 8, 3 colours, a drum and a shaker / 8, all 5 colours, a drum, a clap and a shaker |
 | **Pouring** | Practical life | Tap a glass: it rings lower the fuller it is | Carry a pitcher over a glass and it tilts and pours | Colours mix as paint does; glasses overflow onto the tray and the sponge wipes it up; a pitcher put back in its place fills again | 1 / 2 / 3 pitchers, 2 / 3 / 4 glasses |
-| **Easel** | Art; metal insets for the hand | Paint with a finger, or several | Choose a pot; lay a metal inset frame on the paper | Paint through the frame and lift it to leave a clean shape; watercolour glazes, so colours mix on the paper | 3 / 6 / 6 paints; 0 / 4 / 8 insets; brush smaller as it grows |
+| **Turntable** | Music, auditory sense: speed is pitch | Tap the button: the record winds down to a stop, and spins up again; tap a pad for a horn or a boom | Hold the record and move it to and fro: a scratch, the music going wherever the record goes, backwards and forwards, faster and higher | A scratch over a loop; records from a crate, each two bars pressed from the playroom's own sounds: a tune, a beat, the animals; at Bloom, a slider for the speed | one record / three in a crate, and a horn and a boom / and a speed slider |
 | **Sandpaper letters** | Language | Choose a board from the box; trace it | A guide's finger shows how each is written, once, and again on request | Only the sand makes a sound; the smooth board is silent | – |
 | **Sandpaper numerals** | Mathematics | As the letters | As the letters | A bowl lays out that many counters in pairs, Montessori's cards and counters, one rising note each | – |
 | **Dig** | Practical life: transferring, with a material that keeps its shape | Tap the sand and it sprays; tap the digger for its horn, the truck for two beeps | The bucket follows a finger: down into the sand it fills, lifted it carries, let go it pours; the digger crawls after a finger beyond its reach. Drag the truck, and tap its bed to tip it | The ground itself: heaps, holes and ramps, of sand that slumps to its natural slope and is never made or lost; things buried in it, the first always found at the first bite | a digger and a heap / and a dump truck, and things buried / and a bulldozer, and earth under the sand |
@@ -106,8 +106,8 @@ cubbies, a column for each beat of a loop and a row for each sound, and a light 
 in turn, round and round, so whatever pattern the child makes is heard again and again while it
 changes: a line of one colour, a staircase that climbs the scale, a chord, a rhythm on the drum
 under a tune. No cubby is a wrong place for a cube: every note is on the scale, so any column is a
-chord that sounds well, and a gap is a rest. A colour's note is the same as on the easel, where red
-is also C.
+chord that sounds well, and a gap is a rest. A colour's note is the same in every game: red is C on
+the crane and the building site too, and the turntable's yellow horn toots yellow's E.
 
 They also part from Montessori in one more way, deliberately. A Montessori material is the same
 every day; the colour beats bring a new choice of colours each time they are taken out, as Pok Pok's
@@ -121,7 +121,7 @@ Montessori's other principles are here too:
 - **Isolation of a quality.** Each toy is about one thing.
 - **Order.** The shelf, the trays, and a toy that starts fresh each time it is taken out.
 - **The prepared environment.** The grown-up chooses what is out and how much.
-- **Concrete before abstract.** Counters beside numerals, metal insets before letters.
+- **Concrete before abstract.** Counters beside numerals; a letter traced long before it is read.
 
 ### Symbols, and silence
 
@@ -168,12 +168,22 @@ panel is the only text.
   - a single zip tooth or engine beat, which come in streams, near −27.
 
   `test.mjs` holds every sound to its band, so the mix cannot drift.
-- **Continuous textures.** The brush, the sand, the water, the pouring and the slide whistle follow
-  the finger: filtered noise loops, or an oscillator, whose level and pitch track its speed. The
+- **Continuous textures.** The sand, the water, the pouring and the slide whistle follow the
+  finger: filtered noise loops, or an oscillator, whose level and pitch track its speed. The
   pouring sound's band-pass rises with the receiving glass's fill: the air column above the water,
   shortening. The dig's sand on the move is a coarser grit, loud as fast as it moves; the digger's
   hydraulics and the crane's winch are a motor voice whose pitch steps along the scale with the
   arm's or the hook's height, so lifting sings rather than whines.
+- **A record that plays backwards.** The turntable's records are pressed from the playroom's own
+  sounds the first time each is played: two bars mixed into one loop at the mix's levels, with a
+  sound still ringing at the end carrying on at the start. The deck holds each loop twice, the
+  second time reversed. Whichever way the record is going, that copy plays from where the record
+  is, at the record's speed, so the pitch follows the speed as on vinyl; turning round starts the
+  other copy at the same place, the two crossfaded over a few milliseconds. While the record plays,
+  the deck keeps its place by the audio clock, which a dropped frame does not stop, and the picture
+  follows it; starting to play again, the deck takes up wherever the record was turned to. Old
+  WebKit takes a playback rate of 0 as 1, so a record held still runs at a thousandth of its speed,
+  silent, and its place is reckoned from that.
 - **A room.** A short, warm, generated reverb, darkening as it decays, behind everything; a gentle
   high shelf and a compressor in front of the speaker so eight fingers do not sum into distortion.
 
@@ -225,7 +235,9 @@ In Node:
 - every sound sits in its band of the mix;
 - all 36 glyphs stay on the writing lines;
 - every sound the toys ask for with fixed parameters renders, so none is missing one it needs;
-- every choice of colours the colour beats can roll keeps its rules, over 2000 rolls a stage.
+- every choice of colours the colour beats can roll keeps its rules, over 2000 rolls a stage;
+- every record on the turntable is on the scale and in time, the same sample for sample as itself
+  played round and round (so going round has no seam), and as loud as the notes.
 
 Then in Chromium, as an iPad (1024 × 768 at 2×, touch), the suite drives every toy with real touch
 events. It measures the audio that reaches the speaker through an analyser after the compressor.
@@ -240,7 +252,14 @@ It also checks:
   it is rolled to and the loop carries on from there; that the ball hops back when the loop goes
   round; that the loop rests when left alone, and the frames stop, until a touch; and that the
   shelf brings different colours the next time it comes out;
-- that each colour is the same note as its paint on the easel;
+- at the turntable: that the record turns and plays; that a hand holds it still and silent; that
+  turned back, the music plays backwards and goes back exactly as far as the record turned, and
+  forwards again; that let go, it spins back up with the music in step; that after a slow frame
+  the record catches up with the music; that a record from the crate goes on and plays from its
+  start; that the button winds it down to a stop, after which nothing moves, and starts it again
+  from where it stopped; that the horn is yellow and toots yellow's note, and the boom is the
+  colour beats' drum wood; at Seed, one record and the button; at Bloom, that the slider sets the
+  speed and settles on the record's own in the middle;
 - on the farm: that a frog comes to the pond within seconds; that a hidden thing shows itself the
   first time whatever chance says, and by chance after that; that a piece from the tray joins its
   neighbours; that a joined field grows as one, is harvested ripe and hides a rabbit among the
@@ -308,11 +327,12 @@ playroom/
     start.js, shelf.js      the bud, and the shelf
     settings.js, parent.js  the grown-ups' corner
     toys/                   one file per toy; glyphs.js holds the letters and numerals, cubes.js
-                            the colour beats' cubes, farmart.js the farm's pictures, board.js the
-                            isometric board the farm and the building site are built on, iso.js
-                            its boxes, roofs and walls, machines.js the site's palette and
-                            machines, and digart.js, craneart.js and siteart.js the rest of the
-                            dig's, the crane's and the site's pictures
+                            the colour beats' cubes, records.js the turntable's records,
+                            farmart.js the farm's pictures, board.js the isometric board the
+                            farm and the building site are built on, iso.js its boxes, roofs
+                            and walls, machines.js the site's palette and machines, and
+                            digart.js, craneart.js and siteart.js the rest of the dig's, the
+                            crane's and the site's pictures
   icons/                    generated by tools/icons.mjs
   test.mjs                  the suite
 ```
@@ -321,6 +341,5 @@ playroom/
 
 - **A garden.** Seeds, a watering can, flowers that open with a chime, and the bud's own story. The
   farm's fields and watering farmer now cover some of it.
-- **A drying line** for the easel, to keep the last few paintings.
 - **The movable alphabet**, the next step after the sandpaper letters, once a child is building
   words.

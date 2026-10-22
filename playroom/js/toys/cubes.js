@@ -2,7 +2,7 @@
 // stage puts on the shelf, and a fresh choice of colours each time the shelf is taken out.
 //
 // The set changes; the rules do not. Whatever the dice say:
-//   - each colour keeps its note, the one it has as a paint on the easel, so red is always C;
+//   - each colour keeps its note, the one it has in every game, so red is always C;
 //   - the stage's colours: 2 at Seed and 3 at Sprout, never the same ones twice in a row, and all
 //     5 at Bloom;
 //   - the rows run from the drum at the bottom, through the other beats, to the colours in the

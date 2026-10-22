@@ -12,10 +12,10 @@
 //
 // Nothing is correct. A building is whatever stands, and whatever stands comes alive: windows
 // light at night, a cat moves into one, plants appear on the ledges, and a bird comes to nest on
-// the very top. Each part sounds its colour's note, the note it has as a paint on the easel, and a
-// tap on the ground at a building's foot plays it from the bottom up, each part lit as it sounds.
-// Landing, a part clanks a step of the scale higher for every half-block it stands above the
-// ground, so a building going up rings up the scale.
+// the very top. Each part sounds its colour's note, the note it has as a cube in the colour beats,
+// and a tap on the ground at a building's foot plays it from the bottom up, each part lit as it
+// sounds. Landing, a part clanks a step of the scale higher for every half-block it stands above
+// the ground, so a building going up rings up the scale.
 //
 //   touch  - tap a part for its note, the ground for the whole building, the cab for the horn, the
 //            hook to set it swinging; the sun in the corner for the night.

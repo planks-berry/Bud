@@ -9,11 +9,11 @@ import { toy as busy } from './busy.js';
 import { toy as bars } from './bars.js';
 import { toy as tower } from './tower.js';
 import { toy as pour } from './pour.js';
-import { toy as easel } from './easel.js';
+import { toy as turntable } from './turntable.js';
 import { letters, numerals } from './sandpaper.js';
 import { toy as dig } from './dig.js';
 import { toy as crane } from './crane.js';
 import { toy as farm } from './farm.js';
 import { toy as site } from './site.js';
 
-export const TOYS = [pond, busy, bars, tower, pour, easel, letters, numerals, dig, crane, farm, site];
+export const TOYS = [pond, busy, bars, tower, pour, turntable, letters, numerals, dig, crane, farm, site];

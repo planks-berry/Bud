@@ -5,10 +5,10 @@ revised. The technical side (the old iPad, the audio engine, the tests) is in
 [PLAYROOM.md](PLAYROOM.md). This file is about what each game is and why. The code calls the games
 "toys".
 
-**Status, 21 October 2026.**
+**Status, 22 October 2026.**
 - **Built:** twelve games, tested in two simulated iPad browsers (one with everything Safari 12
-  lacks removed). The newest three are the builders' games: the dig, the crane and the building
-  site.
+  lacks removed). The newest is the turntable, in place of the easel. The colour tower is now the
+  colour beats, a step sequencer, and the farm and the building site start on an empty table.
 - **Where:** live at https://planks-berry.github.io/Bud/playroom/, published from `main`. Work
   continues on branch `claude/montessori-playroom`.
 - **Not yet checked on a real iPad:** the speaker mix and the iPad Air's frame rate can only be
@@ -65,8 +65,8 @@ What was asked, and the answers that have shaped everything since.
   megabytes of audio.
 - **A set mix.** Each sound has one level, and the tests hold it in its band: notes loudest, then
   knocks and clicks, then air and paper.
-- **Colours have notes.** Red is C, yellow E, green G, blue A, purple the C above. The easel and the
-  colour beats use the same pairs.
+- **Colours have notes.** Red is C, yellow E, green G, blue A, purple the C above. The colour beats,
+  the crane, the building site and the turntable's horn use the same pairs.
 
 ---
 
@@ -304,39 +304,74 @@ glass, a tray, and a sponge for what goes astray.
 **Ideas**
 -
 
-### 6. Easel
+### 6. Turntable (was the easel)
 
-**What it is:** watercolour on textured paper, with the Montessori metal insets to paint through.
+**What it is:** a record player to scratch, after a DJ's deck. A record turns on the platter,
+playing a short loop. A hand on it holds it, and the music stops; moved to and fro, the record
+takes the music with it, backwards and forwards, faster and higher, slower and lower: a scratch.
 
-**Roots:** art, and the metal insets, which prepare the hand for writing.
+**Roots:** scratching, which DJs in the Bronx made into an instrument in the 1970s (it is usually
+credited to Grand Wizzard Theodore). From Montessori, the isolation of one quality, as in the
+sound boxes and the bells: here the one thing a hand changes is the record's speed, and the pitch
+and direction of the music follow it. And a real machine to work: a button, records kept in their
+own sleeves, a crate to put them back in.
 
 **Layers**
-- Touch: paint with a finger, or several. Touch a pot to change colour.
-- Move: lay an inset frame on the paper and paint through it; slide it about; tap it in the tray to
-  lift it off. A fresh sheet comes from the stack in the corner.
-- Make: shapes built from shapes. Colours mix on the paper as watercolour does: yellow over blue
-  makes green, and a slow stroke pools darker. Scribbling across a frame leaves a clean shape
-  behind.
+- Touch: tap the button and the record winds down to a stop, the music sliding down with it; tap
+  it again and it spins back up. Tap a pad for a toot-toot on the horn, or a boom.
+- Move: hold the record and move it to and fro. The music goes the way the record goes, at the
+  record's speed, so a fast rub is high and a slow one low. Let go and it spins back up to speed;
+  flicked, it races and settles. At Bloom, slide the speed from just over half to one and a half
+  times; near the middle the slider settles on the record's own speed.
+- Make: a scratch over the loop, timed to the beat; a record chosen from the crate; the horn in
+  the right place.
 
 **Stages**
-- Seed: 3 paints (red, yellow, blue), a broad brush, no insets.
-- Sprout: 6 paints (adding green, purple and brown); 4 insets (circle, square, triangle,
-  quatrefoil).
-- Bloom: 6 paints; 8 insets (adding ellipse, curved triangle, pentagon, trapezoid); a finer
-  brush.
+- Seed: one record (the tune) and the button.
+- Sprout: three records in a crate (the tune, the beat, the animals), a horn and a boom.
+- Bloom: as Sprout, and a slider for the speed.
 
-**Sound:** the brush on paper follows the finger. Each pot sounds its colour's note when chosen,
-the same notes as the colour beats. The frames latch and lift, and the paper rustles.
+**The records:** two bars at 96 beats a minute, five seconds round, pressed from the playroom's own
+sounds the first time each is played.
+- The tune (red, a note on its label): a marimba tune over a soft drum and shaker.
+- The beat (blue, a drum): drum, clap and shaker, with a wooden bass line.
+- The animals (green, a cow): the beat with a moo, a baa, two quacks and an oink.
+
+Every note is on the playroom's scale, so a record at its own speed is in tune with every other
+game.
+
+**Sound:** the record plays wherever it is turned to: forwards or backwards, at any speed, the
+pitch following the speed as it does on vinyl. A record held still is silent. Eight lights round
+the platter, one for each beat of the loop, light in turn as the needle passes them, whichever way
+the record is going. The button clicks, and the record takes about two and a half seconds to wind
+down to silence. The horn toots twice in yellow's note, E; the boom is the drum, with a low thud
+under it. A record going back to the crate whooshes, the next whooshes onto the platter, and the
+arm comes down with a tick.
 
 **Decisions so far**
-- The painting stays on the easel while the playroom is open, so a trip to the shelf doesn't throw
-  it away.
+1. First version, the easel: watercolour on textured paper, with the Montessori metal insets to
+   paint through, and a pot for each colour sounding its note.
+2. Now: "Remove the drawing game. In its place, make a simple dj scratching game."
+   - Where the record is turned to is where the music is. The record and the music are one, so a
+     sound found on the record can be found again by turning back to it, as on a real record.
+   - Simple first: one record and a button at Seed. The crate, the pads and the slider come with
+     the stages.
+   - Colours keep their meaning. The horn is on yellow and toots yellow's note; the boom is on the
+     plain wood of the colour beats' drum, because a beat has no note. The records are in the
+     playroom's colours, but a record is a loop, not a note.
+   - Left untouched for three minutes, the turntable winds down and rests, as the colour beats do.
+   - The metal insets went with the easel. The sandpaper letters and numerals still prepare the
+     hand for writing.
 
 **Questions**
+- Does he scratch, or mostly tap the pads? If he scratches, a second turntable and a crossfader to
+  mix between them is the next step; if he taps, more pads.
+- Should the record start turning when the game opens, as now, or wait for the button?
 -
 
 **Ideas**
-- A drying line, to keep the last few paintings (not yet built).
+- A blank record that takes the loop he has built in the colour beats, to scratch while the
+  playroom is open.
 
 ### 7. Sandpaper letters
 
@@ -610,7 +645,7 @@ knocking down never leaves a mess.
 **Night:** the windows light, and the crane's light at the top of the jib shines.
 
 **Sound:**
-- each part sounds its colour's note, the same note it has as a paint on the easel;
+- each part sounds its colour's note, the same note it has as a cube in the colour beats;
 - landing, a part clanks a step of the scale higher for every half-block it stands above the
   ground, so a building going up rings up the scale;
 - the winch, a continuous voice that sings while the hook moves, a step higher the shorter the
@@ -725,7 +760,6 @@ his whistle.
 
 - **A garden:** seeds, a watering can, flowers that open with a chime, and the bud's own story.
   The farm's fields and watering farmer now cover some of it.
-- **A drying line** for the easel (see the easel).
 - **The movable alphabet** (see the letters).
 
 ## Open across the playroom

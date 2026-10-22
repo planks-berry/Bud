@@ -423,6 +423,80 @@ check(
     );
 }
 
+// ---- the turntable's records: in tune, in time, and round and round without a seam -----------
+
+{
+    const records = await import(pathToFileURL(join(here, 'js/toys/records.js')).href);
+    const cubes = await import(pathToFileURL(join(here, 'js/toys/cubes.js')).href);
+    const sr = 44100;
+    const rendered = new Map();
+    const sound = (name, params) => {
+        const key = `${name} ${JSON.stringify(params)}`;
+        if (!rendered.has(key)) rendered.set(key, synth.render(name, sr, params));
+        return rendered.get(key);
+    };
+    const scale = Array.from({ length: 40 }, (_, i) => noteHz(i - 20, 60));
+    const faults = [];
+    const levels = [];
+    for (const record of records.RECORDS) {
+        const where = record.name;
+        if (!cubes.COLOURS.some((kind) => kind.colour === record.colour))
+            faults.push(`${where}: not one of the playroom's colours`);
+        for (const [step, name, params, gain] of record.events) {
+            if (!Number.isInteger(step) || step < 0 || step >= records.STEPS)
+                faults.push(`${where}: step ${step}`);
+            if (!synth.recipes[name]) faults.push(`${where}: no sound called ${name}`);
+            else if (!(gain > 0 && gain <= 1)) faults.push(`${where}: ${name} at ${gain}`);
+            if (params.f && !scale.some((f) => Math.abs(f / params.f - 1) < 1e-9))
+                faults.push(`${where}: ${name} at ${params.f.toFixed(1)} Hz, off the scale`);
+        }
+        if (faults.length) continue;
+        const loop = records.press(record, sr, sound);
+        const n = loop.length;
+        if (n !== Math.round(records.LENGTH * sr)) faults.push(`${where}: ${n} samples`);
+        // The record played round and round from silence: from its second time round it is
+        // the pressed loop, sample for sample, so going round has no seam.
+        const round = new Float32Array(n * 3);
+        for (let k = 0; k < 3; k++) {
+            for (const [step, name, params, gain] of record.events) {
+                const data = sound(name, params);
+                const start = k * n + Math.round(step * records.STEP * sr);
+                const level = gain * synth.MIX[name];
+                for (let i = 0; i < data.length && start + i < round.length; i++)
+                    round[start + i] += data[i] * level;
+            }
+        }
+        let seam = 0;
+        let top = 0;
+        for (let i = 0; i < n; i++) {
+            seam = Math.max(seam, Math.abs(round[n + i] - loop[i]), Math.abs(round[2 * n + i] - loop[i]));
+            top = Math.max(top, Math.abs(loop[i]));
+        }
+        if (!(seam < 1e-5)) faults.push(`${where}: differs from itself played round by ${seam}`);
+        // What reaches the room, through the deck at 0.9: in the band of the notes, unclipped.
+        const level = loudness(
+            loop.map((v) => v * 0.9),
+            sr
+        );
+        const [lo, hi] = BANDS.find(([band]) => band === 'notes')[1];
+        levels.push(`${where} ${level.toFixed(1)} dB`);
+        if (top * 0.9 > 0.9 || level < lo || level > hi)
+            faults.push(`${where}: at ${level.toFixed(1)} dB, peak ${(top * 0.9).toFixed(2)}`);
+    }
+    check(
+        'every record is in tune and in time, round and round without a seam, as loud as the notes',
+        faults.length === 0,
+        faults.length ? faults.slice(0, 4).join('; ') : levels.join('; ')
+    );
+    check(
+        'one record at Seed, three in the crate after',
+        records.recordsFor(0).length === 1 &&
+            records.recordsFor(1).length === 3 &&
+            records.recordsFor(2).length === 3 &&
+            new Set(records.RECORDS.map((record) => record.colour)).size === records.RECORDS.length
+    );
+}
+
 //==============================================================================
 // The browser
 
@@ -749,8 +823,6 @@ async function suite(mode) {
         beatShelf.grid[0] === '10001000' && beatShelf.grid.slice(1).every((row) => row === '00000000'),
         beatShelf.grid.join(' ')
     );
-    const towerNotes = {};
-    for (const k of noteRows) towerNotes[k.colour] = k.degree;
 
     const cubby = (row, col) =>
         scene(
@@ -976,50 +1048,186 @@ async function suite(mode) {
     await shot('pour');
     check('home from pouring', (await home()) === 'ShelfScene');
 
-    // ---- easel ------------------------------------------------------------------------
+    // ---- turntable ------------------------------------------------------------------------
 
-    await open('easel');
-    const sheet = await scene(() => window.playroom.stage.scene.sheet);
-    const sample = () =>
+    await open('turntable');
+    const deck = () =>
         scene(() => {
-            const paper = window.playroom.stage.scene.paper.canvas;
-            const data = paper
-                .getContext('2d')
-                .getImageData(paper.width / 2 - 40, paper.height / 2 - 40, 80, 80).data;
-            let sum = 0;
-            for (let i = 0; i < data.length; i += 4) sum += data[i] + data[i + 1] + data[i + 2];
-            return sum / (data.length / 4);
+            const s = window.playroom.stage.scene;
+            return {
+                rate: s.rate,
+                place: s.place(),
+                heard: s.deck.place(),
+                dir: s.deck.dir,
+                record: s.records[s.current].name,
+                motor: s.motor,
+                swapping: !!s.swap,
+            };
         });
-    const before = await sample();
-    const cx = sheet.x + sheet.w / 2;
-    const cy = sheet.y + sheet.h / 2;
-    await touch.drag(line(cx - 120, cy - 40, cx + 120, cy + 40, 30));
-    const after = await sample();
-    check('a finger paints on the paper', after < before - 2, `${before.toFixed(0)} -> ${after.toFixed(0)}`);
-    const pots = await scene(() => window.playroom.stage.scene.paints.map((p) => ({ x: p.x, y: p.y })));
-    await touch.tap(pots[1].x, pots[1].y);
-    check('a pot chooses its colour', (await scene(() => window.playroom.stage.scene.current)) === 1);
-    const stencils = await scene(() => window.playroom.stage.scene.stencils.map((s) => ({ x: s.x, y: s.y })));
-    if (stencils.length) {
-        await touch.tap(stencils[0].x, stencils[0].y);
-        check('a metal inset lies on the paper', await scene(() => !!window.playroom.stage.scene.plate));
-        await touch.tap(stencils[0].x, stencils[0].y);
-        check('and lifts off again', await scene(() => !window.playroom.stage.scene.plate));
-    }
-    const paints = await scene(() =>
-        window.playroom.stage.scene.paints.map((p) => ({ colour: p.colour, degree: p.degree }))
-    );
-    const common = paints.filter((p) => p.colour in towerNotes);
+    const tt = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return {
+            cx: s.cx,
+            cy: s.cy,
+            r: s.recordR,
+            button: s.buttonAt,
+            records: s.records.map((record) => record.name),
+            pads: s.pads.map((pad) => ({ name: pad.name, x: pad.x, y: pad.y, colour: pad.colour, f: pad.f })),
+            sleeves: s.sleeves.map((q) => ({ x: q.x + q.s / 2, y: q.y + q.s * 0.6 })),
+            fader: !!s.fader,
+        };
+    });
+    const { LENGTH: LOOP } = await import(pathToFileURL(join(here, 'js/toys/records.js')).href);
+    const { COLOURS, BEATS } = await import(pathToFileURL(join(here, 'js/toys/cubes.js')).href);
+    const yellow = COLOURS.find((kind) => kind.name === 'yellow');
+    // How far apart two places in the loop are, the short way round.
+    const apart = (a, b) => ((((a - b) % LOOP) + LOOP * 1.5) % LOOP) - LOOP / 2;
+    const SPIN = (Math.PI * 2 * 100) / 3 / 60;
     check(
-        'a colour is the same note as a paint and as a cube',
-        common.length === 3 && common.every((p) => p.degree === towerNotes[p.colour] + 5),
-        common.map((p) => `${p.colour} ${p.degree}/${towerNotes[p.colour]}`).join(', ')
+        'the turntable opens at Sprout: three records in the crate, a horn and a boom, no slider',
+        tt.records.join(' ') === 'tune beat animals' &&
+            tt.pads.map((pad) => pad.name).join(' ') === 'horn boom' &&
+            !tt.fader,
+        `${tt.records.join(' ')}; ${tt.pads.map((pad) => pad.name).join(' ')}`
     );
-    await shot('easel');
-    check('home from the easel', (await home()) === 'ShelfScene');
-    await open('easel');
-    check('the painting is still there when you come back', Math.abs((await sample()) - after) < 1);
-    await home();
+    await page.waitForTimeout(500);
+    const spinning = await deck();
+    check(
+        'the record turns and plays',
+        Math.abs(spinning.rate - 1) < 0.01 && spinning.heard !== null && (await peak(500)) > 0.02,
+        `rate ${spinning.rate.toFixed(2)}`
+    );
+
+    // A hand on the record holds it, and the music stops; moved, the music goes with it.
+    const on = (a) => [tt.cx + Math.cos(a) * tt.r * 0.7, tt.cy + Math.sin(a) * tt.r * 0.7];
+    const top = -Math.PI / 2;
+    await touch.down(...on(top));
+    await page.waitForTimeout(300);
+    const held = await deck();
+    check(
+        'a hand on the record holds it still, and silent',
+        Math.abs(held.rate) < 0.01 && held.heard === null
+    );
+    for (let i = 1; i <= 10; i++) {
+        await page.waitForTimeout(16);
+        await touch.move(...on(top - (0.8 * i) / 10));
+    }
+    const back = await deck();
+    await page.waitForTimeout(250);
+    const backAt = await deck();
+    for (let i = 1; i <= 10; i++) {
+        await page.waitForTimeout(16);
+        await touch.move(...on(top - 0.8 + (0.8 * i) / 10));
+    }
+    const ahead = await deck();
+    await page.waitForTimeout(250);
+    const aheadAt = await deck();
+    const turnedBack = apart(held.place, backAt.place);
+    check(
+        'turned back, the music plays backwards, back to where the record is turned to',
+        back.rate < -0.3 &&
+            back.dir === -1 &&
+            back.heard !== null &&
+            Math.abs(turnedBack - 0.8 / SPIN) < 0.05,
+        `rate ${back.rate.toFixed(2)}, back ${turnedBack.toFixed(3)} s`
+    );
+    check(
+        'and turned on, forwards again: a scratch',
+        ahead.rate > 0.3 && ahead.dir === 1 && Math.abs(apart(aheadAt.place, held.place)) < 0.05,
+        `rate ${ahead.rate.toFixed(2)}, ${apart(aheadAt.place, held.place).toFixed(3)} s from the start`
+    );
+    await touch.up();
+    await page.waitForTimeout(900);
+    const released = await deck();
+    check(
+        'let go, it spins back up to speed, the music with it',
+        Math.abs(released.rate - 1) < 0.02 &&
+            released.heard !== null &&
+            Math.abs(apart(released.heard, released.place)) < 0.05,
+        `rate ${released.rate.toFixed(2)}`
+    );
+
+    // A slow frame does not stop the music, and the record catches up with it.
+    await scene(() => {
+        const until = performance.now() + 400;
+        while (performance.now() < until);
+    });
+    await page.waitForTimeout(1000);
+    const caught = await deck();
+    check(
+        'after a slow frame the record catches up with the music',
+        caught.heard !== null && Math.abs(apart(caught.heard, caught.place)) < 0.03,
+        `${caught.heard === null ? 'silent' : apart(caught.heard, caught.place).toFixed(3) + ' s apart'}`
+    );
+
+    // Another record from the crate: the arm lifts, the records change places, and it plays from
+    // its start.
+    await touch.tap(tt.sleeves[2].x, tt.sleeves[2].y);
+    await page.waitForTimeout(150);
+    const swapping = await deck();
+    await page.waitForTimeout(900);
+    const swapped = await deck();
+    check(
+        'a record from the crate goes on, and plays from its start',
+        swapping.swapping &&
+            swapped.record === 'animals' &&
+            !swapped.swapping &&
+            swapped.heard !== null &&
+            swapped.place < 0.6,
+        `${swapped.record} at ${swapped.place.toFixed(2)} s`
+    );
+    await shot('turntable');
+
+    // The button winds it down to a stop, and then nothing moves.
+    await touch.tap(tt.button.x, tt.button.y);
+    await page.waitForTimeout(1000);
+    const winding = await deck();
+    await page.waitForTimeout(4600);
+    const stopped = await deck();
+    const framesStopped = await scene(() => window.playroom.stage.frames);
+    await page.waitForTimeout(600);
+    check(
+        'the button winds the record down to a stop, and then nothing moves',
+        !winding.motor &&
+            winding.rate > 0.05 &&
+            winding.rate < 0.5 &&
+            stopped.rate === 0 &&
+            stopped.heard === null &&
+            (await scene(() => window.playroom.stage.frames)) === framesStopped,
+        `${winding.rate.toFixed(2)} after a second`
+    );
+
+    const [horn, boom] = tt.pads;
+    check(
+        "the horn is yellow and toots yellow's note, as in the colour beats; the boom is their drum's wood",
+        horn.colour === yellow.colour &&
+            Math.abs(horn.f - noteHz(yellow.degree, 60)) < 1e-9 &&
+            boom.colour === BEATS.find((beat) => beat.name === 'drum').colour
+    );
+    await touch.tap(horn.x, horn.y);
+    check(
+        'the horn toots',
+        (await peak(300)) > 0.02 && (await scene(() => window.playroom.stage.scene.pads[0].glow > 0))
+    );
+    await page.waitForTimeout(900);
+    await touch.tap(boom.x, boom.y);
+    check('the boom booms', (await peak(300)) > 0.02);
+
+    // And up again, going on from where it stopped.
+    await touch.tap(tt.button.x, tt.button.y);
+    await page.waitForTimeout(900);
+    const restarted = await deck();
+    const onFrom = apart(restarted.place, stopped.place);
+    check(
+        'the button starts it again, going on from where it stopped',
+        restarted.motor &&
+            Math.abs(restarted.rate - 1) < 0.02 &&
+            restarted.heard !== null &&
+            onFrom > 0.4 &&
+            onFrom < 1.2,
+        `on ${onFrom.toFixed(2)} s`
+    );
+    check('home from the turntable', (await home()) === 'ShelfScene');
 
     // ---- sandpaper letters ----------------------------------------------------------------
 
@@ -2416,6 +2624,43 @@ async function suite(mode) {
         'while the others stay at Seed: the colour beats loop 4 columns, with 2 colours over a drum',
         seed.steps === 4 && seed.rows.length === 3 && seed.rows[0] === 'drum',
         `${seed.steps} columns: ${seed.rows.join(' ')}`
+    );
+    await home();
+    await open('turntable');
+    const seedDeck = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { records: s.records.length, pads: s.pads.length, fader: !!s.fader };
+    });
+    await page.waitForTimeout(400);
+    check(
+        'and the turntable at Seed has one record and the button, nothing else, and plays',
+        seedDeck.records === 1 && seedDeck.pads === 0 && !seedDeck.fader && (await peak(400)) > 0.02,
+        `${seedDeck.records} records, ${seedDeck.pads} pads`
+    );
+    await home();
+
+    // The turntable at Bloom: a slider sets its speed, and the music's pitch with it; near the
+    // middle it settles on the record's own speed.
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('turntable', 'bloom'));
+    await open('turntable');
+    const fader = await scene(() => window.playroom.stage.scene.fader);
+    const middle = (fader.y0 + fader.y1) / 2;
+    const speeds = () =>
+        scene(() => ({ speed: window.playroom.stage.scene.speed, rate: window.playroom.stage.scene.rate }));
+    await touch.drag(line(fader.x, middle, fader.x, fader.y0, 12), 16, 100);
+    await page.waitForTimeout(700);
+    const fast = await speeds();
+    await shot('turntable-bloom');
+    await touch.drag(line(fader.x, fader.y0, fader.x, middle + 4, 12), 16, 100);
+    await page.waitForTimeout(1500);
+    const own = await speeds();
+    check(
+        "the turntable at Bloom: the slider sets the record's speed, and near the middle its own",
+        fast.speed === 1.5 &&
+            Math.abs(fast.rate - 1.5) < 0.03 &&
+            own.speed === 1 &&
+            Math.abs(own.rate - 1) < 0.03,
+        `${fast.rate.toFixed(2)} at the top, ${own.rate.toFixed(2)} in the middle`
     );
     await home();
 

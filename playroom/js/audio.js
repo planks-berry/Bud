@@ -426,6 +426,16 @@ export function play(name, params = {}, opts = {}) {
     source.start(ctx.currentTime + (opts.delay || 0));
 }
 
+// The rate one-shot sounds are rendered at, and their samples, rendered once and shared with what
+// plays them: for a toy that mixes loops of its own from the playroom's sounds.
+export const RATE = RENDER_RATE;
+
+export function samples(name, params = {}) {
+    const buffer = state.buffers.get(keyOf(name, params));
+    if (buffer) return buffer.getChannelData(0);
+    return dataFor(name, params).data;
+}
+
 // A pitched sound on the shared pentatonic scale.
 export function note(name, degree, base, opts) {
     play(name, { f: noteHz(degree, base) }, opts);
@@ -496,16 +506,6 @@ function loopBuffer(kind) {
 
 // The recipes for each texture: what source, through which filters, at what full-scale level.
 const TEXTURES = {
-    // A soft round brush on cold-press paper.
-    brush: {
-        source: 'white',
-        filters: [
-            ['bandpass', 1300, 0.6],
-            ['lowpass', 3000, 0.7],
-        ],
-        level: 0.3,
-        wet: 0.14,
-    },
     // Fingertip on fine sandpaper.
     sand: { source: 'sand', filters: [['bandpass', 3400, 0.8]], level: 0.55, wet: 0.14 },
     // A hand trailing through water.
@@ -790,6 +790,163 @@ export class Motor {
             nodes.pitch2.dispose();
             nodes.underGain.disconnect();
             nodes.filter.disconnect();
+            nodes.amp.disconnect();
+            nodes.out.disconnect();
+        }, 250);
+    }
+}
+
+// A record on a turntable: a loop that plays at any speed, forwards or backwards, wherever a hand
+// or the platter takes it. The loop is held twice, the second time reversed. Whichever way the
+// record is going, that copy plays from where the record is, at the record's speed; turning round
+// starts the other copy from the same place, the old one fading in a few milliseconds, as a needle
+// changes direction in its groove. A record held still says nothing.
+//
+// While it plays, the deck keeps its place in the loop by the audio clock, which a slow frame does
+// not stop, so the toy can follow it; starting to play again, it takes up the place it is given.
+//
+// The speed is set on the playing copy directly each frame, and a turn starts a new copy whose own
+// gain fades in and out: nothing is scheduled on a parameter that lives, so nothing accumulates.
+const STILL = 0.03;
+
+const wrap = (x, n) => ((x % n) + n) % n;
+
+export class Deck {
+    constructor() {
+        this.nodes = null;
+        this.data = null;
+        this.buffers = new Map();
+        this.voice = null;
+        this.dir = 1;
+        // Where the record is in its loop, in seconds, as of the context's time `at`; the speed the
+        // copy playing runs at, below 0 for the backward one; and whether it can be heard.
+        this.pos = 0;
+        this.speed = 0;
+        this.at = 0;
+        this.sounding = false;
+        state.textures.add(this);
+    }
+
+    // A record's loop, as samples at RATE. It plays from the place it is given when next it plays.
+    load(data) {
+        this.data = data;
+        this.length = data.length / RENDER_RATE;
+        this.pos = 0;
+        this.sounding = false;
+    }
+
+    loops() {
+        let pair = this.buffers.get(this.data);
+        if (pair) return pair;
+        const ctx = state.ctx;
+        const ahead = ctx.createBuffer(1, this.data.length, RENDER_RATE);
+        ahead.getChannelData(0).set(this.data);
+        const back = ctx.createBuffer(1, this.data.length, RENDER_RATE);
+        const reversed = back.getChannelData(0);
+        for (let i = 0, n = this.data.length; i < n; i++) reversed[i] = this.data[n - 1 - i];
+        pair = { ahead, back };
+        this.buffers.set(this.data, pair);
+        return pair;
+    }
+
+    build() {
+        const ctx = state.ctx;
+        const out = ctx.createGain();
+        out.gain.value = 0.9;
+        out.connect(nearestBus(0));
+        out.connect(state.sends[0]);
+        const amp = ctx.createGain();
+        const level = new Control(ctx, amp.gain, 0, 60);
+        amp.connect(out);
+        this.nodes = { out, amp, level };
+        this.at = ctx.currentTime;
+    }
+
+    // Play the copy for `dir` (1 forwards, -1 backwards) from where the record is.
+    turn(dir) {
+        const ctx = state.ctx;
+        const old = this.voice;
+        const loops = this.loops();
+        const source = ctx.createBufferSource();
+        source.buffer = dir < 0 ? loops.back : loops.ahead;
+        source.loop = true;
+        source.playbackRate.value = Math.max(0.001, Math.abs(this.speed));
+        const gain = ctx.createGain();
+        gain.gain.value = 0;
+        gain.gain.setTargetAtTime(1, ctx.currentTime, 0.004);
+        source.connect(gain);
+        gain.connect(this.nodes.amp);
+        source.start(0, wrap(dir < 0 ? this.length - this.pos : this.pos, this.length));
+        this.voice = { source, gain };
+        this.dir = dir;
+        if (old) {
+            old.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.004);
+            old.source.onended = () => old.gain.disconnect();
+            try {
+                old.source.stop(ctx.currentTime + 0.05);
+            } catch (error) {
+                /* already stopped */
+            }
+        }
+    }
+
+    // The record's speed (1 is playing at its own speed, below 0 backwards), the level, 0..1, and
+    // where the record is in its loop, in seconds, for the deck to take up if it starts to play.
+    set(rate, level, place) {
+        if (!ready() || !this.data) return;
+        const sounding = level > 0.001 && Math.abs(rate) >= STILL;
+        if (!this.nodes) {
+            if (!sounding) return;
+            this.build();
+        }
+        const now = state.ctx.currentTime;
+        this.pos = wrap(this.pos + this.speed * (now - this.at), this.length);
+        this.at = now;
+        const dir = rate > STILL ? 1 : rate < -STILL ? -1 : this.dir;
+        // WebKit takes a speed of 0 for 1, so a record held still creeps on very slowly, and its
+        // place is reckoned from what the copy actually plays.
+        this.speed = dir * Math.max(0.001, Math.abs(rate));
+        if (sounding && !this.sounding) {
+            this.pos = wrap(place, this.length);
+            this.turn(dir);
+        } else if (dir !== this.dir) {
+            this.turn(dir);
+        }
+        this.sounding = sounding;
+        this.voice.source.playbackRate.value = Math.abs(this.speed);
+        this.nodes.level.set(sounding ? clamp(level, 0, 1) : 0);
+    }
+
+    // Where the record is in its loop, in seconds, while it can be heard; null while it is silent.
+    place() {
+        return this.sounding ? this.pos : null;
+    }
+
+    silence() {
+        this.sounding = false;
+        if (this.nodes) this.nodes.level.set(0);
+    }
+
+    stop() {
+        state.textures.delete(this);
+        const nodes = this.nodes;
+        const voice = this.voice;
+        this.nodes = null;
+        this.voice = null;
+        this.sounding = false;
+        if (!nodes) return;
+        nodes.level.set(0);
+        setTimeout(() => {
+            if (voice) {
+                try {
+                    voice.source.stop(0);
+                } catch (error) {
+                    /* already stopped */
+                }
+                voice.source.disconnect();
+                voice.gain.disconnect();
+            }
+            nodes.level.dispose();
             nodes.amp.disconnect();
             nodes.out.disconnect();
         }, 250);
