@@ -22,6 +22,11 @@
 //            go. Or carry a part by hand, and the crane follows that.
 //   make   - a building of any shape, which moves in by itself; and at Bloom, arches, roofs, and a
 //            wrecking ball to knock it all down again.
+//
+// And work to do, if wanted: a truck in one of the parts' colours backs in at the far end, the parts
+// it has come for marked out on its deck. Parts of its colour, lowered or carried onto it, go into
+// their places; any other hops back to the pile. Loaded, it drives away, another crane over the pile
+// lowers as many new parts onto it, and the next truck comes.
 
 import { Scene } from '../stage.js';
 import { makeLayer, freeLayer, grain, fillRound, disc, ellipse, woodPanel, PALETTE } from '../draw.js';
@@ -119,6 +124,12 @@ const PLANS = [
 const TINT = {};
 for (const kind of COLOURS) TINT[kind.name] = kind;
 
+// The trucks: how many parts each comes for at most, at each stage, and how long its deck is, in
+// half-blocks; and the bay it backs into at the far end, deck, cab and a gap before them.
+const ORDER = [1, 2, 2];
+const DECK = [4, 6, 6];
+const bayCols = (deck) => deck + art.LORRY.cab + 0.5;
+
 // The time between two parts of a building playing, and how long one stays lit, in seconds.
 const STEP = 0.2;
 const GLOW = 0.7;
@@ -169,6 +180,13 @@ class CraneScene extends Scene {
             hop: new Spring(0, 260, 9),
         };
         this.placed = false;
+        // The truck in the bay, or coming or going; the colour of the one before; and the new parts
+        // the far crane has still to bring, and the one it is bringing.
+        this.truck = null;
+        this.lastTruck = null;
+        this.deliveries = [];
+        this.drop = null;
+        this.nextId = 0;
     }
 
     //--------------------------------------------------------------------------
@@ -202,18 +220,27 @@ class CraneScene extends Scene {
         // the pile is stacked higher if a wide one would leave too little ground to build on.
         this.x0 = this.mastX + this.mastW * 1.25 + 8 * u;
         const right = w - 22 * u;
+        const deck = DECK[this.level];
+        const bay = bayCols(deck);
         let pile = this.plan.pile;
         let g = this.plan.grid * u;
         const span = (list) => list.reduce((m, [kind, , col]) => Math.max(m, col + KINDS[kind].cols), 0);
-        if (this.plan.narrow && Math.floor((right - this.x0) / g) - span(pile) < 10) pile = this.plan.narrow;
-        const wanted = span(pile) + 8 + (this.plan.ball ? 2 : 0);
+        if (this.plan.narrow && Math.floor((right - this.x0) / g - bay) - span(pile) < 10)
+            pile = this.plan.narrow;
+        const wanted = span(pile) + 8 + (this.plan.ball ? 2 : 0) + bay;
         g = Math.min(g, (right - this.x0) / wanted);
         this.g = g;
-        this.ncols = Math.floor((right - this.x0) / g);
+        this.ncols = Math.floor((right - this.x0) / g - bay);
         this.pileCols = span(pile);
+        // The truck bay, beyond the grid: a parked truck has the back of its deck at x0, and its cab
+        // at the right-hand edge.
+        this.bay = { x0: right - (deck + art.LORRY.cab) * g, cols: deck };
+        this.bay.x1 = this.bay.x0 + deck * g;
 
-        if (!this.placed) this.makeParts(pile);
-        else this.reseat();
+        if (!this.placed) {
+            this.makeParts(pile);
+            this.later(3, () => this.callTruck());
+        } else this.reseat();
         this.placed = true;
 
         const hk = this.hook;
@@ -245,6 +272,7 @@ class CraneScene extends Scene {
             p.x = this.centreOf(p.col, p);
             this.parts.push(p);
         }
+        this.nextId = id;
     }
 
     makePart(id, kind, name, col) {
@@ -280,6 +308,20 @@ class CraneScene extends Scene {
     // its column; anything in the air drops.
     reseat() {
         for (const p of this.parts) {
+            if (p.state === 'loading' && p.slot) p.state = 'loaded';
+            else if (p.state === 'loading' || p.state === 'delivery') {
+                p.state = 'fall';
+                p.col = p.home;
+            }
+        }
+        this.drop = null;
+        const t = this.truck;
+        if (t) {
+            if (t.state === 'waiting' || t.state === 'full') t.x = this.bay.x0;
+            t.from = this.w + 10 * this.u;
+        }
+        for (const p of this.parts) {
+            if (p.state === 'loaded') continue;
             p.col = clamp(p.col, 0, this.ncols - p.cols);
             p.x = this.centreOf(p.col, p);
             if (p.state !== 'rest') {
@@ -335,7 +377,7 @@ class CraneScene extends Scene {
         ctx.fillStyle = 'rgba(181, 170, 196, 0.32)';
         let x = this.x0 + this.g * 4;
         let i = 0;
-        while (x < w) {
+        while (x < this.bay.x0 - this.g * 2) {
             const bw = (56 + ((i * 37) % 40)) * u;
             const bh = (40 + ((i * 53) % 70)) * u;
             fillRound(ctx, x, this.ground - bh, bw - 6 * u, bh + 10 * u, 6 * u, 'rgba(181, 170, 196, 0.28)');
@@ -348,8 +390,23 @@ class CraneScene extends Scene {
         ctx.fillStyle = SITE.sand;
         ctx.fillRect(0, this.ground - 4 * u, w, 10 * u);
         const slabX = this.x0 + (this.pileCols + 0.5) * this.g;
-        fillRound(ctx, slabX, this.ground - 2 * u, w - slabX - 10 * u, 16 * u, 6 * u, SITE.concreteDeep);
-        fillRound(ctx, slabX, this.ground - 4 * u, w - slabX - 10 * u, 12 * u, 6 * u, SITE.concrete);
+        const slabEnd = this.x0 + (this.ncols + 0.2) * this.g;
+        fillRound(ctx, slabX, this.ground - 2 * u, slabEnd - slabX, 16 * u, 6 * u, SITE.concreteDeep);
+        fillRound(ctx, slabX, this.ground - 4 * u, slabEnd - slabX, 12 * u, 6 * u, SITE.concrete);
+        // The road into the truck bay, off the edge of the site.
+        const roadX = slabEnd + 0.3 * this.g;
+        fillRound(ctx, roadX, this.ground - 3 * u, w - roadX + 20, 14 * u, 6 * u, SITE.gravelDeep);
+        fillRound(ctx, roadX, this.ground - 4 * u, w - roadX + 20, 9 * u, 5 * u, SITE.gravel);
+        for (let x = roadX + 0.6 * this.g; x < w; x += 1.4 * this.g)
+            fillRound(
+                ctx,
+                x,
+                this.ground + 1 * u,
+                0.6 * this.g,
+                2.5 * u,
+                1.2 * u,
+                'rgba(255, 255, 255, 0.55)'
+            );
         // A pallet under the pile.
         woodPanel(
             ctx,
@@ -365,6 +422,9 @@ class CraneScene extends Scene {
         grain(ctx, 0, this.ground, w, h - this.ground, 0.35, this.scale);
 
         art.crane(ctx, this);
+        // The other crane's jib, along the top of the sky over the pile: the crane that brings new
+        // parts.
+        art.girder(ctx, -10, this.farEnd(), this.farY(), 18 * u, art.FAR);
         this.bg = layer;
     }
 
@@ -419,9 +479,9 @@ class CraneScene extends Scene {
         return tops;
     }
 
-    // The highest top under the span [a, b] of the screen.
+    // The highest top under the span [a, b] of the screen, the truck's deck and its load included.
     topUnder(a, b, tops) {
-        let top = 0;
+        let top = this.deckTop(a, b);
         const c0 = Math.max(0, Math.floor((a - this.x0) / this.g));
         const c1 = Math.min(this.ncols - 1, Math.floor((b - this.x0 - 0.01) / this.g));
         for (let c = c0; c <= c1; c++) top = Math.max(top, tops[c]);
@@ -625,10 +685,19 @@ class CraneScene extends Scene {
         hk.cooldown = 0.45;
         hk.ignore = p;
         hk.hop.kick(-140);
-        p.state = 'fall';
-        p.vy = 0;
-        p.col = this.snapCol(p);
+        this.letGo(p);
         audio.play('hiss', {}, { gain: 0.45, pan: this.pan(p.x) });
+    }
+
+    // A part let go in the air drops straight down onto the grid, or, over the waiting truck, onto
+    // its deck.
+    letGo(p) {
+        p.vy = 0;
+        if (this.overDeck(p)) this.dropOnTruck(p);
+        else {
+            p.state = 'fall';
+            p.col = this.snapCol(p);
+        }
     }
 
     // Swung into a building, the ball knocks over what it hits and everything resting on that.
@@ -766,6 +835,9 @@ class CraneScene extends Scene {
                         p.wait = 0.5 + this.rand() * 0.4;
                     }
                 }
+            } else if (p.state === 'loading') {
+                busy = true;
+                this.stepLoading(p, dt);
             } else if (p.state === 'scatter') {
                 busy = true;
                 // Back on its feet, then home to the pile, a hop at a time from first to last down.
@@ -834,6 +906,389 @@ class CraneScene extends Scene {
             this.puff(p.x + this.width(p) * 0.35, this.ground, 0.6);
         }
         this.lifeAt = this.time + 0.7;
+    }
+
+    //--------------------------------------------------------------------------
+    // The trucks, and the crane that brings new parts
+
+    // What the next truck comes for: some of the parts of one colour on the site, as many as the
+    // stage asks for and its deck holds, never in the colour of the truck before if there is
+    // another, and parts that can be picked up as they lie before parts with others on them. Any
+    // part of the same shape and colour will do for each.
+    order() {
+        const here = this.parts.filter(
+            (p) => p.name && p.state !== 'loaded' && p.state !== 'loading' && p.state !== 'delivery'
+        );
+        const tops = this.tops();
+        const open = (p) => {
+            if (p.state !== 'rest') return true;
+            const top = this.ground - p.y + this.height(p);
+            for (let i = 0; i < p.cols; i++) if (tops[p.col + i] <= top + 0.5) return true;
+            return false;
+        };
+        const pick = (list) => {
+            const names = [];
+            for (const p of list) if (names.indexOf(p.name) < 0) names.push(p.name);
+            const fresh = names.filter((n) => n !== this.lastTruck);
+            return fresh.length ? fresh : names;
+        };
+        let pool = pick(here.filter(open));
+        if (!pool.length) pool = pick(here);
+        if (!pool.length) return null;
+        const name = pool[Math.floor(this.rand() * pool.length)];
+        const mine = here.filter((p) => p.name === name);
+        for (let i = mine.length - 1; i > 0; i--) {
+            const j = Math.floor(this.rand() * (i + 1));
+            [mine[i], mine[j]] = [mine[j], mine[i]];
+        }
+        mine.sort((a, b) => (open(b) ? 1 : 0) - (open(a) ? 1 : 0));
+        const deck = DECK[this.level];
+        const slots = [];
+        let cols = 0;
+        for (const p of mine) {
+            if (slots.length >= ORDER[this.level] || cols + p.cols > deck) continue;
+            slots.push({ kind: p.kind, cols: p.cols, rows: p.rows, at: 0, part: null });
+            cols += p.cols;
+        }
+        if (!slots.length) return null;
+        // Side by side along the deck, the group in the middle of it.
+        let at = (deck - cols) / 2;
+        for (const slot of slots) {
+            slot.at = at;
+            at += slot.cols;
+        }
+        return { name, slots };
+    }
+
+    // A truck backs into the bay, beeping, to wait for its load.
+    callTruck() {
+        if (this.truck) return;
+        const order = this.order();
+        if (!order) {
+            this.later(3, () => this.callTruck());
+            return;
+        }
+        const tint = TINT[order.name];
+        const from = this.w + 10 * this.u;
+        this.truck = {
+            state: 'arriving',
+            name: order.name,
+            colour: tint.colour,
+            degree: tint.degree,
+            slots: order.slots,
+            x: from,
+            from,
+            t: 0,
+            roll: 0,
+            beep: 0,
+            wave: 0,
+            bounce: new Spring(0, 260, 9),
+        };
+    }
+
+    // Where the top of the truck's deck is, as its body rides on its springs.
+    deckY() {
+        return this.ground - art.LORRY.deckH * this.g - this.truck.bounce.value * this.u * 0.5;
+    }
+
+    // How high the truck's deck, or what is loaded on it, stands above the ground under the span
+    // [a, b] of the screen, wherever the truck is; 0 where there is no deck.
+    deckTop(a, b) {
+        const t = this.truck;
+        if (!t) return 0;
+        const x1 = t.x + this.bay.cols * this.g;
+        if (b <= t.x || a >= x1) return 0;
+        let top = this.ground - this.deckY();
+        for (const slot of t.slots) {
+            const p = slot.part;
+            if (!p || p.state !== 'loaded') continue;
+            const left = p.x - this.width(p) / 2;
+            if (b > left && a < left + this.width(p)) top = Math.max(top, this.ground - p.y + this.height(p));
+        }
+        return top;
+    }
+
+    // Whether a part let go here goes onto the truck: it is waiting in the bay, and the part is over
+    // it rather than over the site.
+    overDeck(p) {
+        const t = this.truck;
+        return !!t && t.state === 'waiting' && p.x > this.bay.x0 - this.g * 0.3;
+    }
+
+    // The free place on the deck for `p`, of its shape and in the truck's colour, nearest it.
+    placeFor(p) {
+        const t = this.truck;
+        if (!t || p.name !== t.name) return null;
+        let best = null;
+        for (const slot of t.slots) {
+            if (slot.part || slot.kind !== p.kind) continue;
+            const x = t.x + (slot.at + slot.cols / 2) * this.g;
+            if (!best || Math.abs(x - p.x) < Math.abs(best.x - p.x)) best = { slot, x };
+        }
+        return best;
+    }
+
+    // A part let go over the waiting truck: into its place, if the truck came for it; otherwise
+    // onto the deck for a moment, and then home to the pile.
+    dropOnTruck(p) {
+        const place = this.placeFor(p);
+        p.state = 'loading';
+        p.vy = 0;
+        p.slot = place ? place.slot : null;
+        if (place) {
+            place.slot.part = p;
+            p.toX = place.x;
+        } else {
+            const half = this.width(p) / 2;
+            p.toX = clamp(p.x, this.truck.x + half, this.truck.x + this.bay.cols * this.g - half);
+        }
+    }
+
+    // A part dropping onto the deck: it lands in its place, or on whatever is loaded under it.
+    stepLoading(p, dt) {
+        const t = this.truck;
+        if (!t) {
+            p.state = 'fall';
+            p.col = p.home;
+            return;
+        }
+        p.vy += this.gravity * dt;
+        p.y += p.vy * dt;
+        p.x = approach(p.x, p.toX, 18, dt);
+        p.tilt = approach(p.tilt, 0, 10, dt);
+        const half = this.width(p) / 2;
+        const floor = p.slot ? this.deckY() : this.ground - this.deckTop(p.toX - half, p.toX + half);
+        if (p.y < floor) return;
+        p.y = floor;
+        p.x = p.toX;
+        p.tilt = 0;
+        const pan = this.pan(p.x);
+        t.bounce.kick(-6);
+        if (p.slot) {
+            p.state = 'loaded';
+            p.squash.kick(5);
+            audio.play('clank', { f: noteHz(t.degree, 48) }, { gain: 0.7, pan, wet: 0.22 });
+            this.sound(p, 0.9);
+            if (t.slots.every((slot) => slot.part && slot.part.state === 'loaded')) this.truckFull();
+        } else {
+            // Not what the truck came for: a shake of the head, and back to the pile it goes.
+            p.state = 'scatter';
+            p.wait = 0.5;
+            p.vx = 0;
+            p.spin = 0;
+            p.squash.kick(3);
+            audio.play('clank', { f: noteHz(0, 48) }, { gain: 0.45, pan });
+            audio.play('toot', { f: noteHz(2, 60) }, { gain: 0.45, pan, delay: 0.15 });
+            audio.play('toot', { f: noteHz(0, 60) }, { gain: 0.45, pan, delay: 0.38 });
+        }
+    }
+
+    truckFull() {
+        const t = this.truck;
+        t.state = 'full';
+        t.t = 0;
+        t.wave = 1.6;
+        const pan = this.pan(t.x + this.bay.cols * this.g);
+        audio.play('toot', { f: noteHz(3, 60) }, { gain: 0.8, pan, delay: 0.35 });
+        audio.play('toot', { f: noteHz(5, 60) }, { gain: 0.7, pan, delay: 0.67 });
+    }
+
+    // The truck and its load have gone: the far crane brings as many new parts, each to the place
+    // on the pile that the part it replaces came from.
+    truckGone() {
+        const t = this.truck;
+        const gone = t.slots.map((slot) => slot.part).filter(Boolean);
+        this.parts = this.parts.filter((p) => gone.indexOf(p) < 0);
+        if (this.cat && gone.indexOf(this.cat.part) >= 0) this.cat = null;
+        if (this.walker && gone.indexOf(this.walker.part) >= 0) this.walker = null;
+        this.plants = this.plants.filter((pl) => gone.indexOf(pl.part) < 0);
+        if (this.bird && gone.indexOf(this.bird.part) >= 0) this.bird = null;
+        this.lastTruck = t.name;
+        this.truck = null;
+        for (const p of gone) this.deliveries.push({ kind: p.kind, home: p.home });
+    }
+
+    stepTruck(dt) {
+        const t = this.truck;
+        if (!t) return false;
+        const u = this.u;
+        let busy = t.bounce.update(dt);
+        t.t += dt;
+        const r = art.LORRY.wheelR * this.g;
+        const was = t.x;
+        if (t.state === 'arriving') {
+            busy = true;
+            const time = 2.6;
+            const k = clamp(t.t / time, 0, 1);
+            t.x = lerp(t.from, this.bay.x0, 1 - Math.pow(1 - k, 3));
+            // Backing in, it beeps, as a reversing truck does.
+            t.beep -= dt;
+            if (t.beep <= 0 && k < 0.9) {
+                t.beep = 0.5;
+                audio.play('beep', { f: noteHz(4, 72) }, { gain: 0.45, pan: this.pan(t.x) });
+            }
+            if (k >= 1) {
+                t.state = 'waiting';
+                t.t = 0;
+                t.wave = 1;
+                t.bounce.kick(5);
+                audio.play('hiss', {}, { gain: 0.4, pan: this.pan(t.x) });
+            }
+        } else if (t.state === 'full') {
+            busy = true;
+            if (t.t > 1.5) {
+                t.state = 'leaving';
+                t.t = 0;
+                t.beep = 0;
+            }
+        } else if (t.state === 'leaving') {
+            busy = true;
+            t.x += (60 + 700 * t.t) * u * dt;
+            t.beep -= dt;
+            if (t.beep <= 0) {
+                t.beep = 0.2;
+                audio.play('putt', {}, { gain: 0.5, pan: this.pan(Math.min(t.x, this.w)) });
+            }
+            if (t.x > this.w + 10 * u) {
+                this.truckGone();
+                return true;
+            }
+        }
+        t.roll += (t.x - was) / r;
+        if (t.wave > 0) {
+            t.wave = Math.max(0, t.wave - dt);
+            busy = true;
+        }
+        // The load rides on the deck.
+        const top = this.deckY();
+        for (const slot of t.slots) {
+            const p = slot.part;
+            if (!p || p.state !== 'loaded') continue;
+            p.x = t.x + (slot.at + slot.cols / 2) * this.g;
+            p.y = top;
+        }
+        return busy;
+    }
+
+    // The far crane's jib, along the top of the sky over the pile.
+    farY() {
+        return 16 * this.u;
+    }
+
+    farEnd() {
+        return this.x0 + (this.pileCols + 1.5) * this.g;
+    }
+
+    // The colour there is least of on the site, of the stage's colours, for a new part.
+    scarcest() {
+        const names = [];
+        for (const [, name] of this.plan.pile) if (names.indexOf(name) < 0) names.push(name);
+        let best = [];
+        let fewest = Infinity;
+        for (const name of names) {
+            const n = this.parts.filter((p) => p.name === name).length;
+            if (n < fewest) {
+                fewest = n;
+                best = [name];
+            } else if (n === fewest) best.push(name);
+        }
+        return best[Math.floor(this.rand() * best.length)];
+    }
+
+    // The far crane at work: its trolley brings the new part in along the jib, from off the edge of
+    // the screen, to over its place on the pile, and lowers it there; the hook lets go, goes back up
+    // and away. One part after another; when the last is down, the next truck is called.
+    stepDelivery(dt, tops) {
+        const u = this.u;
+        let d = this.drop;
+        if (!d) {
+            if (!this.deliveries.length) return false;
+            const next = this.deliveries.shift();
+            const col = this.pileSpot(next.kind, next.home, tops);
+            const p = this.makePart(this.nextId++, next.kind, this.scarcest(), col);
+            p.state = 'delivery';
+            const parked = -this.trolleyS;
+            p.x = parked;
+            const to = this.centreOf(col, p);
+            d = this.drop = { part: p, phase: 'out', t: 0, tx: parked, from: parked, to, hook: 8 * u };
+            p.y = this.farHang(d);
+            this.parts.push(p);
+        }
+        d.t += dt;
+        const p = d.part;
+        if (d.phase === 'out') {
+            const k = clamp(d.t / 1.1, 0, 1);
+            d.tx = lerp(d.from, d.to, k * k * (3 - 2 * k));
+            p.x = d.tx;
+            p.y = this.farHang(d);
+            if (k >= 1) {
+                d.phase = 'down';
+                d.t = 0;
+                d.top = d.hook;
+                p.x = this.centreOf(p.col, p);
+                audio.play('rattle', {}, { gain: 0.4, pan: this.pan(p.x) });
+            }
+        } else if (d.phase === 'down') {
+            const rest = this.ground - this.baseFor(p, p.col, tops) - 2 * u;
+            const k = clamp(d.t / 1.3, 0, 1);
+            // The hook's drop below the jib that sets the part's foot on what is there.
+            const reach = rest - this.height(p) - this.sling - art.hookDrop(this.hookS) - this.farTop();
+            d.hook = lerp(d.top, reach, 1 - Math.pow(1 - k, 2));
+            p.y = this.farHang(d);
+            if (k >= 1) {
+                d.phase = 'up';
+                d.t = 0;
+                d.top = d.hook;
+                p.state = 'fall';
+                p.vy = 0;
+                audio.play('hiss', {}, { gain: 0.35, pan: this.pan(p.x) });
+            }
+        } else if (d.phase === 'up') {
+            const k = clamp(d.t / 0.9, 0, 1);
+            d.hook = lerp(d.top, 8 * u, k * k);
+            if (k >= 1) {
+                d.phase = 'home';
+                d.t = 0;
+                d.from = d.tx;
+            }
+        } else {
+            const k = clamp(d.t / 0.8, 0, 1);
+            d.tx = lerp(d.from, -this.trolleyS, k * k);
+            if (k >= 1) {
+                this.drop = null;
+                if (!this.deliveries.length) this.later(1.2, () => this.callTruck());
+            }
+        }
+        return true;
+    }
+
+    // Where on the pile a new part goes: the lowest place on the pallet it fits, nearest the place
+    // the part it replaces came from.
+    pileSpot(kind, home, tops) {
+        const probe = { kind };
+        const cols = KINDS[kind].cols;
+        const last = Math.max(0, Math.min(this.pileCols, this.ncols) - cols);
+        let best = clamp(home, 0, last);
+        let low = Infinity;
+        for (let c = 0; c <= last; c++) {
+            const base = this.baseFor(probe, c, tops);
+            const level = Math.abs(base - low) <= 0.5;
+            if (base < low - 0.5 || (level && Math.abs(c - home) < Math.abs(best - home))) {
+                low = base;
+                best = c;
+            }
+        }
+        return best;
+    }
+
+    // The far crane's pulley, under its trolley; and where its load hangs, the foot of the part,
+    // under the hook on `d.hook` of cable.
+    farTop() {
+        return this.farY() + this.trolleyS * 0.42;
+    }
+
+    farHang(d) {
+        return this.farTop() + d.hook + art.hookDrop(this.hookS) + this.sling + this.height(d.part);
     }
 
     //--------------------------------------------------------------------------
@@ -913,7 +1368,9 @@ class CraneScene extends Scene {
     calm() {
         const hk = this.hook;
         if (hk.carrying && hk.carrying.kind !== 'ball') return false;
-        return this.parts.every((p) => p.state === 'rest' || p.state === 'hooked' || p.state === 'held');
+        return this.parts.every(
+            (p) => p.state === 'rest' || p.state === 'hooked' || p.state === 'held' || p.state === 'loaded'
+        );
     }
 
     // The top surface of `p` at its middle, where a bird would sit.
@@ -1281,11 +1738,7 @@ class CraneScene extends Scene {
                 return;
             }
             if (hk.carrying === part) this.release();
-            else if (part.state === 'held') {
-                part.state = 'fall';
-                part.vy = 0;
-                part.col = this.snapCol(part);
-            }
+            else if (part.state === 'held') this.letGo(part);
         } else if (o.type === 'ground') {
             const col = Math.floor((p.x - this.x0) / this.g);
             const group = this.buildingAt(col);
@@ -1315,17 +1768,29 @@ class CraneScene extends Scene {
             if (hk.carrying && !hk.direct) this.release();
         } else if (o.type === 'part' && o.lifted) {
             if (hk.carrying === o.part) this.release();
-            else if (o.part.state === 'held') {
-                o.part.state = 'fall';
-                o.part.vy = 0;
-                o.part.col = this.snapCol(o.part);
-            }
+            else if (o.part.state === 'held') this.letGo(o.part);
         }
     }
 
-    // Things to touch that are not parts: the bird, the cat, the worker.
+    // Things to touch that are not parts: the truck's cab, the bird, the cat, the worker.
     targetAt(x, y) {
         const u = this.u;
+        const t = this.truck;
+        if (t) {
+            const cab = t.x + this.bay.cols * this.g;
+            const end = cab + art.LORRY.cab * this.g;
+            if (x > cab && x < end && y > this.ground - 2.7 * this.g && y < this.ground + 6 * u) {
+                return {
+                    tap: () => {
+                        t.wave = 1.4;
+                        t.bounce.kick(-4);
+                        const pan = this.pan(cab);
+                        audio.play('toot', { f: noteHz(3, 60) }, { gain: 0.7, pan });
+                        audio.play('toot', { f: noteHz(5, 60) }, { gain: 0.6, pan, delay: 0.32 });
+                    },
+                };
+            }
+        }
         const b = this.bird;
         if (
             b &&
@@ -1438,6 +1903,8 @@ class CraneScene extends Scene {
         if (this.stepParts(dt, tops)) busy = true;
         tops = this.tops();
         if (this.stepHook(dt, tops)) busy = true;
+        if (this.stepTruck(dt)) busy = true;
+        if (this.stepDelivery(dt, this.tops())) busy = true;
 
         for (const p of this.parts) {
             if (p.squash.update(dt)) busy = true;
@@ -1588,13 +2055,27 @@ class CraneScene extends Scene {
             }
         }
 
-        // Where a load in the air will land: its shadow on whatever is below it.
+        this.drawTruck(ctx);
+
+        // Where a load in the air will land: its shadow on whatever is below it, the truck's deck
+        // included, and in its place there if the truck came for it.
         const tops = this.tops();
         for (const p of this.parts) {
-            if (p.state !== 'hooked' && p.state !== 'held' && p.state !== 'fall') continue;
-            const col = this.snapCol(p);
-            const x = this.centreOf(col, p);
-            const below = this.ground - this.baseFor(p, col, tops);
+            const coming = p.state === 'delivery' && this.drop && this.drop.phase === 'down';
+            if (p.state !== 'hooked' && p.state !== 'held' && p.state !== 'fall' && !coming) continue;
+            let x;
+            let below;
+            if ((p.state === 'hooked' || p.state === 'held') && this.overDeck(p)) {
+                const place = this.placeFor(p);
+                const half = this.width(p) / 2;
+                const end = this.truck.x + this.bay.cols * g;
+                x = place ? place.x : clamp(p.x, this.truck.x + half, end - half);
+                below = this.ground - this.deckTop(x - half, x + half);
+            } else {
+                const col = coming ? p.col : this.snapCol(p);
+                x = this.centreOf(col, p);
+                below = this.ground - this.baseFor(p, col, tops);
+            }
             const height = Math.max(0, below - p.y);
             const k = clamp(1 - height / (this.ground - this.jibY), 0.25, 1);
             ellipse(ctx, x, below, (this.width(p) / 2) * (0.6 + 0.4 * k), 6 * u * k + 2 * u);
@@ -1612,6 +2093,7 @@ class CraneScene extends Scene {
             const x = this.colX(p.col + pl.offset) + g / 2;
             art.plant(ctx, x, p.y - this.height(p), g * 1.25, pl.colour, pl.grow.value);
         }
+        this.drawFar(ctx);
         this.drawBird(ctx);
         if (this.walker) {
             const s = this.walkerSpot(this.walker);
@@ -1638,6 +2120,64 @@ class CraneScene extends Scene {
         }
         art.apexLight(ctx, this.mastX, this.apexY - 6 * u, 7 * u, this.night);
         this.drawSun(ctx);
+    }
+
+    // The truck: its body, and the parts it has come for marked out on its deck in its colour,
+    // brighter where a part over the deck would go.
+    drawTruck(ctx) {
+        const t = this.truck;
+        if (!t) return;
+        const g = this.g;
+        const moving = t.state === 'arriving' || t.state === 'leaving';
+        art.lorry(ctx, t.x, this.ground, g, t.colour, {
+            deck: this.bay.cols,
+            roll: t.roll,
+            lift: t.bounce.value * this.u * 0.5,
+            beacon: moving ? 0.5 + 0.5 * Math.sin(this.time * 10) : 0,
+            wave: t.wave > 0 ? t.wave * 9 : undefined,
+        });
+        const hot = this.hotPlace();
+        const top = this.deckY();
+        for (const slot of t.slots) {
+            if (slot.part && slot.part.state === 'loaded') continue;
+            const h = slot.rows * g;
+            art.ghost(
+                ctx,
+                slot.kind,
+                slot.cols * g,
+                h,
+                g,
+                t.colour,
+                t.x + slot.at * g,
+                top - h,
+                slot === hot
+            );
+        }
+    }
+
+    // The place on the truck's deck a part in the air over it would go into.
+    hotPlace() {
+        const p = this.hook.carrying || this.parts.find((q) => q.state === 'held');
+        if (!p || !this.overDeck(p)) return null;
+        const place = this.placeFor(p);
+        return place && place.slot;
+    }
+
+    // The far crane's trolley on its jib, and its hook with the part it is bringing.
+    drawFar(ctx) {
+        const d = this.drop;
+        if (!d) return;
+        const top = this.farTop() + d.hook;
+        art.trolley(ctx, d.tx, this.farY(), this.trolleyS, art.FAR);
+        art.cable(ctx, d.tx, this.farTop(), d.tx, top, this.trolleyS);
+        const p = d.part;
+        if (p.state === 'delivery') {
+            const tip = top + art.hookDrop(this.hookS);
+            const w = this.width(p);
+            const y = p.y - this.height(p);
+            art.slings(ctx, d.tx, tip, p.x - w * 0.32, y, p.x + w * 0.32, y, this.trolleyS);
+        }
+        art.hookBlock(ctx, d.tx, top, this.hookS, 0, art.FAR);
     }
 
     drawHook(ctx) {
@@ -1763,6 +2303,17 @@ class CraneScene extends Scene {
             fillRound(ctx, x, y, glass.w, glass.h, 3 * u, lit(0.82));
             if (this.cat && this.cat.part === p) this.drawCat(ctx, this.cat);
         }
+        const t = this.truck;
+        if (t) {
+            const lights = art.lorryLights(t.x, this.ground, this.g, {
+                deck: this.bay.cols,
+                lift: t.bounce.value * u * 0.5,
+            });
+            const wn = lights.window;
+            fillRound(ctx, wn.x, wn.y, wn.w, wn.h, 4 * u, lit(0.32));
+            disc(ctx, lights.lamp.x + 10 * u, lights.lamp.y, 16 * u, lit(0.22));
+            disc(ctx, lights.lamp.x, lights.lamp.y, 4 * u, lit(0.95));
+        }
         const c = this.cab;
         fillRound(ctx, c.x + c.w * 0.06, c.y + c.h * 0.08, c.w * 0.88, c.h * 0.68, 6 * u, lit(0.25));
         art.cab(ctx, c.x, c.y, c.w, c.h, { lit: k, wave: this.cabWave > 0 ? this.cabWave * 9 : undefined });
@@ -1805,6 +2356,9 @@ class CraneScene extends Scene {
         this.winch.stop();
         this.fx = [];
         this.queue = [];
+        this.truck = null;
+        this.drop = null;
+        this.deliveries = [];
         this.sequence = [];
         this.pointers.clear();
     }
@@ -1839,7 +2393,7 @@ function icon(ctx, x, y, w, h) {
 export const toy = {
     id: 'crane',
     title: 'Crane',
-    about: 'A tower crane: lower the hook onto a part, lift it, and let go where it should stand. Whatever gets built comes alive.',
+    about: 'A tower crane: lower the hook onto a part, lift it, and let go where it should stand. Whatever gets built comes alive, and trucks come to be loaded with parts of their colour.',
     stages: [
         '4 big blocks, to lift or carry',
         'blocks, beams and windows',
@@ -1859,6 +2413,10 @@ export const toy = {
             ['crunch', { seed: 3 }],
             ['toot', { f: noteHz(3, 60) }],
             ['toot', { f: noteHz(5, 60) }],
+            ['toot', { f: noteHz(0, 60) }],
+            ['toot', { f: noteHz(2, 60) }],
+            ['beep', { f: noteHz(4, 72) }],
+            ['putt', {}],
             ['chirp', {}],
             ['rustle', {}],
             ['meow', {}],

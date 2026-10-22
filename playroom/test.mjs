@@ -1561,7 +1561,7 @@ async function suite(mode) {
     );
 
     const craneThird = await craneFree();
-    const craneByHandTo = craneBuildX + craneStart.g * 6;
+    const craneByHandTo = craneBuildX - craneStart.g * 4;
     await touch.drag(
         line(craneThird.x, craneThird.top + craneStart.g, craneByHandTo, craneStart.ground - 200, 24),
         20,
@@ -1611,6 +1611,186 @@ async function suite(mode) {
             () => false
         );
     check('a bird comes to nest on the very top, the first time whatever chance says', craneNested);
+
+    // The trucks: one in a colour of the parts backs in at the far end, the parts it has come for
+    // marked out on its deck. A part of another colour carried onto it hops back to the pile; parts of
+    // its colour go into their places; loaded, it drives away, and the far crane brings as many new
+    // parts to the pile before the next truck comes.
+    const craneTruck = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            const t = s.truck;
+            if (!t) return null;
+            const here = s.parts.filter((p) => p.name === t.name && p.state === 'rest');
+            return {
+                state: t.state,
+                name: t.name,
+                wants: t.slots.map((q) => q.kind),
+                filled: t.slots.filter((q) => q.part && q.part.state === 'loaded').length,
+                there: t.slots.every(
+                    (q) =>
+                        here.filter((p) => p.kind === q.kind).length >=
+                        t.slots.filter((r) => r.kind === q.kind).length
+                ),
+            };
+        });
+    const craneTruckWaits = () =>
+        page
+            .waitForFunction(
+                () => {
+                    const t = window.playroom.stage.scene.truck;
+                    return t && t.state === 'waiting';
+                },
+                null,
+                { timeout: 15000 }
+            )
+            .then(
+                () => true,
+                () => false
+            );
+    // A part at rest with nothing on part of its top: the truck's (`fits`) or not; where to touch it.
+    const craneReachable = (fits) =>
+        scene((fits) => {
+            const s = window.playroom.stage.scene;
+            const t = s.truck;
+            const tops = s.tops();
+            for (const p of s.parts) {
+                if (p.state !== 'rest' || p.kind === 'ball') continue;
+                if ((p.name === t.name && t.slots.some((q) => !q.part && q.kind === p.kind)) !== fits)
+                    continue;
+                const top = s.ground - p.y + s.height(p);
+                for (let i = 0; i < p.cols; i++) {
+                    if (tops[p.col + i] > top + 0.5) continue;
+                    const x = s.x0 + (p.col + i + 0.5) * s.g;
+                    return { id: p.id, x, y: p.y - s.height(p) / 2, dx: p.x - x, h: s.height(p) };
+                }
+            }
+            return null;
+        }, fits);
+    // What lies on top of a part the truck wants, with nothing on it in turn.
+    const craneOnTop = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            const t = s.truck;
+            const tops = s.tops();
+            const want = s.parts.find(
+                (p) =>
+                    p.state === 'rest' &&
+                    p.name === t.name &&
+                    t.slots.some((q) => !q.part && q.kind === p.kind)
+            );
+            if (!want) return null;
+            const over = s.parts
+                .filter(
+                    (q) =>
+                        q.state === 'rest' &&
+                        q !== want &&
+                        q.col < want.col + want.cols &&
+                        want.col < q.col + q.cols &&
+                        q.y < want.y
+                )
+                .sort((a, b) => a.y - b.y);
+            for (const q of over) {
+                const top = s.ground - q.y + s.height(q);
+                for (let i = 0; i < q.cols; i++) {
+                    if (tops[q.col + i] > top + 0.5) continue;
+                    const x = s.x0 + (q.col + i + 0.5) * s.g;
+                    return { id: q.id, x, y: q.y - s.height(q) / 2, dx: q.x - x, h: s.height(q) };
+                }
+            }
+            return null;
+        });
+    // Carried by hand to above (x, deck), and let go.
+    const craneCarryTo = (p, x, deck) =>
+        touch.drag(line(p.x, p.y, x - p.dx, deck - p.h / 2 - 30, 24), 16, 250);
+    const craneWaited = await craneTruckWaits();
+    const craneTruck1 = await craneTruck();
+    check(
+        "a truck in one of the parts' colours backs in, the parts it has come for marked out on its deck",
+        craneWaited && craneTruck1.wants.length >= 1 && craneTruck1.there,
+        JSON.stringify(craneTruck1)
+    );
+    const craneDeck = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { x: s.bay.x0 + (s.bay.cols * s.g) / 2, y: s.deckY() };
+    });
+    const craneWrong = await craneReachable(false);
+    await craneCarryTo(craneWrong, craneDeck.x, craneDeck.y);
+    const craneWentBack = await page
+        .waitForFunction(
+            (id) => {
+                const p = window.playroom.stage.scene.parts.find((q) => q.id === id);
+                return p.state === 'rest' && p.col === p.home;
+            },
+            craneWrong.id,
+            { timeout: 6000 }
+        )
+        .then(
+            () => true,
+            () => false
+        );
+    check(
+        'a part of another colour carried onto the truck hops back to the pile',
+        craneWentBack && (await craneTruck()).filled === 0
+    );
+    const craneCount = await scene(() => window.playroom.stage.scene.parts.length);
+    const craneFirstNew = await scene(() => window.playroom.stage.scene.nextId);
+    for (let i = 0; i < 8; i++) {
+        const t = await craneTruck();
+        if (!t || t.state !== 'waiting') break;
+        const p = await craneReachable(true);
+        if (p) {
+            const to = await scene((id) => {
+                const s = window.playroom.stage.scene;
+                return s.placeFor(s.parts.find((q) => q.id === id)).x;
+            }, p.id);
+            await craneCarryTo(p, to, craneDeck.y);
+        } else {
+            const q = await craneOnTop();
+            if (!q) break;
+            await craneCarryTo(
+                q,
+                craneStart.x0 + (craneStart.pile + 2) * craneStart.g,
+                craneStart.ground - 150
+            );
+        }
+        await page.waitForTimeout(700);
+    }
+    const craneLoaded = await craneTruck();
+    check(
+        "parts of the truck's colour carried onto it go into their places",
+        craneLoaded && craneLoaded.state !== 'waiting' && craneLoaded.filled === craneTruck1.wants.length,
+        JSON.stringify(craneLoaded)
+    );
+    const craneGone = await page
+        .waitForFunction(() => !window.playroom.stage.scene.truck, null, { timeout: 8000 })
+        .then(
+            () => true,
+            () => false
+        );
+    const craneRestocked = await page
+        .waitForFunction(
+            ([n, first]) => {
+                const s = window.playroom.stage.scene;
+                if (s.parts.length !== n || s.drop || s.deliveries.length) return false;
+                return s.parts.every(
+                    (p) => p.state === 'rest' && (p.id < first || p.col + p.cols <= s.pileCols)
+                );
+            },
+            [craneCount, craneFirstNew],
+            { timeout: 20000 }
+        )
+        .then(
+            () => true,
+            () => false
+        );
+    const craneNextCame = await craneTruckWaits();
+    const craneTruck2 = await craneTruck();
+    check(
+        'loaded, it drives away; the other crane brings as many new parts to the pile, and another truck comes',
+        craneGone && craneRestocked && craneNextCame && craneTruck2.name !== craneTruck1.name,
+        `${craneTruck1.name} then ${craneTruck2 && craneTruck2.name}`
+    );
 
     const craneSun = await scene(() => window.playroom.stage.scene.sunButton);
     await touch.tap(craneSun.x, craneSun.y);

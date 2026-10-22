@@ -510,7 +510,8 @@ down its own hole, and the car beeps and rolls. Sand poured over a find buries i
 
 ### 11. Crane
 
-**What it is:** a tower crane, a pile of building parts, and open ground to build on.
+**What it is:** a tower crane, a pile of building parts, open ground to build on, and trucks that
+come to be loaded.
 
 **Roots:** the colour tower, with a tool in between. A child of three can carry a block with a
 finger; lifting it with a crane is the same work done at a distance, through a hook that swings.
@@ -522,12 +523,30 @@ finger; lifting it with a crane is the same work done at a distance, through a h
 - Move: drag the hook. The trolley runs along the jib after the finger and the cable winds to its
   height. Lowered onto a part, the hook takes it; let go, the part drops and settles on whatever is
   under it. A part can also be carried by hand, and the crane follows it.
-- Make: a building of any shape. Nothing is correct: a building is whatever stands.
+- Make: a building of any shape. Nothing is correct: a building is whatever stands. Or a truck's
+  load: work to do, for when building is not what he wants.
 
 **Stages**
-- Seed: four big blocks, to lift or carry.
-- Sprout: eight parts: blocks, beams and windows.
-- Bloom: ten parts, adding an arch and a roof, and a wrecking ball.
+- Seed: four big blocks, to lift or carry. Each truck comes for one.
+- Sprout: eight parts: blocks, beams and windows. A truck comes for one or two.
+- Bloom: ten parts, adding an arch and a roof, and a wrecking ball. A truck comes for one or two.
+
+**The trucks:** a flatbed truck in one of the parts' colours backs into the bay at the far end of
+the site, beeping as it reverses, and waits. The parts it has come for are marked out on its deck,
+their shapes in its colour with a dashed edge, so a red truck with a block and a beam marked out
+wants a red block and a red beam. Any part of that shape and colour will do, from the pile or from
+a building; it asks first for parts that can be picked up as they lie.
+- Lowered by the hook or carried by hand onto the deck, a part it came for goes into its place,
+  with the part's own note. A place lights up while a part that fits it is over the deck.
+- Any other part lands on the deck, the truck answers with two low notes, and the part hops back to
+  the pile: the deck checks the work, as Montessori materials do, and nothing is wrong for long.
+- Loaded, the driver waves, the truck toots twice and drives away with its load.
+- Then the other crane, whose jib runs along the top of the sky over the pile, brings as many new
+  parts in along it and lowers each onto the lowest place on the pallet: the same shapes as went
+  away, in whichever of the stage's colours there are fewest of. So there are always as many parts
+  to build with, and every colour stays.
+- The next truck comes, never in the colour of the one before. A tap on a truck's cab: two toots
+  and a wave.
 
 **How parts stand:** parts snap to a grid of half-blocks as they land, so a stack stands and a row
 is a row, and there is no physics to fight. A part rests on the highest thing beneath it; take
@@ -563,6 +582,10 @@ knocking down never leaves a mess.
 - Carrying by hand is always allowed, for a child who does not get on with the hook.
 - A fresh pile every time it comes off the shelf; the bird, the cat, the plants and the worker are
   certain the first time.
+- The trucks are the crane's task, a reason to lift: "A colored truck should show up and get
+  loaded. As the pieces are loaded and the trucks leave, another crane drops off more on the edge
+  to use." A truck takes only the parts of its colour; a wrong one hops home rather than staying
+  wrong. A truck waits as long as it takes, and building goes on around it.
 
 **Questions**
 -

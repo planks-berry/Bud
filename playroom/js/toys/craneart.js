@@ -8,11 +8,16 @@
 // colour tower's, which are also the easel's: a red part is a C wherever it is.
 
 import { fillRound, disc, ellipse, circle, roundRect } from '../draw.js';
-import { TAU, shade } from '../util.js';
-import { SITE, INK, line, poly, beacon, worker, mirrored } from './machines.js';
+import { TAU, shade, hexToRgb, rgbString, mixRgb } from '../util.js';
+import { SITE, INK, line, poly, beacon, worker, mirrored, wheel } from './machines.js';
 
 //==============================================================================
 // The tower crane
+
+// The crane's paint, and the other crane's, the one over the pile that brings new parts: told apart
+// at a glance, as two cranes on one site are.
+const CRANE = { body: SITE.body, deep: SITE.bodyDeep, hook: SITE.accent, hookDeep: SITE.accentDeep };
+export const FAR = { body: '#EBB0A8', deep: '#D5928B', hook: '#A9C3D8', hookDeep: '#8EA9C0' };
 
 // A lattice mast from the ground up to the jib: two rails braced in a zigzag, on a footing.
 export function mast(ctx, x, top, bottom, w) {
@@ -45,8 +50,9 @@ export function mast(ctx, x, top, bottom, w) {
     ctx.fillRect(left - rail * 0.25, top, rail * 0.22, foot - top);
 }
 
-// A lattice girder lying between x0 and x1, its bottom chord at y and its top chord `d` above.
-export function girder(ctx, x0, x1, y, d) {
+// A lattice girder lying between x0 and x1, its bottom chord at y and its top chord `d` above, in
+// the crane's colours or `paint` ({ body, deep }).
+export function girder(ctx, x0, x1, y, d, paint = CRANE) {
     const a = Math.min(x0, x1);
     const b = Math.max(x0, x1);
     const top = y - d;
@@ -60,12 +66,12 @@ export function girder(ctx, x0, x1, y, d) {
         up = !up;
     }
     ctx.lineWidth = d * 0.13;
-    ctx.strokeStyle = SITE.bodyDeep;
+    ctx.strokeStyle = paint.deep;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.stroke();
-    fillRound(ctx, a, top - d * 0.1, b - a, d * 0.22, d * 0.1, SITE.body);
-    fillRound(ctx, a, y - d * 0.12, b - a, d * 0.26, d * 0.12, SITE.body);
+    fillRound(ctx, a, top - d * 0.1, b - a, d * 0.22, d * 0.1, paint.body);
+    fillRound(ctx, a, y - d * 0.12, b - a, d * 0.26, d * 0.12, paint.body);
     ctx.fillStyle = 'rgba(255,255,255,0.3)';
     ctx.fillRect(a + d * 0.1, top - d * 0.08, b - a - d * 0.2, d * 0.06);
 }
@@ -193,11 +199,11 @@ export function apexLight(ctx, x, y, r, glow) {
 }
 
 // The trolley that runs along the jib, its wheels on the bottom chord at `y`.
-export function trolley(ctx, x, y, s) {
+export function trolley(ctx, x, y, s, paint = CRANE) {
     disc(ctx, x - s * 0.32, y - s * 0.04, s * 0.14, SITE.steelDeep);
     disc(ctx, x + s * 0.32, y - s * 0.04, s * 0.14, SITE.steelDeep);
-    fillRound(ctx, x - s * 0.5, y + s * 0.04, s, s * 0.34, s * 0.1, SITE.accentDeep);
-    fillRound(ctx, x - s * 0.5, y + s * 0.04, s, s * 0.12, s * 0.06, SITE.accent);
+    fillRound(ctx, x - s * 0.5, y + s * 0.04, s, s * 0.34, s * 0.1, paint.hookDeep);
+    fillRound(ctx, x - s * 0.5, y + s * 0.04, s, s * 0.12, s * 0.06, paint.hook);
     disc(ctx, x, y + s * 0.42, s * 0.16, SITE.steel);
     disc(ctx, x, y + s * 0.42, s * 0.06, SITE.steelDeep);
 }
@@ -212,13 +218,13 @@ export function cable(ctx, x0, y0, x1, y1, s) {
 
 // The hook block, hanging from the cable at (x, y) and turned by `angle` as it swings. Its hook's
 // tip, where a load hangs, is `hookDrop(s)` below.
-export function hookBlock(ctx, x, y, s, angle = 0) {
+export function hookBlock(ctx, x, y, s, angle = 0, paint = CRANE) {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
     fillRound(ctx, -s * 0.34 + 2, 4, s * 0.68, s * 0.5, s * 0.14, 'rgba(112, 84, 58, 0.14)');
-    fillRound(ctx, -s * 0.34, 0, s * 0.68, s * 0.5, s * 0.14, SITE.accent);
-    fillRound(ctx, -s * 0.34, s * 0.36, s * 0.68, s * 0.14, s * 0.07, SITE.accentDeep);
+    fillRound(ctx, -s * 0.34, 0, s * 0.68, s * 0.5, s * 0.14, paint.hook);
+    fillRound(ctx, -s * 0.34, s * 0.36, s * 0.68, s * 0.14, s * 0.07, paint.hookDeep);
     disc(ctx, 0, s * 0.2, s * 0.14, SITE.steelLight);
     disc(ctx, 0, s * 0.2, s * 0.05, SITE.steelDeep);
     line(ctx, 0, s * 0.5, 0, s * 0.62, s * 0.08, SITE.steelDeep);
@@ -239,6 +245,103 @@ export function hookDrop(s) {
 export function slings(ctx, x, y, ax, ay, bx, by, s) {
     line(ctx, x, y, ax, ay, Math.max(1, s * 0.03), SITE.steelDeep);
     line(ctx, x, y, bx, by, Math.max(1, s * 0.03), SITE.steelDeep);
+}
+
+//==============================================================================
+// The trucks that come to be loaded
+
+// A flatbed truck's proportions, in half-blocks of the grid: how high its deck stands, how long its
+// cab is (with the guard in front of the deck), and its wheels.
+export const LORRY = { deckH: 1.05, cab: 2.4, wheelR: 0.42 };
+
+// A flatbed truck painted `colour`, facing right, its wheels on the ground at `by` and the back of
+// its deck at x: the deck, `o.deck` half-blocks long, a guard, and the cab with its driver. `g` is
+// the grid's half-block. Also: `roll` the wheels' turn, `lift` the body riding up on its springs
+// (pixels), `beacon` 0..1, `wave` the driver's arm.
+export function lorry(ctx, x, by, g, colour, o = {}) {
+    const D = o.deck * g;
+    const lift = o.lift || 0;
+    const deep = shade(colour, -0.14);
+    const light = shade(colour, 0.1);
+    const r = LORRY.wheelR * g;
+    const top = by - LORRY.deckH * g - lift;
+    const cx0 = x + D + 0.22 * g;
+    const cx1 = x + D + LORRY.cab * g - 0.08 * g;
+    const roof = by - 2.45 * g - lift;
+    const sill = by - 0.62 * g - lift;
+    const length = D + LORRY.cab * g;
+    ellipse(ctx, x + length / 2, by, length * 0.52, g * 0.2);
+    ctx.fillStyle = 'rgba(112, 84, 58, 0.13)';
+    ctx.fill();
+
+    // Under it all, the chassis; then the wheels, the deck over the back ones.
+    fillRound(ctx, x + 0.2 * g, top + 0.2 * g, length - 0.4 * g, 0.26 * g, 0.08 * g, SITE.steelDeep);
+    const front = cx0 + (cx1 - cx0) * 0.5;
+    for (const wx of [x + D * 0.24, x + D * 0.24 + r * 2.15, front]) wheel(ctx, wx, by - r, r, o.roll || 0);
+
+    // The deck: a pale floor seen edge on, over a side rail in the truck's colour.
+    fillRound(ctx, x, top + 0.08 * g, D, 0.3 * g, 0.08 * g, colour);
+    fillRound(ctx, x, top + 0.3 * g, D, 0.08 * g, 0.04 * g, deep);
+    fillRound(ctx, x - 0.04 * g, top - 0.04 * g, D + 0.04 * g, 0.14 * g, 0.05 * g, SITE.steelLight);
+    for (let i = 1; i < o.deck; i++) {
+        fillRound(ctx, x + i * g - 0.03 * g, top + 0.13 * g, 0.06 * g, 0.16 * g, 0.02 * g, deep);
+    }
+    // The guard between the deck and the cab.
+    fillRound(ctx, x + D, top - 1.05 * g, 0.16 * g, 1.1 * g, 0.05 * g, SITE.steelDeep);
+    fillRound(ctx, x + D - 0.04 * g, top - 1.1 * g, 0.24 * g, 0.12 * g, 0.05 * g, SITE.steel);
+
+    // The cab, its mudguard over the front wheel, its window with the driver, and its lights.
+    fillRound(ctx, cx0 + 3, roof + 5, cx1 - cx0, sill - roof, g * 0.3, 'rgba(112, 84, 58, 0.14)');
+    fillRound(ctx, cx0, roof, cx1 - cx0, sill - roof, g * 0.3, colour);
+    fillRound(ctx, cx0, sill - 0.3 * g, cx1 - cx0, 0.3 * g, g * 0.12, deep);
+    ctx.beginPath();
+    ctx.arc(front, by - r, r * 1.28, Math.PI, 0);
+    ctx.closePath();
+    ctx.fillStyle = deep;
+    ctx.fill();
+    wheel(ctx, front, by - r, r, o.roll || 0);
+    const wx = cx0 + 0.2 * g;
+    const wy = roof + 0.2 * g;
+    const ww = cx1 - cx0 - 0.62 * g;
+    const wh = 0.78 * g;
+    fillRound(ctx, wx, wy, ww, wh, g * 0.12, SITE.glass);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(wx, wy, ww, wh);
+    ctx.clip();
+    worker(ctx, wx + ww * 0.5, wy + wh * 1.04, wh * 4.4, { seated: true, wave: o.wave });
+    ctx.restore();
+    poly(
+        ctx,
+        [
+            [wx + ww * 0.62, wy],
+            [wx + ww * 0.8, wy],
+            [wx + ww * 0.5, wy + wh],
+            [wx + ww * 0.32, wy + wh],
+        ],
+        'rgba(255,255,255,0.28)'
+    );
+    // The windscreen, seen side on at the front, then a handle, the bumper and a headlight.
+    fillRound(ctx, cx1 - 0.3 * g, wy, 0.2 * g, wh, g * 0.08, SITE.glassLight);
+    fillRound(ctx, cx0 + 0.24 * g, wy + wh + 0.2 * g, 0.3 * g, 0.08 * g, 0.04 * g, deep);
+    fillRound(ctx, cx0 + 0.06 * g, roof + 0.06 * g, cx1 - cx0 - 0.4 * g, 0.08 * g, 0.04 * g, light);
+    fillRound(ctx, cx1 - 0.06 * g, sill - 0.38 * g, 0.24 * g, 0.36 * g, 0.07 * g, SITE.steelDeep);
+    fillRound(ctx, cx1 - 0.04 * g, sill - 0.8 * g, 0.14 * g, 0.24 * g, 0.05 * g, SITE.lit);
+    beacon(ctx, cx0 + (cx1 - cx0) * 0.4, roof - 0.14 * g, 0.15 * g, o.beacon || 0);
+}
+
+// Where a truck's headlight and cab window are, for lighting them at night.
+export function lorryLights(x, by, g, o = {}) {
+    const D = o.deck * g;
+    const lift = o.lift || 0;
+    const cx0 = x + D + 0.22 * g;
+    const cx1 = x + D + LORRY.cab * g - 0.08 * g;
+    const roof = by - 2.45 * g - lift;
+    const sill = by - 0.62 * g - lift;
+    return {
+        lamp: { x: cx1 + 0.03 * g, y: sill - 0.68 * g },
+        window: { x: cx0 + 0.2 * g, y: roof + 0.2 * g, w: cx1 - cx0 - 0.62 * g, h: 0.78 * g },
+    };
 }
 
 //==============================================================================
@@ -445,6 +548,24 @@ export function outline(ctx, kind, w, h, g, colour, dx = 0, dy = 0) {
     else if (kind === 'ball') circle(ctx, w / 2, h - ballRadius(h), ballRadius(h));
     else roundRect(ctx, 0, 0, w, h, g * (kind === 'beam' ? 0.1 : 0.14));
     ctx.fill();
+    ctx.restore();
+}
+
+// A part's shape marked out where a part is wanted, at (dx, dy): a wash of `colour` and a dashed edge
+// in its deeper shade, stronger when `hot`.
+export function ghost(ctx, kind, w, h, g, colour, dx, dy, hot) {
+    const rgb = hexToRgb(colour);
+    outline(ctx, kind, w, h, g, rgbString(rgb, hot ? 0.6 : 0.34), dx, dy);
+    ctx.save();
+    ctx.translate(dx, dy);
+    ctx.beginPath();
+    if (kind === 'arch') archPath(ctx, w, h, g);
+    else if (kind === 'roof') roofPath(ctx, w, h, g);
+    else roundRect(ctx, 0, 0, w, h, g * (kind === 'beam' ? 0.1 : 0.14));
+    ctx.setLineDash([g * 0.22, g * 0.16]);
+    ctx.lineWidth = Math.max(1.5, g * 0.07);
+    ctx.strokeStyle = rgbString(mixRgb(rgb, [92, 70, 58], 0.22), hot ? 0.95 : 0.75);
+    ctx.stroke();
     ctx.restore();
 }
 
