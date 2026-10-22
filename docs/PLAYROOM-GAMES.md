@@ -373,7 +373,7 @@ silent, so a finger that wanders off the letter knows it at once.
 
 **What it is:** a little farm seen from a corner and a little above, like a model on a table: an
 island of tiles, each a small block of earth with grass on top, and a tray of tiles and farm pieces
-to build with: grass, paths, fields, a pond, buildings, animals and a tractor.
+to build with: grass, paths, fields, a pond, streams, buildings, animals and a tractor.
 
 **Roots:** Pok Pok's builder, not a Montessori material. It takes the builder's way of playing:
 tiles that make up the world, pieces that snap to them, join their neighbours, come alive when
@@ -382,17 +382,18 @@ touched, and keep a few secrets.
 **Layers**
 - Touch: tap anything. Every piece answers, and tapped grass grows a flower.
 - Move: the table around the island is marked out in tiles. A tile of grass put down there adds
-  land, and the island grows; a path, a field or a pond put down on a tile changes it to that, and
-  put down on the table brings its own land. A piece put down on a tile stands there. Drag a piece
-  to move it; dropped on another piece it swaps places, and dropped on the tray it goes back.
-  Grass put down on a tile makes it bare grass again.
-- Make: a farm that joins up, as big as the table: paths for the tractor, fields beside water, a
-  pond big enough for ducks. The sun in the corner turns day to night and back.
+  land, and the island grows; a path, a field, a pond or a stream put down on a tile changes it to
+  that, and put down on the table brings its own land. A piece put down on a tile stands there.
+  Drag a piece to move it; dropped on another piece it swaps places, and dropped on the tray it
+  goes back. Grass put down on a tile makes it bare grass again.
+- Make: a farm that joins up, as big as the table: paths for the tractor, streams carrying a pond's
+  water to the fields, a pond big enough for ducks. The sun in the corner turns day to night and
+  back.
 
 **Stages**
-- Seed: a table of 5 × 4 tiles, 6 kinds of piece: path, field, pond, tree, cow, tractor.
-- Sprout: 6 × 5, 10 kinds: adds the fence, barn, hen house and sheep.
-- Bloom: 7 × 5, all 13 kinds: adds the farmhouse, windmill and pig.
+- Seed: a table of 5 × 4 tiles, 7 kinds of piece: path, field, pond, stream, tree, cow, tractor.
+- Sprout: 6 × 5, 11 kinds: adds the fence, barn, hen house and sheep.
+- Bloom: 7 × 5, all 14 kinds: adds the farmhouse, windmill and pig.
 
 Each stage starts as a small island in the middle of the table with a few pieces on it, so there
 is something to tap straight away and room to grow.
@@ -406,17 +407,18 @@ within seconds.
 | Piece | Connects | A tap | Hidden |
 |---|---|---|---|
 | Path | Joins the paths beside it; the tractor drives along them | A puff of dust and a crunch | A mouse darts out and runs along the path |
-| Field | Joins the fields beside it, and they grow as one; beside a pond it grows on its own; the windmill, the farmer and the tractor all work it | Grows a stage (seeds, sprouts, leaves, ripe), a rising ripple of notes across the field. Ripe, it is harvested, and the next crop is sown: carrots, pumpkins, sunflowers, cabbages | A rabbit among the carrots; a giant pumpkin, which rolls away at harvest |
-| Pond | Joins the ponds beside it; waters fields beside it; a cow beside it drinks, a pig beside it gets muddy | A ripple and a water drop, pitched by where it lands; the ducks swim over | A duck and two ducklings arrive when it grows to three tiles; a frog on a lily pad within seconds, who leaps off when touched; fireflies at night |
+| Field | Joins the fields beside it, and they grow as one; beside a pond or a running stream it grows on its own; the windmill, the farmer and the tractor all work it | Grows a stage (seeds, sprouts, leaves, ripe), a rising ripple of notes across the field. Ripe, it is harvested, and the next crop is sown: carrots, pumpkins, sunflowers, cabbages | A rabbit among the carrots; a giant pumpkin, which rolls away at harvest |
+| Pond | Joins the ponds beside it; waters fields beside it; a cow beside it drinks, a pig beside it gets muddy; feeds the streams beside it | A ripple and a water drop, pitched by where it lands; the ducks swim over | A duck and two ducklings arrive when it grows to three tiles; a frog on a lily pad within seconds, who leaps off when touched; fireflies at night |
+| Stream | Joins the streams beside it. Beside a pond, the pond's water runs into it and on along it, a tile at a time, a note higher each tile, with a splash at the end; ripples keep running downstream. A field the water gets to grows; a cow it gets to drinks; a pig gets muddy. Cut off from its pond, it runs dry, and picked up and put down again, the water runs into it again | With water in it, a leaf floats down to the end, a note a tile, and its water goes to whatever is there; dry, a crunch | – |
 | Fence | Joins the fences beside it | A bird lands on the post, or flies off | A snail on the rail within seconds, which hides in its shell when touched; at night, a sheep beside it jumps it |
 | Tree | Trees side by side are an orchard: shake one and its neighbours rustle | It shakes, and apples fall, a note each; they grow back | By day, a bird bursts out and flies to another tree |
 | Barn | At night the animals beside it walk in to sleep, and out again in the morning | The doors swing open and a cow looks out and moos | An owl in the hayloft at night, who hoots when touched; a cat on the roof within seconds by day, who meows and jumps down |
 | Farmhouse | Fields beside it get watered | The door opens, the farmer waves, the chimney puffs. Beside fields, the farmer walks out with a watering can and each one grows | A cat in the window within seconds by day; at night, a lullaby, and the lights go out |
 | Windmill | Fields around it grow a stage when it spins | The sails spin up and slowly wind down | By day, a bird rides a sail; a lit window at night |
 | Hen house | Beside a field, the hens go and peck at it | Two hens hop out, cluck, peck, and go back in | An egg is left behind, which hatches a chick when touched; a rooster crows from the roof at dawn |
-| Cow | Cows side by side answer each other, a step higher each; beside a pond, it drinks | A moo | At night, it jumps over the moon |
+| Cow | Cows side by side answer each other, a step higher each; beside a pond or a running stream, it drinks | A moo | At night, it jumps over the moon |
 | Sheep | Sheep side by side answer each other | A baa and a hop | At night, beside a fence, it jumps it, each jump a note higher, until it falls asleep |
-| Pig | Pigs side by side answer each other; beside a pond, it is muddy | An oink and a wiggle; muddy, it shakes the mud off everywhere | It rolls over; at night, a snore |
+| Pig | Pigs side by side answer each other; beside a pond or a running stream, it is muddy | An oink and a wiggle; muddy, it shakes the mud off everywhere | It rolls over; at night, a snore |
 | Tractor | Drives the whole path it stands beside, harvests ripe fields along the way, toots at the barn, and tips out its trailer back home | A toot, and off it goes; with no path, it putters on the spot | The farm dog runs behind it |
 | Grass | – | A flower | By day, a butterfly |
 
@@ -443,6 +445,11 @@ morning, with a rooster if there is a hen house.
   animals, trees and the tractor stay standing cut-outs. (Asked for: "more 3d in design, an
   isometric layout with tiles that can be changed and added, not just moved around.")
 - Hidden things are certain rather than rare, as above. ("They should be more certain.")
+- Water that travels somewhere: the stream, because watching water run along to something and
+  arrive is what holds him. ("Water travelling somewhere is the interest.")
+- Nothing is lost behind anything: a piece behind the barn, the farmhouse, the windmill, a tree or
+  the hen house shows through it as a pale silhouette, and a touch on the silhouette takes it, as on
+  the building site. ("He looks around for it.")
 - No Montessori parallel, by choice.
 
 **Questions**
@@ -585,7 +592,8 @@ knocking down never leaves a mess.
 - The trucks are the crane's task, a reason to lift: "A colored truck should show up and get
   loaded. As the pieces are loaded and the trucks leave, another crane drops off more on the edge
   to use." A truck takes only the parts of its colour; a wrong one hops home rather than staying
-  wrong. A truck waits as long as it takes, and building goes on around it.
+  wrong. A truck waits as long as it takes, and building goes on around it. ("A refused part stays
+  in game and only the matching ones work.")
 
 **Questions**
 -
@@ -664,8 +672,9 @@ his whistle.
   on, its mast climbing as the building rises.
 - Buildings stop at four floors, at Bloom as at Sprout. ("Limit the building height to 4, so not
   blocking anything. Minimal navigation interactions are best for his stage.") Four floors still
-  cover most of a small piece on the tile diagonally behind; the view does not turn and nothing
-  goes see-through.
+  cover most of a small piece on the tile diagonally behind, so what a building or the hut hides
+  shows through it as a pale silhouette, always, and a touch on the silhouette takes the hidden
+  piece; the view does not turn, and there is nothing to do to see. ("He looks around for it.")
 - A fresh site every time it comes off the shelf, and hidden things certain, as on the farm.
 - The whistle lets one tap show the whole chain of work.
 

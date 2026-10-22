@@ -8,8 +8,9 @@
 // stand in a row of barns.
 //
 // Every piece does three things:
-//   - it connects: paths, fields, ponds and fences join their neighbours; animals answer animals of
-//     their own kind; a field by water grows on its own; a cow beside a pond drinks from it;
+//   - it connects: paths, fields, ponds, streams and fences join their neighbours; water runs from a
+//     pond along a stream to what is at its end; animals answer animals of their own kind; a field
+//     by water grows on its own; a cow beside water drinks from it;
 //   - it reacts to a tap: the field grows, the tree drops apples, the barn opens, the cow moos;
 //   - it hides something, found by playing: a rabbit in the carrots, a frog on a lily pad, ducks
 //     that come to a big enough pond, an owl in the hayloft at night, a cow that jumps over the
@@ -28,14 +29,14 @@ import { fillRound, disc, ellipse } from '../draw.js';
 import { Spring, clamp, lerp, TAU, dist, shade } from '../util.js';
 import { noteHz } from '../synth.js';
 import * as audio from '../audio.js';
-import { BoardScene, AROUND, E, W, key, FOOT } from './board.js';
+import { BoardScene, AROUND, SIDES, E, W, key, FOOT } from './board.js';
 import * as iso from './iso.js';
 import * as art from './farmart.js';
 
 const { FARM } = art;
 
 // The ground: flat pieces that join their neighbours and lie under everything else.
-const GROUND = ['path', 'field', 'pond'];
+const GROUND = ['path', 'field', 'pond', 'stream'];
 const ANIMALS = ['cow', 'sheep', 'pig'];
 const CROPS = ['carrot', 'pumpkin', 'sunflower', 'cabbage'];
 
@@ -61,13 +62,26 @@ const PLANS = [
     {
         cols: 5,
         rows: 4,
-        kinds: ['grass', 'path', 'field', 'pond', 'tree', 'cow', 'tractor'],
+        kinds: ['grass', 'path', 'field', 'pond', 'stream', 'tree', 'cow', 'tractor'],
         start: [' T.  ', ' PPP ', ' FRW ', ' FCW '],
     },
     {
         cols: 6,
         rows: 5,
-        kinds: ['grass', 'path', 'field', 'pond', 'fence', 'tree', 'barn', 'coop', 'cow', 'sheep', 'tractor'],
+        kinds: [
+            'grass',
+            'path',
+            'field',
+            'pond',
+            'stream',
+            'fence',
+            'tree',
+            'barn',
+            'coop',
+            'cow',
+            'sheep',
+            'tractor',
+        ],
         start: ['  T.  ', ' BPPP ', ' .RCN ', ' FFSS ', '  WWH '],
     },
     {
@@ -78,6 +92,7 @@ const PLANS = [
             'path',
             'field',
             'pond',
+            'stream',
             'fence',
             'tree',
             'barn',
@@ -103,6 +118,13 @@ const VOICES = {
 
 const FLOWERS = ['#F2BAC3', '#F3DE97', '#C9BBE3', '#FBF6EE', '#ABCDEA'];
 
+// How long water takes to run along one tile of a stream, in seconds; a leaf floats slower.
+const STEP = 0.32;
+const DRIFT = 0.7;
+
+// What stands tall enough to hide a piece behind it, which then shows through.
+const TALL = ['tree', 'barn', 'house', 'windmill', 'coop'];
+
 // How far down its frame each upright piece's drawing begins, for touching it (animals: 0.4).
 const REACH = { tree: 0.05, barn: 0.22, house: 0.2, windmill: 0, coop: 0.34, fence: 0.45, tractor: 0.42 };
 
@@ -114,6 +136,7 @@ class FarmScene extends BoardScene {
         this.frogClock = 1.5;
         this.growClock = 0;
         this.flowers = {};
+        this.leaves = [];
         this.look = {
             sky: ['#EEF2E1', '#E2EAD0'],
             table: 'rgba(255, 255, 248, 0.38)',
@@ -174,6 +197,8 @@ class FarmScene extends BoardScene {
         }
         this.updateDucks(true, dt);
         this.updateFrog(dt);
+        this.stepStreams(dt);
+        this.stepLeaves(dt);
     }
 
     //--------------------------------------------------------------------------
@@ -225,8 +250,22 @@ class FarmScene extends BoardScene {
             p.facing = 1;
             p.trip = null;
             p.act = new Spring(0, 260, 9);
+        } else if (kind === 'stream') {
+            // How full it is, 0 to 1; how many tiles it is from a pond, and which side its water comes
+            // from, when it is joined to one; and when its water arrives.
+            p.wet = 0;
+            p.reach = null;
+            p.from = null;
+            p.fillAt = Infinity;
         }
         return p;
+    }
+
+    // A stream picked up runs dry, so that put down again, the water runs into it again.
+    lifted(c, r, piece) {
+        if (piece.kind !== 'stream') return;
+        piece.wet = 0;
+        piece.reach = null;
     }
 
     // After any change to the board: joined fields share one crop and one stage, pigs by water are
@@ -254,10 +293,10 @@ class FarmScene extends BoardScene {
         for (let r = 0; r < this.rows; r++) {
             for (let c = 0; c < this.cols; c++) {
                 const p = this.at(c, r);
-                if (p && p.kind === 'pig')
-                    p.muddy = this.beside(c, r, 'pond').length > 0 && this.time >= p.clean;
+                if (p && p.kind === 'pig') p.muddy = !!this.waterBeside(c, r) && this.time >= p.clean;
             }
         }
+        this.waterways(quiet);
         this.updateDucks(quiet);
         if (this.frog && !this.is(this.frog.c, this.frog.r, 'pond')) this.frog = null;
     }
@@ -300,6 +339,21 @@ class FarmScene extends BoardScene {
                     const fy = this.by + r * s + s * (0.34 + 0.24 * j);
                     fillRound(ctx, x0, fy, x1 - x0, s * 0.03, s * 0.015, FARM.furrow);
                 }
+            }
+        }
+
+        this.drawStreamBeds(ctx, s * 0.42, FARM.reed);
+        this.drawStreamBeds(ctx, s * 0.3, FARM.bed);
+        for (const [c, r] of this.every('stream')) {
+            for (let i = 0; i < 3; i++) {
+                const n = (c * 11 + r * 17 + i * 23) % 31;
+                disc(
+                    ctx,
+                    (c + 0.4 + ((n * 0.41) % 0.2)) * s,
+                    (r + 0.4 + ((n * 0.67) % 0.2)) * s,
+                    s * 0.016,
+                    FARM.pebble
+                );
             }
         }
 
@@ -399,21 +453,16 @@ class FarmScene extends BoardScene {
                 p.thirst -= dt;
                 if (p.thirst < 0) {
                     p.thirst = 6 + this.rand() * 8;
-                    const water = this.beside(c, r, 'pond');
-                    if (water.length && this.night < 0.5) {
-                        const [wc] = water[0];
+                    const water = this.waterBeside(c, r);
+                    if (water && this.night < 0.5) {
+                        const [wc] = water;
                         if (wc !== c) p.facing = wc > c ? 1 : -1;
                         p.dip.target = 1;
                         this.later(1.6, () => (p.dip.target = 0));
                     }
                 }
             }
-            if (
-                p.kind === 'pig' &&
-                p.muddy === false &&
-                this.time >= p.clean &&
-                this.beside(c, r, 'pond').length
-            ) {
+            if (p.kind === 'pig' && p.muddy === false && this.time >= p.clean && this.waterBeside(c, r)) {
                 p.muddy = true;
             }
         } else if (p.kind === 'barn' || p.kind === 'house') {
@@ -452,7 +501,10 @@ class FarmScene extends BoardScene {
             audio.play('thud', { f: 110 }, { gain: gain * 0.7, pan });
             audio.play('rustle', {}, { gain: gain * 0.5, pan, delay: 0.05 });
         } else if (kind === 'pond') audio.note('drop', 5, 60, { gain, pan, wet: 0.3 });
-        else if (kind === 'tree') audio.play('rustle', {}, { gain, pan });
+        else if (kind === 'stream') {
+            audio.note('drop', 7, 60, { gain: gain * 0.8, pan, wet: 0.3 });
+            audio.play('bubble', { f: 2200 }, { gain: gain * 0.4, pan, delay: 0.08 });
+        } else if (kind === 'tree') audio.play('rustle', {}, { gain, pan });
         else if (kind === 'fence') audio.note('wood', 7, 60, { gain: gain * 0.8, pan });
         else if (kind === 'cow' || kind === 'sheep' || kind === 'pig') {
             const [name, degree] = VOICES[kind];
@@ -473,6 +525,7 @@ class FarmScene extends BoardScene {
         const kind = piece.kind;
         if (kind === 'field') this.tapField(c, r);
         else if (kind === 'pond') this.tapPond(c, r, p.x, p.y);
+        else if (kind === 'stream') this.tapStream(c, r, piece, p.x, p.y);
         else if (kind === 'path') this.tapPath(c, r, p.x, p.y);
         else if (kind === 'tree') this.tapTree(c, r, piece);
         else if (kind === 'barn') this.tapBarn(c, r, piece, p);
@@ -596,9 +649,9 @@ class FarmScene extends BoardScene {
                 const cells = this.component(c, r, 'field');
                 for (const [cc, rr] of cells) seen.add(key(cc, rr));
                 if (this.at(c, r).stage >= 4) continue;
-                const wet = cells.find(([cc, rr]) => this.beside(cc, rr, 'pond').length);
+                const wet = cells.find(([cc, rr]) => this.waterBeside(cc, rr));
                 if (!wet) continue;
-                const [pc, pr] = this.beside(wet[0], wet[1], 'pond')[0];
+                const [pc, pr] = this.waterBeside(wet[0], wet[1]);
                 const from = this.center(pc, pr);
                 const to = this.center(wet[0], wet[1]);
                 for (let k = 0; k < 3; k++) {
@@ -645,6 +698,277 @@ class FarmScene extends BoardScene {
                 }
             },
         });
+    }
+
+    //--------------------------------------------------------------------------
+    // Streams: water runs out of every pond into a stream beside it, and on along the stream, a
+    // tile at a time, to whatever is at its end. A field it reaches grows; a cow it reaches drinks.
+    // Cut off from its pond, a stream runs dry.
+
+    // Water beside a tile: a pond, or a stream with water in it, as [c, r]; or null.
+    waterBeside(c, r) {
+        for (const [dc, dr] of SIDES) {
+            const n = this.at(c + dc, r + dr);
+            if (n && (n.kind === 'pond' || (n.kind === 'stream' && n.wet >= 1))) return [c + dc, r + dr];
+        }
+        return null;
+    }
+
+    // Which streams a pond feeds, how far each tile is from one, and which side its water comes in
+    // by. Newly joined tiles fill in turn, nearest first, so the water is seen to travel.
+    waterways(quiet) {
+        const queue = [];
+        for (const [c, r] of this.every('stream')) {
+            const side = SIDES.find(([dc, dr]) => this.is(c + dc, r + dr, 'pond'));
+            if (side) queue.push([c, r, 0, [side[0], side[1]]]);
+        }
+        const reach = {};
+        for (let i = 0; i < queue.length; i++) {
+            const [c, r, d, from] = queue[i];
+            if (reach[key(c, r)]) continue;
+            reach[key(c, r)] = { d, from };
+            for (const [dc, dr] of SIDES) {
+                if (this.is(c + dc, r + dr, 'stream') && !reach[key(c + dc, r + dr)])
+                    queue.push([c + dc, r + dr, d + 1, [-dc, -dr]]);
+            }
+        }
+        const fresh = [];
+        for (const [c, r] of this.every('stream')) {
+            const p = this.at(c, r);
+            const way = reach[key(c, r)];
+            if (!way) {
+                p.reach = null;
+                p.fillAt = Infinity;
+                continue;
+            }
+            if (p.reach === null) fresh.push(p);
+            p.reach = way.d;
+            p.from = way.from;
+        }
+        const first = Math.min(...fresh.map((p) => p.reach));
+        for (const p of fresh) {
+            if (quiet) p.wet = 1;
+            else p.fillAt = this.time + (p.reach - first) * STEP;
+        }
+    }
+
+    stepStreams(dt) {
+        for (const [c, r] of this.every('stream')) {
+            const p = this.at(c, r);
+            if (p.reach === null) {
+                p.wet = Math.max(0, p.wet - dt / 0.6);
+                continue;
+            }
+            if (p.wet >= 1 || this.time < p.fillAt) continue;
+            p.wet = Math.min(1, p.wet + dt / STEP);
+            if (p.wet >= 1) this.streamArrives(c, r, p);
+        }
+    }
+
+    // The tiles a stream's water runs on to from (c, r).
+    downstream(c, r) {
+        const p = this.at(c, r);
+        return SIDES.map(([dc, dr]) => [c + dc, r + dr]).filter(([nc, nr]) => {
+            const n = this.at(nc, nr);
+            return n && n.kind === 'stream' && n.reach === p.reach + 1;
+        });
+    }
+
+    // The water has reached a tile: a note a step higher the further it has come, and what is beside
+    // it gets the water.
+    streamArrives(c, r, p) {
+        const at = this.center(c, r);
+        const pan = this.pan(at.x);
+        audio.note('drop', clamp(4 + p.reach, 4, 12), 60, { gain: 0.45, pan, wet: 0.3 });
+        this.water(c, r, 0.15);
+        if (!this.downstream(c, r).length) {
+            // The end of the stream: a splash.
+            this.ripple(at.x, at.y);
+            audio.play('slosh', {}, { gain: 0.35, pan, delay: 0.1 });
+        }
+    }
+
+    // Water from the stream at (c, r) to what is beside it: a field grows, a cow drinks. (A pig
+    // beside it gets muddy by itself.)
+    water(c, r, delay) {
+        const from = this.center(c, r);
+        const seen = new Set();
+        for (const [dc, dr] of SIDES) {
+            const nc = c + dc;
+            const nr = r + dr;
+            const n = this.at(nc, nr);
+            if (!n || n.away) continue;
+            const to = this.center(nc, nr);
+            if (n.kind === 'field' && !seen.has(key(nc, nr)) && n.stage < 4) {
+                const cells = this.component(nc, nr, 'field');
+                for (const [fc, fr] of cells) seen.add(key(fc, fr));
+                for (let k = 0; k < 3; k++)
+                    this.travel(from.x, from.y, to.x, to.y, delay + k * 0.12, FARM.waterLight);
+                this.growField(cells, delay + 0.5);
+            } else if (n.kind === 'cow' && this.night < 0.5) {
+                if (nc !== c) n.facing = c > nc ? 1 : -1;
+                n.dip.target = 1;
+                this.later(delay + 1.6, () => (n.dip.target = 0));
+            }
+        }
+    }
+
+    // A tap on a stream with water in it sets a leaf floating down it to the end, where its water
+    // goes to whatever is there. A dry stream crunches.
+    tapStream(c, r, p, x, y) {
+        const pan = this.pan(x);
+        if (p.wet < 1) {
+            this.puff(x, y, 0.6);
+            audio.play('crunch', { seed: 3 }, { gain: 0.4, pan });
+            return;
+        }
+        this.ripple(x, y);
+        audio.note('drop', 6, 60, { gain: 0.7, pan, wet: 0.3 });
+        const route = [[c, r]];
+        for (let i = 0; i < 24; i++) {
+            const next = this.downstream(route[route.length - 1][0], route[route.length - 1][1]);
+            if (!next.length) break;
+            route.push(next[Math.floor(this.rand() * next.length)]);
+        }
+        const leaf = { route, t: 0, spin: this.rand() * TAU };
+        this.leaves.push(leaf);
+        route.forEach(([lc, lr], i) =>
+            this.later(i * DRIFT, () =>
+                audio.note('tink', clamp(6 + i, 6, 13), 60, {
+                    gain: 0.3,
+                    pan: this.pan(this.center(lc, lr).x),
+                })
+            )
+        );
+        const [ec, er] = route[route.length - 1];
+        this.later((route.length - 0.5) * DRIFT, () => {
+            if (!this.is(ec, er, 'stream')) return;
+            const end = this.center(ec, er);
+            this.ripple(end.x, end.y);
+            audio.play('slosh', {}, { gain: 0.35, pan: this.pan(end.x) });
+            this.water(ec, er, 0);
+        });
+    }
+
+    // Leaves on their way down a stream: where each is, on the screen, and which way it turns.
+    stepLeaves(dt) {
+        this.leaves = this.leaves.filter((leaf) => {
+            leaf.t += dt;
+            return leaf.t < (leaf.route.length - 0.3) * DRIFT + 0.6;
+        });
+    }
+
+    leafAt(leaf) {
+        const k = leaf.t / DRIFT;
+        const i = Math.min(Math.floor(k), leaf.route.length - 1);
+        const a = leaf.route[i];
+        const b = leaf.route[Math.min(i + 1, leaf.route.length - 1)];
+        const f = i + 1 < leaf.route.length ? k - i : 0;
+        const p = this.iso(lerp(a[0], b[0], f) + 0.5, lerp(a[1], b[1], f) + 0.5);
+        const fade = clamp(((leaf.route.length - 0.3) * DRIFT + 0.6 - leaf.t) / 0.5, 0, 1);
+        return { x: p.x, y: p.y, turn: leaf.spin + leaf.t * 1.4, fade };
+    }
+
+    // The beds of the streams, in the plan: a channel along each, into the pond it runs from.
+    drawStreamBeds(ctx, width, colour) {
+        const s = this.cell;
+        ctx.strokeStyle = colour;
+        ctx.lineWidth = width;
+        ctx.lineCap = 'round';
+        for (const [c, r] of this.every('stream')) {
+            const x = (c + 0.5) * s;
+            const y = (r + 0.5) * s;
+            disc(ctx, x, y, width / 2, colour);
+            ctx.beginPath();
+            for (const [dc, dr] of SIDES) {
+                const n = this.at(c + dc, r + dr);
+                if (!n) continue;
+                // Each join drawn once; into a pond, as far as its middle, where the pond covers it.
+                if (n.kind === 'stream' && (dc > 0 || dr > 0)) {
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x + dc * s, y + dr * s);
+                } else if (n.kind === 'pond') {
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x + dc * s * 0.75, y + dr * s * 0.75);
+                }
+            }
+            ctx.stroke();
+        }
+    }
+
+    // The water in the streams, in the plan: in from the side it comes by, out to the tiles it runs
+    // on to, as far as it has got, with ripples running downstream.
+    drawStreams(ctx) {
+        const s = this.cell;
+        const runs = [];
+        for (const [c, r] of this.every('stream')) {
+            const p = this.at(c, r);
+            if (p.wet <= 0 || !p.from) continue;
+            const x = (c + 0.5) * s;
+            const y = (r + 0.5) * s;
+            const inFrom = [x + p.from[0] * s * 0.5, y + p.from[1] * s * 0.5];
+            const k = clamp(p.wet * 2, 0, 1);
+            runs.push([inFrom, [lerp(inFrom[0], x, k), lerp(inFrom[1], y, k)], p.wet >= 1]);
+            if (p.wet > 0.5) {
+                const out = clamp((p.wet - 0.5) * 2, 0, 1);
+                for (const [dc, dr] of SIDES) {
+                    if (dc === p.from[0] && dr === p.from[1]) continue;
+                    const n = this.at(c + dc, r + dr);
+                    if (!n || (n.kind !== 'stream' && n.kind !== 'pond')) continue;
+                    runs.push([[x, y], [x + dc * s * 0.5 * out, y + dr * s * 0.5 * out], p.wet >= 1]);
+                }
+            }
+        }
+        if (!runs.length) return;
+        ctx.save();
+        this.planView(ctx);
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = FARM.water;
+        ctx.lineWidth = s * 0.2;
+        ctx.beginPath();
+        for (const [a, b] of runs) {
+            ctx.moveTo(a[0], a[1]);
+            ctx.lineTo(b[0], b[1]);
+        }
+        ctx.stroke();
+        // Ripples, carried along.
+        ctx.strokeStyle = FARM.waterLight;
+        ctx.lineWidth = s * 0.035;
+        ctx.beginPath();
+        const gap = s * 0.25;
+        const shift = (this.time * s * 0.45) % gap;
+        for (const [a, b, full] of runs) {
+            if (!full) continue;
+            const len = dist(a[0], a[1], b[0], b[1]);
+            if (len < 1) continue;
+            const ux = (b[0] - a[0]) / len;
+            const uy = (b[1] - a[1]) / len;
+            for (let d = shift; d < len - s * 0.04; d += gap) {
+                const px = a[0] + ux * d;
+                const py = a[1] + uy * d;
+                ctx.moveTo(px - uy * s * 0.04, py + ux * s * 0.04);
+                ctx.lineTo(px + ux * s * 0.05, py + uy * s * 0.05);
+            }
+        }
+        ctx.stroke();
+        ctx.restore();
+        for (const leaf of this.leaves) {
+            const at = this.leafAt(leaf);
+            ctx.save();
+            ctx.globalAlpha = at.fade;
+            ctx.translate(at.x, at.y - s * 0.01);
+            ctx.rotate(at.turn);
+            ellipse(ctx, 0, 0, s * 0.07, s * 0.035, 0);
+            ctx.fillStyle = FARM.leaf;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(-s * 0.06, 0);
+            ctx.lineTo(s * 0.06, 0);
+            ctx.lineWidth = Math.max(1, s * 0.008);
+            ctx.strokeStyle = FARM.leafDeep;
+            ctx.stroke();
+            ctx.restore();
+        }
     }
 
     // A pond of three tiles or more has a duck and her ducklings, who arrive with a quack when it
@@ -1806,6 +2130,7 @@ class FarmScene extends BoardScene {
     // The water's life, under everything standing.
     drawBelow(ctx) {
         const s = this.cell;
+        this.drawStreams(ctx);
         for (const f of this.fx) if (f.water) f.draw(ctx, f);
         if (this.frog) {
             const plan = this.padOf(this.frog.c, this.frog.r);
@@ -1886,6 +2211,16 @@ class FarmScene extends BoardScene {
         if (p.kind === 'barn' || p.kind === 'house') return !(p.cat > 0);
         if (p.kind === 'fence') return !(p.bird > 0 || p.snail > 0);
         return true;
+    }
+
+    // The pieces that stand tall enough to hide what is behind them.
+    tall(p) {
+        return TALL.indexOf(p.kind) >= 0;
+    }
+
+    // An animal's silhouette is the same however it moves; the tractor's, as it sets off.
+    pose(p) {
+        return p.trip ? 'out' : '';
     }
 
     // How far down its frame each piece's drawing begins, for touching it.
@@ -2083,6 +2418,32 @@ class FarmScene extends BoardScene {
     // drawn as a square, which the board lays flat as the top of a tile.
     drawLoose(ctx, p, x, y, s) {
         const kind = p.kind;
+        if (kind === 'stream') {
+            const line = (width, colour) => {
+                ctx.beginPath();
+                ctx.moveTo(x + s * 0.12, y + s * 0.58);
+                ctx.quadraticCurveTo(x + s * 0.5, y + s * 0.38, x + s * 0.88, y + s * 0.5);
+                ctx.lineWidth = width;
+                ctx.lineCap = 'round';
+                ctx.strokeStyle = colour;
+                ctx.stroke();
+            };
+            line(s * 0.36, FARM.reed);
+            line(s * 0.26, FARM.bed);
+            line(s * 0.18, FARM.water);
+            for (const [rx, ry] of [
+                [0.34, 0.5],
+                [0.62, 0.45],
+            ]) {
+                ctx.beginPath();
+                ctx.moveTo(x + s * rx, y + s * ry);
+                ctx.lineTo(x + s * (rx + 0.08), y + s * (ry - 0.02));
+                ctx.lineWidth = s * 0.03;
+                ctx.strokeStyle = FARM.waterLight;
+                ctx.stroke();
+            }
+            return;
+        }
         if (kind === 'path' || kind === 'field' || kind === 'pond') {
             const colour = { path: FARM.path, field: FARM.soil, pond: FARM.water }[kind];
             const edge = { path: FARM.pathEdge, field: FARM.soilEdge, pond: FARM.waterDeep }[kind];
@@ -2192,8 +2553,8 @@ function icon(ctx, x, y, w, h) {
 export const toy = {
     id: 'farm',
     title: 'Farm',
-    about: 'Build a farm from tiles: paths, fields, ponds, animals, a tractor. Every piece joins up, answers a tap, and hides something.',
-    stages: ['a small farm, 6 kinds of piece', 'a bigger farm, 10 kinds', 'the biggest farm, all 13 kinds'],
+    about: 'Build a farm from tiles: paths, fields, ponds, streams, animals, a tractor. Every piece joins up, answers a tap, and hides something; streams carry the water along.',
+    stages: ['a small farm, 7 kinds of piece', 'a bigger farm, 11 kinds', 'the biggest farm, all 14 kinds'],
     mat: '#DCEBC9',
     icon,
     create: (app) => new FarmScene(app),
@@ -2226,13 +2587,16 @@ export const toy = {
             ['cluck', { f: noteHz(3, 60) }],
             ['tick', { f: noteHz(5, 72) }],
             ['tick', { f: noteHz(3, 72) }],
+            ['bubble', { f: 2200 }],
+            ['slosh', {}],
+            ['crunch', { seed: 3 }],
         ];
         for (const [name, degree] of Object.values(VOICES)) {
             for (let i = -2; i < 4; i++) list.push([name, { f: noteHz(degree + i, 60) }]);
         }
         for (let d = 3; d <= 12; d++) list.push(['drop', { f: noteHz(d, 60) }]);
         for (let d = 3; d <= 12; d++) list.push(['marimba', { f: noteHz(d, 60) }]);
-        for (let d = 8; d <= 11; d++) list.push(['tink', { f: noteHz(d, 60) }]);
+        for (let d = 6; d <= 13; d++) list.push(['tink', { f: noteHz(d, 60) }]);
         for (let i = 0; i < 8; i++) list.push(['pop', { f: 450 + i * 40 }], ['pop', { f: 500 + i * 50 }]);
         list.push(['pop', { f: 650 }], ['pop', { f: 700 }]);
         for (const d of [0, 7]) list.push(['wood', { f: noteHz(d, 60) }]);

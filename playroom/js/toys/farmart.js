@@ -21,6 +21,7 @@ export const FARM = {
     soil: '#CDA67F',
     soilEdge: '#B99068',
     furrow: '#BE9772',
+    bed: '#D8CCB3',
     water: '#A6D3D1',
     waterDeep: '#86BEC1',
     waterLight: '#C4E3DF',

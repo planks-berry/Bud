@@ -1476,6 +1476,23 @@ class SiteScene extends BoardScene {
         return true;
     }
 
+    // Buildings and the hut stand tall enough to hide what is behind them; the crane's mast, always
+    // taller than what it builds, needs no showing through them.
+    tall(p) {
+        return (p.kind === 'plot' && p.step > SET) || p.kind === 'hut';
+    }
+
+    shows(p) {
+        return p.kind !== 'crane';
+    }
+
+    // A machine's silhouette changes as it works, carries a load or tips it.
+    pose(p) {
+        const work = p.work ? `${p.work.type}${Math.floor(p.work.t * 4)}` : '';
+        const tip = p.tip ? Math.round(p.tip.value * 6) : 0;
+        return `${work}:${p.load ? 1 : 0}:${tip}`;
+    }
+
     // How far down its frame each piece's drawing begins, for touching it.
     reach(p) {
         const top = REACH[p.kind];

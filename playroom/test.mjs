@@ -227,6 +227,36 @@ check(
     recipeFaults.slice(0, 6).join('; ')
 );
 
+// And every sound the code asks for with fixed parameters, played or prepared, renders as asked:
+// a recipe missing a parameter it needs (a bubble with no pitch) renders NaN, which is silence at
+// best, and in the filters on the way out it can stay, silencing everything after it.
+const askFaults = [];
+let askCount = 0;
+for (const dir of ['js', 'js/toys']) {
+    for (const file of (await readdir(join(here, dir))).filter((name) => name.endsWith('.js'))) {
+        const text = await readFile(join(here, dir, file), 'utf8');
+        for (const m of text.matchAll(/(?:audio\.play\(|\[)\s*'(\w+)',\s*(\{[^{}]*\})/g)) {
+            if (!synth.recipes[m[1]]) continue;
+            let params;
+            try {
+                params = new Function('noteHz', `return (${m[2]});`)(noteHz);
+            } catch (error) {
+                continue; // worked out as it plays
+            }
+            askCount++;
+            const b = synth.render(m[1], 48000, params);
+            if (!b.every(Number.isFinite) || !b.some((v) => v !== 0)) {
+                askFaults.push(`${dir}/${file}:${text.slice(0, m.index).split('\n').length} ${m[1]} ${m[2]}`);
+            }
+        }
+    }
+}
+check(
+    `the ${askCount} sounds the toys ask for by fixed parameters all render`,
+    askCount > 50 && askFaults.length === 0,
+    askFaults.slice(0, 6).join('; ')
+);
+
 const loops = [
     synth.whiteNoise(48000),
     synth.pinkNoise(48000),
@@ -1020,7 +1050,7 @@ async function suite(mode) {
     const farmKinds = await scene(() => window.playroom.stage.scene.kinds);
     check(
         'the farm opens with its tiles and pieces in the tray',
-        (await sceneName()) === 'FarmScene' && farmKinds.length === 11 && farmKinds[0] === 'grass'
+        (await sceneName()) === 'FarmScene' && farmKinds.length === 12 && farmKinds[0] === 'grass'
     );
     const layout = () =>
         scene(() => {
@@ -1240,6 +1270,106 @@ async function suite(mode) {
         home2 && (await fieldStages()).every((v) => v === 0),
         (await fieldStages()).join('')
     );
+
+    // A stream: on its own it is dry; joined to a pond, the pond's water runs into it and on along
+    // it, a tile at a time, and a field where it gets to grows. A tap sets a leaf floating down it,
+    // and cut off from the pond again, it runs dry.
+    const streamSpot = await scene(() => {
+        const s = window.playroom.stage.scene;
+        const sides = [
+            [0, -1],
+            [1, 0],
+            [0, 1],
+            [-1, 0],
+        ];
+        const free = (c, r) => s.inside(c, r) && !s.at(c, r);
+        const pondBy = (c, r) => sides.some(([dc, dr]) => s.is(c + dc, r + dr, 'pond'));
+        const spots = [];
+        for (let r = 0; r < s.rows; r++) {
+            for (let c = 0; c < s.cols; c++) {
+                if (!free(c, r) || !pondBy(c, r)) continue;
+                for (const [dc, dr] of sides) {
+                    const [nc, nr] = [c + dc, r + dr];
+                    if (!free(nc, nr) || pondBy(nc, nr)) continue;
+                    const field = sides
+                        .map(([ec, er]) => [nc + ec, nr + er])
+                        .find(([fc, fr]) => s.is(fc, fr, 'field') && s.at(fc, fr).stage < 4);
+                    spots.push({ first: [c, r], second: [nc, nr], field: field || null });
+                }
+            }
+        }
+        return spots.find((spot) => spot.field) || spots[0] || null;
+    });
+    const streamAt = (cell) =>
+        scene((cell) => {
+            const p = window.playroom.stage.scene.at(cell[0], cell[1]);
+            return p && p.kind === 'stream' ? { wet: p.wet, reach: p.reach, fillAt: p.fillAt } : null;
+        }, cell);
+    const fieldStage = (cell) =>
+        scene((cell) => window.playroom.stage.scene.at(cell[0], cell[1]).stage, cell);
+    const until = (fn, arg, timeout) =>
+        page.waitForFunction(fn, arg, { timeout }).then(
+            () => true,
+            () => false
+        );
+    const trayStream = await trayCentre('stream');
+    await carryTo(trayStream, await cellCentre(...streamSpot.second));
+    const streamDry = await streamAt(streamSpot.second);
+    const fieldBefore = streamSpot.field && (await fieldStage(streamSpot.field));
+    await carryTo(trayStream, await cellCentre(...streamSpot.first));
+    // The water is due in the second tile a step after the first; it is seen arriving there, part
+    // full, and then full.
+    const streamFirst = await streamAt(streamSpot.first);
+    const streamNext = await streamAt(streamSpot.second);
+    const arriving = await until(
+        (cell) => {
+            const p = window.playroom.stage.scene.at(cell[0], cell[1]);
+            return p.wet > 0 && p.wet < 1;
+        },
+        streamSpot.second,
+        3000
+    );
+    const arrived = await until(
+        (cell) => window.playroom.stage.scene.at(cell[0], cell[1]).wet === 1,
+        streamSpot.second,
+        3000
+    );
+    check(
+        "a stream on its own is dry; joined to a pond, the pond's water runs into it and on along it, a tile at a time",
+        streamDry &&
+            streamDry.wet === 0 &&
+            streamDry.reach === null &&
+            streamFirst.reach === 0 &&
+            streamNext.reach === 1 &&
+            Math.abs(streamNext.fillAt - streamFirst.fillAt - 0.32) < 1e-6 &&
+            arriving &&
+            arrived,
+        JSON.stringify([streamDry, streamFirst, streamNext, arriving, arrived, streamSpot])
+    );
+    if (streamSpot.field) {
+        const grown = await until(
+            ([cell, before]) => window.playroom.stage.scene.at(cell[0], cell[1]).stage > before,
+            [streamSpot.field, fieldBefore],
+            4000
+        );
+        check('where the water gets to, the field beside it grows', grown, `from stage ${fieldBefore}`);
+    }
+    await tapCell(...streamSpot.first, 0);
+    const leafOut = await scene(() => window.playroom.stage.scene.leaves.length);
+    const leafGone = await until(() => window.playroom.stage.scene.leaves.length === 0, null, 5000);
+    check('a tap on the stream sets a leaf floating down it to the end', leafOut === 1 && leafGone);
+    const firstAt = await cellCentre(...streamSpot.first);
+    await touch.drag(line(firstAt.x, firstAt.y, trayStream.x, trayStream.y, 16), 16, 120);
+    const runDry = await until(
+        ([a, b]) => {
+            const s = window.playroom.stage.scene;
+            return !s.at(a[0], a[1]) && s.at(b[0], b[1]).wet === 0;
+        },
+        [streamSpot.first, streamSpot.second],
+        4000
+    );
+    check('and cut off from the pond, it runs dry', runDry);
+    await shot('farm-stream');
 
     const sun = await scene(() => window.playroom.stage.scene.sunButton);
     await touch.tap(sun.x, sun.y);
@@ -1965,6 +2095,25 @@ async function suite(mode) {
         worked.join(' ')
     );
     await page.waitForFunction(() => !window.playroom.stage.scene.at(4, 0).trip, null, { timeout: 25000 });
+
+    // Cones put down on the road behind the four floors: they show through the building, and a touch
+    // where they are takes them, not the building.
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        s.put(4, 1, s.make('cones'), true);
+    });
+    await page.waitForTimeout(300);
+    const siteGhost = await scene(() => {
+        const s = window.playroom.stage.scene;
+        const q = s.cellRect(4, 1);
+        const hit = s.pieceAt(q.x + q.s / 2, q.y + q.s * 0.62);
+        return { shown: !!s.ghosts[401], hit: hit && hit.join(',') };
+    });
+    check(
+        'a piece hidden behind a building shows through it, and a touch there takes it',
+        siteGhost.shown && siteGhost.hit === '4,1',
+        JSON.stringify(siteGhost)
+    );
 
     const siteSun = await scene(() => window.playroom.stage.scene.sunButton);
     await touch.tap(siteSun.x, siteSun.y);

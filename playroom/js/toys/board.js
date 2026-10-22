@@ -61,6 +61,8 @@ const DEPTH = 0.17;
 const HEADROOM = 0.45;
 // How many pictures of pieces are kept at most, beyond those on the board.
 const SPRITES = 48;
+// The largest piece a silhouette is made of, in a piece's frame widths: a building of four floors.
+const GHOST = [1.8, 2.6];
 
 export function key(c, r) {
     return c * 100 + r;
@@ -269,6 +271,10 @@ export class BoardScene extends Scene {
         }
         this.sunButton = { x: w - 48, y: 48, r: 30 };
         this.freeSprites();
+        freeLayer(this.ghostLayer);
+        freeLayer(this.maskLayer);
+        this.ghostLayer = makeLayer(this.cell * GHOST[0], this.cell * GHOST[1], this.scale);
+        this.maskLayer = makeLayer(this.cell * GHOST[0], this.cell * GHOST[1], this.scale);
         this.laidOut();
         this.drawGround();
     }
@@ -377,6 +383,7 @@ export class BoardScene extends Scene {
         let layer = this.sprites[id];
         if (!layer) {
             layer = make();
+            layer.id = id;
             this.sprites[id] = layer;
         }
         layer.frame = this.frame;
@@ -398,6 +405,8 @@ export class BoardScene extends Scene {
     freeSprites() {
         for (const id of Object.keys(this.sprites || {})) freeLayer(this.sprites[id]);
         this.sprites = {};
+        for (const id of Object.keys(this.ghosts || {})) freeLayer(this.ghosts[id].layer);
+        this.ghosts = {};
     }
 
     blit(ctx, id, x, y, s, draw) {
@@ -422,6 +431,122 @@ export class BoardScene extends Scene {
             if (m.layer.ctx.getImageData(px, py, 1, 1).data[3] > 24) return true;
         }
         return false;
+    }
+
+    // A piece hidden behind a tall one shows through it: a pale silhouette of itself, where the tall
+    // one covers it, so nothing put on the island is ever lost behind a building. `order` is the
+    // pieces as they were drawn, from the back. Each silhouette is made once, and made again only
+    // when what it is made of changes.
+    drawGhosts(ctx, order) {
+        if (!this.maskLayer) return;
+        const boxOf = (marks) => {
+            let x0 = Infinity;
+            let y0 = Infinity;
+            let x1 = -Infinity;
+            let y1 = -Infinity;
+            for (const m of marks) {
+                x0 = Math.min(x0, m.x);
+                y0 = Math.min(y0, m.y);
+                x1 = Math.max(x1, m.x + m.w);
+                y1 = Math.max(y1, m.y + m.h);
+            }
+            return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+        };
+        const sign = (marks) =>
+            marks.map((m) => `${m.layer.id}@${Math.round(m.x)},${Math.round(m.y)}`).join(';');
+        const used = {};
+        for (let i = 0; i < order.length; i++) {
+            const back = order[i];
+            if (this.tall(back.p) || !this.shows(back.p)) continue;
+            const own = this.drawn[key(back.c, back.r)];
+            const box = own && own.length ? boxOf(own) : this.looseBox(back.c, back.r);
+            let x0 = Infinity;
+            let y0 = Infinity;
+            let x1 = -Infinity;
+            let y1 = -Infinity;
+            const covers = [];
+            for (let j = i + 1; j < order.length; j++) {
+                const front = order[j];
+                if (!this.tall(front.p)) continue;
+                const marks = this.drawn[key(front.c, front.r)];
+                if (!marks || !marks.length) continue;
+                const b = boxOf(marks);
+                const ix0 = Math.max(box.x, b.x);
+                const iy0 = Math.max(box.y, b.y);
+                const ix1 = Math.min(box.x + box.w, b.x + b.w);
+                const iy1 = Math.min(box.y + box.h, b.y + b.h);
+                if (ix1 <= ix0 || iy1 <= iy0) continue;
+                covers.push(marks);
+                x0 = Math.min(x0, ix0);
+                y0 = Math.min(y0, iy0);
+                x1 = Math.max(x1, ix1);
+                y1 = Math.max(y1, iy1);
+            }
+            if (!covers.length) continue;
+            const area = {
+                x: Math.floor(x0),
+                y: Math.floor(y0),
+                w: Math.min(Math.ceil(x1) - Math.floor(x0), this.maskLayer.w),
+                h: Math.min(Math.ceil(y1) - Math.floor(y0), this.maskLayer.h),
+            };
+            const self =
+                own && own.length ? sign(own) : `${back.p.kind}:${back.p.facing || 0}:${this.pose(back.p)}`;
+            const sig = `${back.c},${back.r}|${self}|${covers.map(sign).join('|')}|${area.x},${area.y},${area.w},${area.h}`;
+            const id = key(back.c, back.r);
+            let made = this.ghosts[id];
+            if (!made || made.sig !== sig) {
+                if (made) freeLayer(made.layer);
+                made = this.ghosts[id] = { sig, area, layer: this.makeGhost(back, own, area, covers) };
+            }
+            used[id] = true;
+            ctx.save();
+            ctx.globalAlpha = 0.55;
+            ctx.drawImage(made.layer.canvas, area.x, area.y, area.w, area.h);
+            ctx.restore();
+        }
+        for (const id of Object.keys(this.ghosts)) {
+            if (used[id]) continue;
+            freeLayer(this.ghosts[id].layer);
+            delete this.ghosts[id];
+        }
+    }
+
+    // One silhouette: the piece as it was drawn, kept only where the tall pieces in front cover it,
+    // in a pale wash.
+    makeGhost(back, own, area, covers) {
+        const scale = this.scale;
+        const layer = makeLayer(area.w, area.h, scale);
+        const g = layer.ctx;
+        g.save();
+        g.translate(-area.x, -area.y);
+        if (own && own.length) for (const k of own) g.drawImage(k.layer.canvas, k.x, k.y, k.w, k.h);
+        else this.drawPiece(g, back.p, back.c, back.r, back.rect.x, back.rect.y, this.cell);
+        g.restore();
+        const mask = this.maskLayer;
+        const m = mask.ctx;
+        m.setTransform(scale, 0, 0, scale, 0, 0);
+        m.clearRect(0, 0, mask.w, mask.h);
+        m.save();
+        m.translate(-area.x, -area.y);
+        for (const marks of covers) for (const k of marks) m.drawImage(k.layer.canvas, k.x, k.y, k.w, k.h);
+        m.restore();
+        // The whole of the silhouette's canvas, which is never larger than the mask's.
+        const pw = layer.canvas.width;
+        const ph = layer.canvas.height;
+        g.setTransform(1, 0, 0, 1, 0, 0);
+        g.globalCompositeOperation = 'destination-in';
+        g.drawImage(mask.canvas, 0, 0, pw, ph, 0, 0, pw, ph);
+        g.globalCompositeOperation = 'source-in';
+        g.fillStyle = 'rgb(255, 252, 242)';
+        g.fillRect(0, 0, pw, ph);
+        g.globalCompositeOperation = 'source-over';
+        return layer;
+    }
+
+    // What of a piece drawn without sprites changes its silhouette, beyond its kind and which way it
+    // faces: nothing, unless a game says.
+    pose() {
+        return '';
     }
 
     trayItem(kind) {
@@ -656,9 +781,11 @@ export class BoardScene extends Scene {
     // Input
 
     // The upright piece whose drawing is under a point, the nearest first: a tall barn can be
-    // touched by its roof, over the tile behind it.
+    // touched by its roof, over the tile behind it. Where a tall piece hides one behind it, the
+    // hidden one's silhouette shows through, and takes the touch.
     pieceAt(x, y) {
         const tiles = this.tiles();
+        let front = null;
         for (let i = tiles.length - 1; i >= 0; i--) {
             const [c, r] = tiles[i];
             const p = this.cells[r][c];
@@ -675,6 +802,10 @@ export class BoardScene extends Scene {
                 )
             )
                 continue;
+            if (front) {
+                if (!this.tall(p) && this.shows(p) && this.paintedAt(p, c, r, x, y)) return [c, r];
+                continue;
+            }
             // Drawn from sprites alone, it is only where it has paint: a low hen house in front does
             // not take a touch meant for the sheep behind it. Near its own foot it always counts.
             const marks = this.drawn && this.drawn[key(c, r)];
@@ -686,9 +817,39 @@ export class BoardScene extends Scene {
                 !this.painted(marks, x, y)
             )
                 continue;
-            return [c, r];
+            if (!this.tall(p)) return [c, r];
+            front = [c, r];
         }
-        return null;
+        return front;
+    }
+
+    // Whether a piece has paint at a point: from the sprites it was last drawn with, or drawn again,
+    // out of sight, to see.
+    paintedAt(p, c, r, x, y) {
+        const marks = this.drawn && this.drawn[key(c, r)];
+        if (marks && marks.length) return this.painted(marks, x, y);
+        const layer = this.ghostLayer;
+        if (!layer) return false;
+        const box = this.looseBox(c, r);
+        if (x < box.x || y < box.y || x >= box.x + box.w || y >= box.y + box.h) return false;
+        const g = layer.ctx;
+        g.setTransform(this.scale, 0, 0, this.scale, 0, 0);
+        g.clearRect(0, 0, layer.w, layer.h);
+        g.save();
+        g.translate(-box.x, -box.y);
+        const rect = this.cellRect(c, r);
+        this.drawPiece(g, p, c, r, rect.x, rect.y, this.cell);
+        g.restore();
+        const px = Math.floor((x - box.x) * this.scale);
+        const py = Math.floor((y - box.y) * this.scale);
+        return g.getImageData(px, py, 1, 1).data[3] > 24;
+    }
+
+    // Where a piece drawn without sprites may have paint: its frame and a little round it.
+    looseBox(c, r) {
+        const rect = this.cellRect(c, r);
+        const s = rect.s;
+        return { x: rect.x - s * 0.3, y: rect.y - s * 0.4, w: s * 1.6, h: s * 1.5 };
     }
 
     down(p) {
@@ -1022,6 +1183,7 @@ export class BoardScene extends Scene {
         // things on the move between tiles.
         const items = this.tiles().map(([c, r]) => ({ k: c + r + 1 + c * 0.001, c, r }));
         const drawn = {};
+        const order = [];
         for (const m of this.movers()) items.push({ k: m.u + m.v + 0.0005, m });
         items.sort((a, b) => a.k - b.k);
         for (const it of items) {
@@ -1038,8 +1200,10 @@ export class BoardScene extends Scene {
             this.drawPiece(ctx, p, c, r, rect.x, rect.y, s);
             drawn[key(c, r)] = this.marking;
             this.marking = null;
+            order.push({ c, r, p, rect });
         }
         this.drawn = drawn;
+        this.drawGhosts(ctx, order);
 
         this.drawAbove(ctx);
 
@@ -1184,6 +1348,10 @@ export class BoardScene extends Scene {
     }
 
     exit() {
+        freeLayer(this.ghostLayer);
+        freeLayer(this.maskLayer);
+        this.ghostLayer = null;
+        this.maskLayer = null;
         freeLayer(this.ground);
         this.ground = null;
         this.freeSprites();
@@ -1221,6 +1389,16 @@ export class BoardScene extends Scene {
     // Whether the sprites a piece was last drawn with are all of it, so a touch can be tested
     // against their paint; not when something else is drawn with it, a cat on a roof.
     solid() {
+        return true;
+    }
+
+    // Whether a piece is tall enough to hide what stands behind it, which then shows through it.
+    tall() {
+        return false;
+    }
+
+    // Whether a piece hidden behind a tall one shows through it.
+    shows() {
         return true;
     }
 
