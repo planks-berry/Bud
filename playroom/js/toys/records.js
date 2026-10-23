@@ -18,8 +18,7 @@ export const STEP = 60 / BPM / 2;
 export const LENGTH = STEPS * STEP;
 
 const at = (steps, name, params, gain) => steps.map((step) => [step, name, params, gain]);
-const marimba = (step, degree, gain = 0.9) => [step, 'marimba', { f: noteHz(degree, 60) }, gain];
-const bass = (step, degree, gain = 0.8) => [step, 'wood', { f: noteHz(degree, 60) }, gain];
+const knock = (step, degree, gain = 0.9) => [step, 'wood', { f: noteHz(degree, 60) }, gain];
 
 // The heartbeat every record shares: the drum on the first and third beat of each bar, a clap on
 // the second and fourth, and the shaker on the eighths between.
@@ -31,25 +30,29 @@ const BEAT = [
 
 const colour = (name) => COLOURS.find((kind) => kind.name === name).colour;
 
-// Each record's vinyl is one of the playroom's colours, and its label shows what is on it.
+// Each record's vinyl is one of the playroom's colours, and its label shows what is on it. What is
+// on them is short and struck, as a drum is: a scratch drags it to and fro, and a long held note,
+// scratched, slides about where a struck one clicks and rubs. So the tune is played on wooden
+// knocks, the colour beats' own notes, and of the animals only the cow holds hers.
 export const RECORDS = [
     {
         name: 'tune',
         colour: colour('red'),
         label: 'note',
         events: [
-            ...at([0, 8], 'drum', {}, 0.7),
-            ...at([3, 7, 11, 15], 'shaker', {}, 0.35),
-            marimba(0, 5),
-            marimba(2, 4),
-            marimba(4, 3),
-            marimba(5, 2, 0.7),
-            marimba(6, 3),
-            marimba(8, 5),
-            marimba(10, 6),
-            marimba(12, 5),
-            marimba(13, 4, 0.7),
-            marimba(14, 3),
+            ...at([0, 8], 'drum', {}, 0.8),
+            ...at([4, 12], 'clap', {}, 0.5),
+            ...at([2, 6, 10, 14], 'shaker', {}, 0.4),
+            knock(0, 5),
+            knock(2, 4),
+            knock(4, 3),
+            knock(5, 2, 0.7),
+            knock(6, 3),
+            knock(8, 5),
+            knock(10, 6),
+            knock(12, 5),
+            knock(13, 4, 0.7),
+            knock(14, 3),
         ],
     },
     {
@@ -58,12 +61,12 @@ export const RECORDS = [
         label: 'drum',
         events: [
             ...BEAT,
-            bass(0, -5),
-            bass(3, -5, 0.6),
-            bass(6, -2),
-            bass(8, -5),
-            bass(11, -4, 0.6),
-            bass(14, -1),
+            knock(0, -5, 0.8),
+            knock(3, -5, 0.6),
+            knock(6, -2, 0.8),
+            knock(8, -5, 0.8),
+            knock(11, -4, 0.6),
+            knock(14, -1, 0.8),
         ],
     },
     {
@@ -73,7 +76,7 @@ export const RECORDS = [
         events: [
             ...BEAT,
             [0, 'moo', { f: noteHz(-5, 60) }, 0.9],
-            [4, 'baa', { f: noteHz(-2, 60) }, 0.8],
+            [4, 'cluck', { f: noteHz(4, 60) }, 0.8],
             [8, 'quack', {}, 0.9],
             [10, 'quack', {}, 0.6],
             [12, 'oink', { f: noteHz(-4, 60) }, 0.9],

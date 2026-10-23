@@ -52,7 +52,7 @@ import {
 } from '../util.js';
 import { noteHz } from '../synth.js';
 import * as audio from '../audio.js';
-import { COLOURS, BEATS, STAGES, pickColours, rowsFor, starter, colourKey } from './cubes.js';
+import { COLOURS, BEATS, STAGES, pickColours, rowsFor, starter, colourKey, drawMark } from './cubes.js';
 
 // How far ahead of the clock a column's sounds are booked, in seconds: enough to ride out a
 // dropped frame, little enough that a cube put down is heard the next time round.
@@ -310,7 +310,7 @@ class TowerScene extends Scene {
         ctx.save();
         if (kind.beat) {
             ctx.globalAlpha = 0.3;
-            this.mark(ctx, kind.mark, x, foot - s / 2, s, shade(kind.colour, -0.3));
+            drawMark(ctx, kind.mark, x, foot - s / 2, s, shade(kind.colour, -0.3));
         } else {
             // A dashed edge, so the cubby still reads as empty.
             const e = s * 0.92;
@@ -319,44 +319,6 @@ class TowerScene extends Scene {
             ctx.strokeStyle = rgbString(mixRgb(hexToRgb(kind.colour), [96, 74, 60], 0.15), 0.55);
             roundRect(ctx, x - e / 2, foot - (s + e) / 2, e, e, radius);
             ctx.stroke();
-        }
-        ctx.restore();
-    }
-
-    // What is burnt into a beat's face: a drum's skin, a clap's burst, a shaker's seeds.
-    mark(ctx, mark, x, y, s, colour) {
-        ctx.save();
-        ctx.strokeStyle = colour;
-        ctx.fillStyle = colour;
-        ctx.lineWidth = Math.max(1.5, s * 0.06);
-        ctx.lineCap = 'round';
-        if (mark === 'skin') {
-            ctx.beginPath();
-            ctx.arc(x, y, s * 0.27, 0, TAU);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.arc(x, y, s * 0.08, 0, TAU);
-            ctx.fill();
-        } else if (mark === 'burst') {
-            ctx.beginPath();
-            for (let i = 0; i < 8; i++) {
-                const a = (i / 8) * TAU;
-                ctx.moveTo(x + Math.cos(a) * s * 0.1, y + Math.sin(a) * s * 0.1);
-                ctx.lineTo(x + Math.cos(a) * s * 0.27, y + Math.sin(a) * s * 0.27);
-            }
-            ctx.stroke();
-        } else {
-            for (const [dx, dy] of [
-                [-1, -1],
-                [1, -1],
-                [0, 0],
-                [-1, 1],
-                [1, 1],
-            ]) {
-                ctx.beginPath();
-                ctx.arc(x + dx * s * 0.18, y + dy * s * 0.18, s * 0.065, 0, TAU);
-                ctx.fill();
-            }
         }
         ctx.restore();
     }
@@ -375,7 +337,7 @@ class TowerScene extends Scene {
         fillRound(ctx, 0, d + s * 0.88, s, s * 0.12, r, shade(kind.colour, -0.08));
         ctx.fillStyle = 'rgba(255,255,255,0.3)';
         ctx.fillRect(r, d + 1, s - r * 2, Math.max(1.5, s * 0.025));
-        if (kind.beat) this.mark(ctx, kind.mark, s / 2, d + s / 2, s, shade(kind.colour, -0.32));
+        if (kind.beat) drawMark(ctx, kind.mark, s / 2, d + s / 2, s, shade(kind.colour, -0.32));
         this.sprites[kind.name] = layer;
         return layer;
     }

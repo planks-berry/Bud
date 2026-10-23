@@ -71,7 +71,7 @@ Every toy has three layers, which are found by playing, never unlocked:
 | **Tone bars** | Music, auditory sense | Tap a bar; sweep for a glissando; chords with several fingers | Choose a wooden or a metal mallet | The shell plays back the last phrase; at Bloom, hold a bar to lift it and move it | 5 / 8 / 10 bars |
 | **Colour beats** | Music; sensorial: colour | Tap an empty cubby on the shelf and its cube drops in, sounding; tap a cube and it comes out. A light runs along the shelf, round and round, and plays every cube it reaches | Draw a line of cubes with a finger, or empty one; hold the ball under the shelf and the light goes where the finger takes it, playing as it goes | A loop of tune and beat: each column a beat, each row a sound, the colours their notes (as on the crane) and plain wooden cubes a drum, a clap and a shaker; what a column holds sounds together; new colours each time it comes out | 4 columns, 2 colours and a drum / 8, 3 colours, a drum and a shaker / 8, all 5 colours, a drum, a clap and a shaker |
 | **Pouring** | Practical life | Tap a glass: it rings lower the fuller it is | Carry a pitcher over a glass and it tilts and pours | Colours mix as paint does; glasses overflow onto the tray and the sponge wipes it up; a pitcher put back in its place fills again | 1 / 2 / 3 pitchers, 2 / 3 / 4 glasses |
-| **Turntable** | Music, auditory sense: speed is pitch | Tap the button: the record winds down to a stop, and spins up again; tap a pad for a horn or a boom | Hold the record and move it to and fro: a scratch, the music going wherever the record goes, backwards and forwards, faster and higher | A scratch over a loop; records from a crate, each two bars pressed from the playroom's own sounds: a tune, a beat, the animals; at Bloom, a slider for the speed | one record / three in a crate, and a horn and a boom / and a speed slider |
+| **Turntable** | Music, auditory sense: speed is pitch | Tap the button: the record, waiting, spins up and plays, and winds down to a stop again; tap a pad: a horn, a boom, a cow, a clap, a shaker, or the scratch pad, which scratches the record by itself | Hold the record and move it to and fro: a scratch, the music going wherever the record goes, backwards and forwards, faster and higher | A scratch over a loop, or a beat on the pads over it; records from a crate, each two bars pressed from the playroom's own sounds: a tune, a beat, the animals; at Bloom, a slider for the speed | one record, a horn and a boom / three records, and a cow and a scratch pad / and a clap, a shaker and a speed slider |
 | **Sandpaper letters** | Language | Choose a board from the box; trace it | A guide's finger shows how each is written, once, and again on request | Only the sand makes a sound; the smooth board is silent | – |
 | **Sandpaper numerals** | Mathematics | As the letters | As the letters | A bowl lays out that many counters in pairs, Montessori's cards and counters, one rising note each | – |
 | **Dig** | Practical life: transferring, with a material that keeps its shape | Tap the sand and it sprays; tap the digger for its horn, the truck for two beeps | The bucket follows a finger: down into the sand it fills, lifted it carries, let go it pours; the digger crawls after a finger beyond its reach. Drag the truck, and tap its bed to tip it | The ground itself: heaps, holes and ramps, of sand that slumps to its natural slope and is never made or lost; things buried in it, the first always found at the first bite | a digger and a heap / and a dump truck, and things buried / and a bulldozer, and earth under the sand |
@@ -107,7 +107,8 @@ in turn, round and round, so whatever pattern the child makes is heard again and
 changes: a line of one colour, a staircase that climbs the scale, a chord, a rhythm on the drum
 under a tune. No cubby is a wrong place for a cube: every note is on the scale, so any column is a
 chord that sounds well, and a gap is a rest. A colour's note is the same in every game: red is C on
-the crane and the building site too, and the turntable's yellow horn toots yellow's E.
+the crane and the building site too, and on the turntable's pads the yellow horn toots yellow's E
+and the green cow moos green's G.
 
 They also part from Montessori in one more way, deliberately. A Montessori material is the same
 every day; the colour beats bring a new choice of colours each time they are taken out, as Pok Pok's
@@ -182,8 +183,18 @@ panel is the only text.
   other copy at the same place, the two crossfaded over a few milliseconds. While the record plays,
   the deck keeps its place by the audio clock, which a dropped frame does not stop, and the picture
   follows it; starting to play again, the deck takes up wherever the record was turned to. Old
-  WebKit takes a playback rate of 0 as 1, so a record held still runs at a thousandth of its speed,
-  silent, and its place is reckoned from that.
+  WebKit takes a playback rate of 0 or below as 1, so a record held still runs at a thousandth of
+  its speed, silent, and no copy is ever asked to go backwards.
+- **A scratch without steps.** A toy can set the record's speed only once a frame, from touches
+  that do not come evenly, and a speed that changes in steps 60 times a second is heard on a held
+  note as a buzz: frequency modulation at the frame rate. So the record follows the finger as a
+  critically damped spring does (`scratch.js`: stiffness 50 a second, so it trails a steady finger
+  by 40 ms and never overshoots), and the sound glides to each frame's speed with a 30 ms time
+  constant, on the audio clock (`setTargetAtTime`). Old WebKit keeps every automation event on a
+  parameter, and walks them all every 2.9 ms, so each frame takes back the last frame's
+  instruction before giving its own: the parameter never holds more than one. Measured on a held
+  C5 scratched with uneven touches, the buzz is 11 to 14 dB under the note, where setting the speed
+  once a frame put it level with the note or above.
 - **A room.** A short, warm, generated reverb, darkening as it decays, behind everything; a gentle
   high shelf and a compressor in front of the speaker so eight fingers do not sum into distortion.
 
@@ -237,7 +248,10 @@ In Node:
 - every sound the toys ask for with fixed parameters renders, so none is missing one it needs;
 - every choice of colours the colour beats can roll keeps its rules, over 2000 rolls a stage;
 - every record on the turntable is on the scale and in time, the same sample for sample as itself
-  played round and round (so going round has no seam), and as loud as the notes.
+  played round and round (so going round has no seam), and as loud as the notes;
+- a scratch through a held note slides rather than buzzes: a C5 scratched with uneven touches, at
+  60 and 30 frames a second, through the record's following and the sound's glide, its fast
+  wobble at least 9 dB under the note.
 
 Then in Chromium, as an iPad (1024 × 768 at 2×, touch), the suite drives every toy with real touch
 events. It measures the audio that reaches the speaker through an analyser after the compressor.
@@ -252,14 +266,17 @@ It also checks:
   it is rolled to and the loop carries on from there; that the ball hops back when the loop goes
   round; that the loop rests when left alone, and the frames stop, until a touch; and that the
   shelf brings different colours the next time it comes out;
-- at the turntable: that the record turns and plays; that a hand holds it still and silent; that
+- at the turntable: that the record waits, stopped and silent, until the button starts it, and then
+  turns and plays; that a hand holds it still and silent; that
   turned back, the music plays backwards and goes back exactly as far as the record turned, and
   forwards again; that let go, it spins back up with the music in step; that after a slow frame
   the record catches up with the music; that a record from the crate goes on and plays from its
   start; that the button winds it down to a stop, after which nothing moves, and starts it again
-  from where it stopped; that the horn is yellow and toots yellow's note, and the boom is the
-  colour beats' drum wood; at Seed, one record and the button; at Bloom, that the slider sets the
-  speed and settles on the record's own in the middle;
+  from where it stopped; that the pads keep the playroom's colours (the horn yellow and tooting
+  yellow's note, the cow green and mooing green's an octave down, the boom the colour beats' drum,
+  with its mark) and sound; that the scratch pad scratches the record back and forth and leaves it
+  where it was; at Seed, one record, the button, a horn and a boom; at Bloom, six pads, and that
+  the slider sets the speed and settles on the record's own in the middle;
 - on the farm: that a frog comes to the pond within seconds; that a hidden thing shows itself the
   first time whatever chance says, and by chance after that; that a piece from the tray joins its
   neighbours; that a joined field grows as one, is harvested ripe and hides a rabbit among the
@@ -327,7 +344,8 @@ playroom/
     start.js, shelf.js      the bud, and the shelf
     settings.js, parent.js  the grown-ups' corner
     toys/                   one file per toy; glyphs.js holds the letters and numerals, cubes.js
-                            the colour beats' cubes, records.js the turntable's records,
+                            the colour beats' cubes and the beats' marks, records.js the
+                            turntable's records, scratch.js how its record follows a hand,
                             farmart.js the farm's pictures, board.js the isometric board the
                             farm and the building site are built on, iso.js its boxes, roofs
                             and walls, machines.js the site's palette and machines, and

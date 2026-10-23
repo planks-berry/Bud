@@ -45,6 +45,7 @@ const FILES = [
     'js/toys/pour.js',
     'js/toys/turntable.js',
     'js/toys/records.js',
+    'js/toys/scratch.js',
     'js/toys/cubes.js',
     'js/toys/glyphs.js',
     'js/toys/sandpaper.js',

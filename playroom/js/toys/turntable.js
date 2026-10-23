@@ -1,19 +1,22 @@
 // The turntable: a record player to scratch, after a DJ's deck.
 //
-// A record turns on the platter, playing its loop, and a finger on it takes hold of it the way a
-// DJ's hand does: the record goes where the finger takes it, forwards or backwards, fast or slow,
-// and the music goes with it, so rubbing it to and fro is a scratch. Let go, and it spins back up
-// to speed; flicked, it races and settles. The button winds the turntable down to a stop, the music
-// sliding down with it, and up again. At Sprout a crate holds three records to swap, and two pads
-// add a horn and a boom; at Bloom a slider sets the turntable's speed, and the pitch with it.
+// The record waits on the platter until the button starts it; then it turns, playing its loop. A
+// finger on it takes hold of it the way a DJ's hand does: the record goes where the finger takes it,
+// forwards or backwards, fast or slow, and the music goes with it, so rubbing it to and fro is a
+// scratch. Let go, and it spins back up to speed; flicked, it races and settles. The button winds
+// the turntable down to a stop, the music sliding down with it, and up again. Pads beside it add a
+// horn and a boom, and later a cow, a scratch made for him, a clap and a shaker; at Sprout a crate
+// holds three records to swap, and at Bloom a slider sets the speed, and the pitch with it.
 //
 // The records are pressed from the playroom's own sounds (records.js) and play through a deck
 // (audio.js) that can run a loop backwards. The record's turn and the music's place in its loop are
 // one: wherever the record is turned to is where the music is, so a scratch can be found again.
+// The record follows a finger as if it had weight, and the sound glides to each new speed
+// (scratch.js), so a scratch through a held note is a smooth slide, not a buzz.
 //
-//   touch  - tap the button: the record winds down, or spins up. Tap a pad for its sound.
+//   touch  - tap the button: the record spins up, or winds down. Tap a pad for its sound.
 //   move   - hold the record and move it, to and fro: a scratch. At Bloom, slide the speed.
-//   make   - a scratch over a loop; a record chosen from the crate; a horn in the right place.
+//   make   - a scratch over a loop; a beat on the pads over the record; a record from the crate.
 
 import { Scene } from '../stage.js';
 import { PALETTE, makeLayer, freeLayer, grain, fillRound, disc, ellipse, woodPanel } from '../draw.js';
@@ -32,7 +35,8 @@ import {
 import { noteHz } from '../synth.js';
 import * as audio from '../audio.js';
 import { recordsFor, press, STEP, LENGTH } from './records.js';
-import { COLOURS, BEATS } from './cubes.js';
+import { COLOURS, BEATS, drawMark } from './cubes.js';
+import { GLIDE, follow, lead } from './scratch.js';
 
 // The platter at full speed: 33 1/3 turns a minute, in radians a second.
 const SPIN = (TAU * 100) / 3 / 60;
@@ -47,14 +51,28 @@ const SLOWEST = 0.6;
 const FASTEST = 1.5;
 // How long a record takes to go back to the crate, and the next to come onto the platter.
 const SWAP = 0.36;
+// The scratch pad's scratch: back and forth twice in a beat, this far each way, in radians; then
+// its hand rides along a moment longer, so the record is let go at its own speed.
+const SCRATCH = STEP * 2;
+const SCRATCH_DEPTH = 0.85;
+const SCRATCH_TAIL = 0.12;
 
-// The pads: a horn on yellow, which toots yellow's note, as a yellow cube does in the colour beats,
-// and a boom on the plain wood of their drum.
-const YELLOW = COLOURS.find((kind) => kind.name === 'yellow');
+// The pads, in the order the stages bring them out: 2 at Seed, 4 at Sprout, 6 at Bloom. A pad with
+// a note wears that note's colour, as everywhere in the playroom: a horn on yellow, tooting yellow's
+// E, and a cow on green, mooing G an octave down. A beat with no note is plain wood, the wood of its
+// cube in the colour beats, with its mark: the drum's boom, the clap and the shaker. And the scratch
+// pad, the colour of the platter, scratches the record for him.
+const tint = (name) => COLOURS.find((kind) => kind.name === name);
+const wood = (name) => BEATS.find((beat) => beat.name === name);
 const PADS = [
-    { name: 'horn', colour: YELLOW.colour, f: noteHz(YELLOW.degree, 60) },
-    { name: 'boom', colour: BEATS.find((beat) => beat.name === 'drum').colour },
+    { name: 'horn', colour: tint('yellow').colour, f: noteHz(tint('yellow').degree, 60) },
+    { name: 'boom', colour: wood('drum').colour, mark: wood('drum').mark },
+    { name: 'cow', colour: tint('green').colour, f: noteHz(tint('green').degree - 5, 60) },
+    { name: 'scratch', colour: '#6E6661' },
+    { name: 'clap', colour: wood('clap').colour, mark: wood('clap').mark },
+    { name: 'shaker', colour: wood('shaker').colour, mark: wood('shaker').mark },
 ];
+const PAD_COUNT = [2, 4, 6];
 
 const mod = (a, n) => ((a % n) + n) % n;
 
@@ -65,13 +83,15 @@ class TurntableScene extends Scene {
         this.records = recordsFor(this.level);
         this.current = 0;
         this.pressed = {};
-        this.deck = new audio.Deck();
+        this.deck = new audio.Deck(GLIDE);
         this.time = 0;
         this.touched = 0;
-        // The record: whether the motor runs, how fast the record goes now (1 is playing at speed,
-        // below 0 backwards), what the speed slider asks for, and how far it has turned.
-        this.motor = true;
+        // The record: whether the motor runs (not until the button is pressed), how fast the record
+        // goes now (1 is playing at speed, below 0 backwards) and its turning speed in a hand, what
+        // the speed slider asks for, and how far it has turned.
+        this.motor = false;
         this.rate = 0;
+        this.spin = 0;
         this.speed = 1;
         this.angle = 0;
         // A finger holding the record, and a record on its way to or from the crate.
@@ -81,7 +101,7 @@ class TurntableScene extends Scene {
         this.button = new Spring(0, 420, 18);
         this.knob = new Spring(0, 420, 18);
         this.beat = { at: -1, glow: 0 };
-        this.pads = (this.level >= 1 ? PADS : []).map((pad) =>
+        this.pads = PADS.slice(0, PAD_COUNT[this.level]).map((pad) =>
             Object.assign({ x: 0, y: 0, r: 0, press: new Spring(0, 520, 16), glow: 0 }, pad)
         );
         this.bg = null;
@@ -101,7 +121,11 @@ class TurntableScene extends Scene {
     layout() {
         const { w, h, u } = this;
         const crate = this.records.length > 1;
-        const extra = this.pads.length ? 0.95 : 0;
+        // The pads stand in a strip beside the platter, in one column or two, and the slider beyond
+        // them: `extra` is how much wider than the platter's own 2.4 R that makes the turntable.
+        const cols = this.pads.length > 2 ? 2 : 1;
+        const slider = this.level >= 2;
+        const extra = !this.pads.length ? 0 : cols === 1 ? 0.95 : slider ? 1.77 : 1.53;
         const portrait = h > w;
         // The platter's radius, R: the turntable is 2.4 R wide (and a strip for the pads beside it)
         // and 2.24 R tall; the crate stands beside it, or below it on a tall screen.
@@ -128,16 +152,16 @@ class TurntableScene extends Scene {
         this.recordR = 0.94 * R;
         this.labelR = 0.33 * R;
         this.pivot = { x: this.cx + 1.0 * R, y: this.cy - 0.82 * R };
-        this.buttonAt = { x: this.cx - 0.92 * R, y: this.cy + 0.86 * R, r: 0.16 * R };
+        this.buttonAt = { x: this.cx - 0.92 * R, y: this.cy + 0.86 * R, r: 0.19 * R };
+        const rows = Math.ceil(this.pads.length / cols);
         this.pads.forEach((pad, i) => {
-            pad.x = this.cx + 1.6 * R;
-            pad.y = this.cy - 0.3 * R + i * 0.64 * R;
-            pad.r = 0.25 * R;
+            pad.x = this.cx + (1.6 + (i % cols) * 0.6) * R;
+            pad.y = this.cy + (Math.floor(i / cols) - (rows - 1) / 2) * 0.62 * R;
+            pad.r = (cols === 1 ? 0.25 : 0.23) * R;
         });
-        this.fader =
-            this.level >= 2
-                ? { x: this.cx + 1.98 * R, y0: this.cy - 0.78 * R, y1: this.cy + 0.78 * R, w: 0.13 * R }
-                : null;
+        this.fader = slider
+            ? { x: this.cx + 2.62 * R, y0: this.cy - 0.78 * R, y1: this.cy + 0.78 * R, w: 0.13 * R }
+            : null;
         // The crate's sleeves, beside the turntable or under it.
         const S = 0.68 * R;
         this.sleeves = this.records.map((record, i) =>
@@ -181,13 +205,23 @@ class TurntableScene extends Scene {
         this.time += dt;
         if (this.motor && this.time - this.touched > IDLE) this.setMotor(false);
 
-        // In the hand, the record goes where the finger takes it, a moment behind, which smooths a
-        // touch's steps, and its speed is how fast that is. Let go, it comes to the motor's speed:
-        // quickly up, a flick settling, slowly down.
+        // The scratch pad's hand: back and forth on the record, riding on the turntable's own
+        // turning, so after it the music is still on the beat.
+        const h = this.hand;
+        if (h && h.auto) {
+            const a = h.auto;
+            a.t += dt;
+            const back = a.t < SCRATCH ? (SCRATCH_DEPTH / 2) * (1 - Math.cos((TAU * 2 * a.t) / SCRATCH)) : 0;
+            h.angle = a.from + a.base * SPIN * a.t - back;
+            if (a.t >= SCRATCH + SCRATCH_TAIL) this.hand = null;
+        }
+        // In the hand, the record follows the finger as if it had weight, and its speed is how fast
+        // it goes. Let go, it comes to the motor's speed: quickly up, a flick settling, slowly down.
         if (this.hand) {
-            const before = this.angle;
-            this.angle += (this.hand.angle - this.angle) * (1 - Math.exp(-dt / 0.03));
-            this.rate = (this.angle - before) / Math.max(dt, 1e-3) / SPIN;
+            const [angle, spin] = follow(this.angle, this.spin, this.hand.angle, dt);
+            this.angle = angle;
+            this.spin = spin;
+            this.rate = spin / SPIN;
         } else {
             const target = this.swap ? 0 : this.motor ? this.speed : 0;
             const faster =
@@ -196,6 +230,7 @@ class TurntableScene extends Scene {
             this.rate += (target - this.rate) * (1 - Math.exp(-dt / tau));
             if (Math.abs(this.rate - target) < 0.002) this.rate = target;
             this.angle += this.rate * SPIN * dt;
+            this.spin = this.rate * SPIN;
         }
         // The music is wherever the record is turned to. While it plays, the deck keeps time by the
         // audio clock, which a slow frame does not stop, and the record follows it, gently, so the
@@ -279,9 +314,9 @@ class TurntableScene extends Scene {
             return;
         }
         const r = dist(p.x, p.y, this.cx, this.cy);
-        if (r < this.recordR + 6 * this.u && !this.hand && !this.swap) {
-            // A spinning record caught slides on a little under the finger.
-            this.hand = { pointer: p, x: p.x, y: p.y, angle: this.angle + this.rate * SPIN * 0.03 };
+        if (r < this.recordR + 6 * this.u && (!this.hand || this.hand.auto) && !this.swap) {
+            // A turning record caught slides on a little under the finger, and stops.
+            this.hand = { pointer: p, x: p.x, y: p.y, angle: this.angle + lead(this.spin) };
             p.owner = { type: 'record' };
         }
     }
@@ -344,10 +379,28 @@ class TurntableScene extends Scene {
         if (pad.name === 'horn') {
             audio.play('toot', { f: pad.f }, { gain: 0.9, pan });
             audio.play('toot', { f: pad.f }, { gain: 0.8, pan, delay: 0.17 });
-        } else {
+        } else if (pad.name === 'boom') {
             audio.play('drum', {}, { gain: 1, pan });
             audio.play('thud', { f: 85 }, { gain: 0.6, pan });
+        } else if (pad.name === 'cow') {
+            audio.play('moo', { f: pad.f }, { gain: 0.9, pan });
+        } else if (pad.name === 'scratch') {
+            this.scratch();
+        } else if (pad.name === 'clap') {
+            audio.play('clap', {}, { gain: 1, pan });
+        } else {
+            audio.play('shaker', {}, { gain: 0.9, pan });
+            audio.play('shaker', {}, { gain: 0.7, pan, delay: STEP / 2 });
         }
+    }
+
+    // The scratch pad: the record scratched for him, as a hand would, unless a hand already has it.
+    scratch() {
+        if (this.swap || (this.hand && !this.hand.auto)) return;
+        this.hand = {
+            angle: this.angle,
+            auto: { t: 0, from: this.angle, base: this.motor ? this.speed : 0 },
+        };
     }
 
     //--------------------------------------------------------------------------
@@ -507,22 +560,7 @@ class TurntableScene extends Scene {
             ctx.lineTo(s * 0.55, -s * 0.15);
             ctx.stroke();
         } else {
-            // A cow's face: white, with a patch, two ears and a pink muzzle.
-            disc(ctx, 0, 0, s * 0.55, '#FBF8F2');
-            ellipse(ctx, s * 0.22, -s * 0.18, s * 0.2, s * 0.16, 0.4);
-            ctx.fillStyle = '#6E5B52';
-            ctx.fill();
-            ellipse(ctx, -s * 0.62, -s * 0.28, s * 0.2, s * 0.1, -0.4);
-            ctx.fill();
-            ellipse(ctx, s * 0.62, -s * 0.28, s * 0.2, s * 0.1, 0.4);
-            ctx.fill();
-            ellipse(ctx, 0, s * 0.28, s * 0.36, s * 0.22, 0);
-            ctx.fillStyle = '#F2B6BE';
-            ctx.fill();
-            disc(ctx, -s * 0.12, s * 0.28, s * 0.05, '#C98A92');
-            disc(ctx, s * 0.12, s * 0.28, s * 0.05, '#C98A92');
-            disc(ctx, -s * 0.2, -s * 0.12, s * 0.06, '#4E4440');
-            disc(ctx, s * 0.2, -s * 0.12, s * 0.06, '#4E4440');
+            drawCow(ctx, s);
         }
         ctx.restore();
     }
@@ -654,16 +692,21 @@ class TurntableScene extends Scene {
         disc(ctx, 2, 4, b.r, 'rgba(92, 70, 58, 0.16)');
         disc(ctx, 0, 0, b.r, '#DCD2C6');
         disc(ctx, 0, 0, b.r * 0.8, '#F4ECE2');
-        // A light that shows the motor is on, and a play mark.
-        const on = this.motor;
-        disc(ctx, 0, 0, b.r * 0.42, on ? 'rgba(142, 191, 122, 0.95)' : 'rgba(190, 180, 170, 0.8)');
-        ctx.beginPath();
-        ctx.moveTo(-b.r * 0.12, -b.r * 0.2);
-        ctx.lineTo(b.r * 0.2, 0);
-        ctx.lineTo(-b.r * 0.12, b.r * 0.2);
-        ctx.closePath();
-        ctx.fillStyle = '#FBF8F2';
-        ctx.fill();
+        // What a press will do: play, on green, while it is stopped; stop, while it turns.
+        if (this.motor) {
+            disc(ctx, 0, 0, b.r * 0.5, '#B3A99F');
+            const q = b.r * 0.17;
+            fillRound(ctx, -q, -q, q * 2, q * 2, q * 0.25, '#FBF8F2');
+        } else {
+            disc(ctx, 0, 0, b.r * 0.5, 'rgba(142, 191, 122, 0.95)');
+            ctx.beginPath();
+            ctx.moveTo(-b.r * 0.13, -b.r * 0.23);
+            ctx.lineTo(b.r * 0.24, 0);
+            ctx.lineTo(-b.r * 0.13, b.r * 0.23);
+            ctx.closePath();
+            ctx.fillStyle = '#FBF8F2';
+            ctx.fill();
+        }
         ctx.restore();
     }
 
@@ -701,16 +744,42 @@ class TurntableScene extends Scene {
             ellipse(ctx, s * 0.82, 0, s * 0.14, s * 0.62, 0);
             ctx.fillStyle = shade(pad.colour, -0.18);
             ctx.fill();
-        } else {
-            ellipse(ctx, 0, -s * 0.3, s * 0.7, s * 0.28, 0);
+        } else if (pad.name === 'cow') {
+            drawCow(ctx, s * 1.75);
+        } else if (pad.name === 'scratch') {
+            // A record, and the to and fro of a hand on it.
+            const y = s * 0.22;
+            disc(ctx, 0, y, s * 0.62, '#3E3936');
+            disc(ctx, 0, y, s * 0.24, ink);
+            disc(ctx, 0, y, s * 0.06, '#3E3936');
+            const ends = [-Math.PI * 0.8, -Math.PI * 0.2];
+            ctx.beginPath();
+            ctx.arc(0, y, s * 0.98, ends[0], ends[1]);
+            ctx.lineWidth = s * 0.13;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = ink;
+            ctx.stroke();
+            // An arrowhead at each end of the arc, pointing on round it.
             ctx.fillStyle = ink;
-            ctx.fill();
-            ctx.fillRect(-s * 0.7, -s * 0.3, s * 1.4, s * 0.75);
-            ellipse(ctx, 0, s * 0.45, s * 0.7, s * 0.28, 0);
-            ctx.fill();
-            ellipse(ctx, 0, -s * 0.3, s * 0.6, s * 0.2, 0);
-            ctx.fillStyle = pad.colour;
-            ctx.fill();
+            ends.forEach((a, i) => {
+                const way = i === 0 ? -1 : 1;
+                const x = Math.cos(a) * s * 0.98;
+                const yy = y + Math.sin(a) * s * 0.98;
+                const tx = -Math.sin(a) * way;
+                const ty = Math.cos(a) * way;
+                const nx = Math.cos(a);
+                const ny = Math.sin(a);
+                const k = s * 0.3;
+                ctx.beginPath();
+                ctx.moveTo(x + tx * k, yy + ty * k);
+                ctx.lineTo(x - tx * k * 0.25 + nx * k * 0.7, yy - ty * k * 0.25 + ny * k * 0.7);
+                ctx.lineTo(x - tx * k * 0.25 - nx * k * 0.7, yy - ty * k * 0.25 - ny * k * 0.7);
+                ctx.closePath();
+                ctx.fill();
+            });
+        } else {
+            // A beat: its mark, burnt into the wood as on its cube in the colour beats.
+            drawMark(ctx, pad.mark, 0, 0, pad.r * 1.8, shade(pad.colour, -0.32));
         }
         ctx.restore();
     }
@@ -791,6 +860,25 @@ class TurntableScene extends Scene {
     }
 }
 
+// A cow's face, `s` its scale: white, with a patch, two ears and a pink muzzle.
+function drawCow(ctx, s) {
+    disc(ctx, 0, 0, s * 0.55, '#FBF8F2');
+    ellipse(ctx, s * 0.22, -s * 0.18, s * 0.2, s * 0.16, 0.4);
+    ctx.fillStyle = '#6E5B52';
+    ctx.fill();
+    ellipse(ctx, -s * 0.62, -s * 0.28, s * 0.2, s * 0.1, -0.4);
+    ctx.fill();
+    ellipse(ctx, s * 0.62, -s * 0.28, s * 0.2, s * 0.1, 0.4);
+    ctx.fill();
+    ellipse(ctx, 0, s * 0.28, s * 0.36, s * 0.22, 0);
+    ctx.fillStyle = '#F2B6BE';
+    ctx.fill();
+    disc(ctx, -s * 0.12, s * 0.28, s * 0.05, '#C98A92');
+    disc(ctx, s * 0.12, s * 0.28, s * 0.05, '#C98A92');
+    disc(ctx, -s * 0.2, -s * 0.12, s * 0.06, '#4E4440');
+    disc(ctx, s * 0.2, -s * 0.12, s * 0.06, '#4E4440');
+}
+
 // The shelf's picture: the turntable, a record on it, the arm down.
 function icon(ctx, x, y, w, h) {
     const R = Math.min(w, h) * 0.36;
@@ -833,11 +921,11 @@ function icon(ctx, x, y, w, h) {
 export const toy = {
     id: 'turntable',
     title: 'Turntable',
-    about: 'A record player to scratch: hold the record and move it to and fro, and the music goes with it, backwards and forwards. The button winds it down and up again. At Sprout, three records to swap and two pads; at Bloom, a speed slider.',
+    about: 'A record player to scratch. It waits for the button; then hold the record and move it to and fro, and the music goes with it, backwards and forwards. Pads beside it toot, boom and moo, and one scratches the record by itself. At Sprout, three records to swap; at Bloom, a speed slider.',
     stages: [
-        'one record and the button',
-        'three records in a crate, and a horn and a boom',
-        'and a slider for the speed',
+        'one record, the button, a horn and a boom',
+        'three records in a crate, and a cow and a scratch pad',
+        'a clap and a shaker, and a slider for the speed',
     ],
     mat: '#EFE3F1',
     icon,
@@ -848,7 +936,11 @@ export const toy = {
             ['click', { variant: 'on' }],
             ['click', { variant: 'off' }],
             ['toot', { f: PADS[0].f }],
+            ['drum', {}],
             ['thud', { f: 85 }],
+            ['moo', { f: PADS[2].f }],
+            ['clap', {}],
+            ['shaker', {}],
             ['tick', { f: noteHz(0, 72) }],
             ['whoosh', { variant: 'up' }],
             ['whoosh', { variant: 'down' }],

@@ -797,32 +797,38 @@ export class Motor {
 }
 
 // A record on a turntable: a loop that plays at any speed, forwards or backwards, wherever a hand
-// or the platter takes it. The loop is held twice, the second time reversed. Whichever way the
-// record is going, that copy plays from where the record is, at the record's speed; turning round
-// starts the other copy from the same place, the old one fading in a few milliseconds, as a needle
-// changes direction in its groove. A record held still says nothing.
+// or the platter takes it. The loop is held twice, the second time reversed, because old WebKit
+// plays nothing backwards and takes a speed of 0 for 1. Whichever way the record is going, that
+// copy plays from where the record is, at the record's speed; turning round starts the other copy
+// from the same place, the old one fading in a few milliseconds, as a needle changes direction in
+// its groove. A record held still says nothing.
+//
+// The sound comes to each new speed gliding, over `glide` seconds, on the audio clock, so a hand's
+// speed, which the toy can only give it once a frame, reaches the sound without steps. Each frame
+// replaces the last frame's instructions to the playing copy, so nothing piles up on it.
 //
 // While it plays, the deck keeps its place in the loop by the audio clock, which a slow frame does
 // not stop, so the toy can follow it; starting to play again, it takes up the place it is given.
-//
-// The speed is set on the playing copy directly each frame, and a turn starts a new copy whose own
-// gain fades in and out: nothing is scheduled on a parameter that lives, so nothing accumulates.
 const STILL = 0.03;
 
 const wrap = (x, n) => ((x % n) + n) % n;
 
 export class Deck {
-    constructor() {
+    constructor(glide) {
+        this.glide = glide;
         this.nodes = null;
         this.data = null;
         this.buffers = new Map();
         this.voice = null;
         this.dir = 1;
-        // Where the record is in its loop, in seconds, as of the context's time `at`; the speed the
-        // copy playing runs at, below 0 for the backward one; and whether it can be heard.
+        // Where the record is in its loop, in seconds, as of the context's time `at`; how fast the
+        // sound is going then (below 0 backwards) and the speed it is gliding to; and whether it can
+        // be heard.
         this.pos = 0;
         this.speed = 0;
+        this.goal = 0;
         this.at = 0;
+        this.sent = -1;
         this.sounding = false;
         state.textures.add(this);
     }
@@ -870,7 +876,7 @@ export class Deck {
         const source = ctx.createBufferSource();
         source.buffer = dir < 0 ? loops.back : loops.ahead;
         source.loop = true;
-        source.playbackRate.value = Math.max(0.001, Math.abs(this.speed));
+        source.playbackRate.value = Math.max(0.001, dir * this.speed);
         const gain = ctx.createGain();
         gain.gain.value = 0;
         gain.gain.setTargetAtTime(1, ctx.currentTime, 0.004);
@@ -879,6 +885,7 @@ export class Deck {
         source.start(0, wrap(dir < 0 ? this.length - this.pos : this.pos, this.length));
         this.voice = { source, gain };
         this.dir = dir;
+        this.sent = -1;
         if (old) {
             old.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.004);
             old.source.onended = () => old.gain.disconnect();
@@ -890,30 +897,50 @@ export class Deck {
         }
     }
 
+    // Send the playing copy gliding from its speed now to the speed it was given: what it was told
+    // last frame is taken back first, and its speed now set, so the parameter holds one instruction.
+    // A copy never runs below a thousandth of its speed, nor backwards.
+    steer() {
+        const to = Math.max(0.001, this.dir * this.goal);
+        if (to === this.sent) return;
+        const ctx = state.ctx;
+        const rate = this.voice.source.playbackRate;
+        rate.value = Math.max(0.001, this.dir * this.speed);
+        rate.cancelScheduledValues(0);
+        rate.setTargetAtTime(to, ctx.currentTime, this.glide);
+        this.sent = to;
+    }
+
     // The record's speed (1 is playing at its own speed, below 0 backwards), the level, 0..1, and
     // where the record is in its loop, in seconds, for the deck to take up if it starts to play.
     set(rate, level, place) {
         if (!ready() || !this.data) return;
-        const sounding = level > 0.001 && Math.abs(rate) >= STILL;
         if (!this.nodes) {
-            if (!sounding) return;
+            if (level <= 0.001 || Math.abs(rate) < STILL) return;
             this.build();
         }
+        // Where the sound has got to since the last frame, and how fast it is going now: gliding,
+        // all that time, from the speed it had to the speed it was given.
         const now = state.ctx.currentTime;
-        this.pos = wrap(this.pos + this.speed * (now - this.at), this.length);
+        const dt = Math.max(0, now - this.at);
+        const k = Math.exp(-dt / this.glide);
+        this.pos = wrap(
+            this.pos + this.goal * dt + (this.speed - this.goal) * this.glide * (1 - k),
+            this.length
+        );
+        this.speed = this.goal + (this.speed - this.goal) * k;
         this.at = now;
-        const dir = rate > STILL ? 1 : rate < -STILL ? -1 : this.dir;
-        // WebKit takes a speed of 0 for 1, so a record held still creeps on very slowly, and its
-        // place is reckoned from what the copy actually plays.
-        this.speed = dir * Math.max(0.001, Math.abs(rate));
+        this.goal = rate;
+        const sounding = level > 0.001 && Math.abs(this.speed) >= STILL;
+        const dir = this.speed > STILL ? 1 : this.speed < -STILL ? -1 : this.dir;
         if (sounding && !this.sounding) {
             this.pos = wrap(place, this.length);
             this.turn(dir);
-        } else if (dir !== this.dir) {
+        } else if (this.voice && dir !== this.dir) {
             this.turn(dir);
         }
+        if (this.voice) this.steer();
         this.sounding = sounding;
-        this.voice.source.playbackRate.value = Math.abs(this.speed);
         this.nodes.level.set(sounding ? clamp(level, 0, 1) : 0);
     }
 

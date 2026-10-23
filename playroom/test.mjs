@@ -497,6 +497,69 @@ check(
     );
 }
 
+// ---- a scratch through a held note slides, rather than buzzes --------------------------------
+//
+// A hand scratching a held C5, back and forth two and a half times a second, its touches arriving
+// unevenly (in some frames none, in some two), at 60 and at 30 frames a second: through the
+// record's following the finger, and the sound's glide as the audio engine runs it, a step every
+// 128 samples. What a held note hears as a buzz is the record's place wobbling faster than 25 Hz;
+// here, as phase on the C5, its level against the note, the middle of nine runs of uneven touches.
+// Setting the speed once a frame, as the first turntable did, put it about as loud as the note, or
+// louder.
+
+{
+    const { follow, GLIDE } = await import(pathToFileURL(join(here, 'js/toys/scratch.js')).href);
+    const SR = 44100;
+    const SPIN = (Math.PI * 2 * 100) / 3 / 60;
+    const highpass = (x, fc) => {
+        const w = (2 * Math.PI * fc) / SR;
+        const c = Math.cos(w);
+        const a = Math.sin(w) / Math.SQRT2;
+        const [b0, b1, a1, a2] = [(1 + c) / 2, -(1 + c), -2 * c, 1 - a];
+        const y = new Float64Array(x.length);
+        let [x1, x2, y1, y2] = [0, 0, 0, 0];
+        for (let k = 0; k < x.length; k++) {
+            y[k] = (b0 * x[k] + b1 * x1 + b0 * x2 - a1 * y1 - a2 * y2) / (1 + a);
+            [x2, x1, y2, y1] = [x1, x[k], y1, y[k]];
+        }
+        return y;
+    };
+    const buzz = (fps, start) => {
+        let seed = start;
+        const random = () => (seed = (seed * 1103515245 + 12345) >>> 0) / 4294967296;
+        const finger = (t) => 0.6 * Math.sin(2 * Math.PI * 2.5 * t);
+        const frame = 1 / fps;
+        const place = new Float64Array(2 * SR);
+        let [angle, spin, target, touched, speed, p, i] = [0, 0, 0, 0, 0, 0, 0];
+        for (let t = 0; i < place.length; t += frame) {
+            const r = random();
+            const touches = r < 0.15 ? 0 : r > 0.85 ? 2 : 1;
+            if (touches) {
+                touched = Math.min(t, touched + touches / 60);
+                target = finger(touched);
+            }
+            [angle, spin] = follow(angle, spin, target, frame);
+            for (const end = Math.min(place.length, Math.round((t + frame) * SR)); i < end; i++) {
+                if (i % 128 === 0) speed += (spin / SPIN - speed) * (1 - Math.exp(-128 / SR / GLIDE));
+                p += speed / SR;
+                place[i] = p;
+            }
+        }
+        const fast = highpass(highpass(place, 25), 25);
+        let sum = 0;
+        for (let k = SR / 2; k < place.length; k++) sum += (2 * Math.PI * 523.25 * fast[k]) ** 2;
+        return 10 * Math.log10(sum / (place.length - SR / 2));
+    };
+    const levels = [60, 30].map(
+        (fps) => Array.from({ length: 9 }, (_, k) => buzz(fps, k * 7919 + 1)).sort((a, b) => a - b)[4]
+    );
+    check(
+        'a scratch through a held note slides rather than buzzes: its fast wobble 9 dB under the note',
+        levels.every((level) => level < -9),
+        `${levels.map((level, k) => `${[60, 30][k]} frames a second ${level.toFixed(1)} dB`).join(', ')}`
+    );
+}
+
 //==============================================================================
 // The browser
 
@@ -1062,6 +1125,7 @@ async function suite(mode) {
                 record: s.records[s.current].name,
                 motor: s.motor,
                 swapping: !!s.swap,
+                started: !!s.deck.voice,
             };
         });
     const tt = await scene(() => {
@@ -1072,7 +1136,14 @@ async function suite(mode) {
             r: s.recordR,
             button: s.buttonAt,
             records: s.records.map((record) => record.name),
-            pads: s.pads.map((pad) => ({ name: pad.name, x: pad.x, y: pad.y, colour: pad.colour, f: pad.f })),
+            pads: s.pads.map((pad) => ({
+                name: pad.name,
+                x: pad.x,
+                y: pad.y,
+                colour: pad.colour,
+                f: pad.f,
+                mark: pad.mark,
+            })),
             sleeves: s.sleeves.map((q) => ({ x: q.x + q.s / 2, y: q.y + q.s * 0.6 })),
             fader: !!s.fader,
         };
@@ -1080,21 +1151,33 @@ async function suite(mode) {
     const { LENGTH: LOOP } = await import(pathToFileURL(join(here, 'js/toys/records.js')).href);
     const { COLOURS, BEATS } = await import(pathToFileURL(join(here, 'js/toys/cubes.js')).href);
     const yellow = COLOURS.find((kind) => kind.name === 'yellow');
+    const green = COLOURS.find((kind) => kind.name === 'green');
     // How far apart two places in the loop are, the short way round.
     const apart = (a, b) => ((((a - b) % LOOP) + LOOP * 1.5) % LOOP) - LOOP / 2;
     const SPIN = (Math.PI * 2 * 100) / 3 / 60;
     check(
-        'the turntable opens at Sprout: three records in the crate, a horn and a boom, no slider',
+        'the turntable opens at Sprout: three records in the crate, four pads, no slider',
         tt.records.join(' ') === 'tune beat animals' &&
-            tt.pads.map((pad) => pad.name).join(' ') === 'horn boom' &&
+            tt.pads.map((pad) => pad.name).join(' ') === 'horn boom cow scratch' &&
             !tt.fader,
         `${tt.records.join(' ')}; ${tt.pads.map((pad) => pad.name).join(' ')}`
     );
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
+    const waiting = await deck();
+    check(
+        'the record waits, stopped and silent, for the button',
+        !waiting.motor && waiting.rate === 0 && waiting.heard === null && !waiting.started,
+        JSON.stringify(waiting)
+    );
+    await touch.tap(tt.button.x, tt.button.y);
+    await page.waitForTimeout(900);
     const spinning = await deck();
     check(
-        'the record turns and plays',
-        Math.abs(spinning.rate - 1) < 0.01 && spinning.heard !== null && (await peak(500)) > 0.02,
+        'the button starts it: it turns and plays',
+        spinning.motor &&
+            Math.abs(spinning.rate - 1) < 0.01 &&
+            spinning.heard !== null &&
+            (await peak(500)) > 0.02,
         `rate ${spinning.rate.toFixed(2)}`
     );
 
@@ -1197,12 +1280,16 @@ async function suite(mode) {
         `${winding.rate.toFixed(2)} after a second`
     );
 
-    const [horn, boom] = tt.pads;
+    const [horn, boom, cow, scratcher] = tt.pads;
+    const drum = BEATS.find((beat) => beat.name === 'drum');
     check(
-        "the horn is yellow and toots yellow's note, as in the colour beats; the boom is their drum's wood",
+        "the pads keep the playroom's colours: the horn yellow, tooting yellow's note; the cow green, mooing green's an octave down; the boom the colour beats' drum, with its mark",
         horn.colour === yellow.colour &&
             Math.abs(horn.f - noteHz(yellow.degree, 60)) < 1e-9 &&
-            boom.colour === BEATS.find((beat) => beat.name === 'drum').colour
+            cow.colour === green.colour &&
+            Math.abs(cow.f - noteHz(green.degree - 5, 60)) < 1e-9 &&
+            boom.colour === drum.colour &&
+            boom.mark === drum.mark
     );
     await touch.tap(horn.x, horn.y);
     check(
@@ -1212,6 +1299,38 @@ async function suite(mode) {
     await page.waitForTimeout(900);
     await touch.tap(boom.x, boom.y);
     check('the boom booms', (await peak(300)) > 0.02);
+    await page.waitForTimeout(900);
+    await touch.tap(cow.x, cow.y);
+    check('the cow moos', (await peak(400)) > 0.02);
+    await page.waitForTimeout(1200);
+
+    // The scratch pad scratches the record for him: back and forth, and it comes to rest where it was.
+    const unscratched = await deck();
+    await touch.tap(scratcher.x, scratcher.y);
+    const scratched = await scene(async () => {
+        const s = window.playroom.stage.scene;
+        let slowest = 0;
+        let fastest = 0;
+        let heard = 0;
+        for (let i = 0; i < 40; i++) {
+            slowest = Math.min(slowest, s.rate);
+            fastest = Math.max(fastest, s.rate);
+            if (s.deck.place() !== null) heard++;
+            await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        return { slowest, fastest, heard };
+    });
+    await page.waitForTimeout(600);
+    const settled = await deck();
+    check(
+        'the scratch pad scratches the record, back and forth, and it comes to rest where it was',
+        scratched.slowest < -1 &&
+            scratched.fastest > 1 &&
+            scratched.heard > 5 &&
+            Math.abs(settled.rate) < 0.05 &&
+            Math.abs(apart(settled.place, unscratched.place)) < 0.05,
+        `${scratched.slowest.toFixed(2)} to ${scratched.fastest.toFixed(2)}, ${apart(settled.place, unscratched.place).toFixed(3)} s from where it was`
+    );
 
     // And up again, going on from where it stopped.
     await touch.tap(tt.button.x, tt.button.y);
@@ -2629,13 +2748,22 @@ async function suite(mode) {
     await open('turntable');
     const seedDeck = await scene(() => {
         const s = window.playroom.stage.scene;
-        return { records: s.records.length, pads: s.pads.length, fader: !!s.fader };
+        return {
+            records: s.records.length,
+            pads: s.pads.map((pad) => pad.name).join(' '),
+            fader: !!s.fader,
+            button: s.buttonAt,
+        };
     });
-    await page.waitForTimeout(400);
+    await touch.tap(seedDeck.button.x, seedDeck.button.y);
+    await page.waitForTimeout(500);
     check(
-        'and the turntable at Seed has one record and the button, nothing else, and plays',
-        seedDeck.records === 1 && seedDeck.pads === 0 && !seedDeck.fader && (await peak(400)) > 0.02,
-        `${seedDeck.records} records, ${seedDeck.pads} pads`
+        'and the turntable at Seed has one record, the button, a horn and a boom, and plays',
+        seedDeck.records === 1 &&
+            seedDeck.pads === 'horn boom' &&
+            !seedDeck.fader &&
+            (await peak(400)) > 0.02,
+        `${seedDeck.records} records; ${seedDeck.pads}`
     );
     await home();
 
@@ -2643,8 +2771,14 @@ async function suite(mode) {
     // middle it settles on the record's own speed.
     await page.evaluate(async () => (await import('./js/settings.js')).setStage('turntable', 'bloom'));
     await open('turntable');
-    const fader = await scene(() => window.playroom.stage.scene.fader);
+    const bloomDeck = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { fader: s.fader, button: s.buttonAt, pads: s.pads.map((pad) => pad.name).join(' ') };
+    });
+    const fader = bloomDeck.fader;
     const middle = (fader.y0 + fader.y1) / 2;
+    await touch.tap(bloomDeck.button.x, bloomDeck.button.y);
+    await page.waitForTimeout(600);
     const speeds = () =>
         scene(() => ({ speed: window.playroom.stage.scene.speed, rate: window.playroom.stage.scene.rate }));
     await touch.drag(line(fader.x, middle, fader.x, fader.y0, 12), 16, 100);
@@ -2655,12 +2789,13 @@ async function suite(mode) {
     await page.waitForTimeout(1500);
     const own = await speeds();
     check(
-        "the turntable at Bloom: the slider sets the record's speed, and near the middle its own",
-        fast.speed === 1.5 &&
+        "the turntable at Bloom: six pads, and the slider sets the record's speed, and near the middle its own",
+        bloomDeck.pads === 'horn boom cow scratch clap shaker' &&
+            fast.speed === 1.5 &&
             Math.abs(fast.rate - 1.5) < 0.03 &&
             own.speed === 1 &&
             Math.abs(own.rate - 1) < 0.03,
-        `${fast.rate.toFixed(2)} at the top, ${own.rate.toFixed(2)} in the middle`
+        `${bloomDeck.pads}; ${fast.rate.toFixed(2)} at the top, ${own.rate.toFixed(2)} in the middle`
     );
     await home();
 

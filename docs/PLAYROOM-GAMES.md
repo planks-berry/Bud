@@ -5,10 +5,11 @@ revised. The technical side (the old iPad, the audio engine, the tests) is in
 [PLAYROOM.md](PLAYROOM.md). This file is about what each game is and why. The code calls the games
 "toys".
 
-**Status, 22 October 2026.**
+**Status, 23 October 2026.**
 - **Built:** twelve games, tested in two simulated iPad browsers (one with everything Safari 12
-  lacks removed). The newest is the turntable, in place of the easel. The colour tower is now the
-  colour beats, a step sequencer, and the farm and the building site start on an empty table.
+  lacks removed). The newest is the turntable, in place of the easel, now with pads and smoother
+  scratching. The colour tower is now the colour beats, a step sequencer, and the farm and the
+  building site start on an empty table.
 - **Where:** live at https://planks-berry.github.io/Bud/playroom/, published from `main`. Work
   continues on branch `claude/montessori-playroom`.
 - **Not yet checked on a real iPad:** the speaker mix and the iPad Air's frame rate can only be
@@ -66,7 +67,7 @@ What was asked, and the answers that have shaped everything since.
 - **A set mix.** Each sound has one level, and the tests hold it in its band: notes loudest, then
   knocks and clicks, then air and paper.
 - **Colours have notes.** Red is C, yellow E, green G, blue A, purple the C above. The colour beats,
-  the crane, the building site and the turntable's horn use the same pairs.
+  the crane, the building site and the turntable's pads use the same pairs.
 
 ---
 
@@ -306,70 +307,95 @@ glass, a tray, and a sponge for what goes astray.
 
 ### 6. Turntable (was the easel)
 
-**What it is:** a record player to scratch, after a DJ's deck. A record turns on the platter,
-playing a short loop. A hand on it holds it, and the music stops; moved to and fro, the record
-takes the music with it, backwards and forwards, faster and higher, slower and lower: a scratch.
+**What it is:** a record player to scratch, after a DJ's deck, with pads beside it. The record
+waits on the platter until the button starts it; then it turns, playing a short loop. A hand on
+it holds it, and the music stops; moved to and fro, the record takes the music with it, backwards
+and forwards, faster and higher, slower and lower: a scratch. The pads toot, boom and moo over the
+music, and one scratches the record by itself.
 
 **Roots:** scratching, which DJs in the Bronx made into an instrument in the 1970s (it is usually
-credited to Grand Wizzard Theodore). From Montessori, the isolation of one quality, as in the
-sound boxes and the bells: here the one thing a hand changes is the record's speed, and the pitch
-and direction of the music follow it. And a real machine to work: a button, records kept in their
-own sleeves, a crate to put them back in.
+credited to Grand Wizzard Theodore), and the pads a DJ plays beside the decks. From Montessori, the
+isolation of one quality, as in the sound boxes and the bells: here the one thing a hand changes
+is the record's speed, and the pitch and direction of the music follow it. And a real machine to
+work: a button, records kept in their own sleeves, a crate to put them back in.
 
 **Layers**
-- Touch: tap the button and the record winds down to a stop, the music sliding down with it; tap
-  it again and it spins back up. Tap a pad for a toot-toot on the horn, or a boom.
+- Touch: tap the button and the record spins up and plays; tap it again and it winds down to a
+  stop, the music sliding down with it. Tap a pad for its sound. The scratch pad scratches the
+  record for him, back and forth twice in a beat, and the music carries on in time after it.
 - Move: hold the record and move it to and fro. The music goes the way the record goes, at the
   record's speed, so a fast rub is high and a slow one low. Let go and it spins back up to speed;
   flicked, it races and settles. At Bloom, slide the speed from just over half to one and a half
   times; near the middle the slider settles on the record's own speed.
-- Make: a scratch over the loop, timed to the beat; a record chosen from the crate; the horn in
-  the right place.
+- Make: a scratch over the loop, timed to the beat; a beat of his own on the pads over the
+  record; a record chosen from the crate.
 
 **Stages**
-- Seed: one record (the tune) and the button.
-- Sprout: three records in a crate (the tune, the beat, the animals), a horn and a boom.
-- Bloom: as Sprout, and a slider for the speed.
+- Seed: one record (the tune), the button, a horn and a boom.
+- Sprout: three records in a crate (the tune, the beat, the animals), and a cow and a scratch pad.
+- Bloom: a clap and a shaker as well, and a slider for the speed.
+
+**The pads:** a pad with a note wears that note's colour, as everywhere in the playroom; a beat,
+which has no note, is plain wood with its cube's mark from the colour beats.
+- The horn (yellow): a toot-toot in yellow's note, E.
+- The boom (the drum's wood, its skin mark): the drum, with a low thud under it.
+- The cow (green): a moo in green's note, G, an octave down.
+- The scratch pad (the platter's grey, a record with arrows): scratches the record, by itself.
+- The clap and the shaker (their wood and marks): a clap, and a shake twice.
 
 **The records:** two bars at 96 beats a minute, five seconds round, pressed from the playroom's own
-sounds the first time each is played.
-- The tune (red, a note on its label): a marimba tune over a soft drum and shaker.
+sounds the first time each is played. What is on them is short and struck, as a drum is, because a
+scratch drags a struck sound to and fro cleanly, where a long held note slides about.
+- The tune (red, a note on its label): a tune on wooden knocks, the colour beats' own notes, over
+  a light drum, clap and shaker.
 - The beat (blue, a drum): drum, clap and shaker, with a wooden bass line.
-- The animals (green, a cow): the beat with a moo, a baa, two quacks and an oink.
+- The animals (green, a cow): the beat with a moo, a cluck, two quacks and an oink.
 
 Every note is on the playroom's scale, so a record at its own speed is in tune with every other
 game.
 
 **Sound:** the record plays wherever it is turned to: forwards or backwards, at any speed, the
-pitch following the speed as it does on vinyl. A record held still is silent. Eight lights round
-the platter, one for each beat of the loop, light in turn as the needle passes them, whichever way
-the record is going. The button clicks, and the record takes about two and a half seconds to wind
-down to silence. The horn toots twice in yellow's note, E; the boom is the drum, with a low thud
-under it. A record going back to the crate whooshes, the next whooshes onto the platter, and the
-arm comes down with a tick.
+pitch following the speed as it does on vinyl. A record held still is silent. The record follows
+a finger as if it had weight, and the sound glides to each new speed rather than stepping, so a
+scratch through a held note slides instead of buzzing. Eight lights round the platter, one for
+each beat of the loop, light in turn as the needle passes them, whichever way the record is going.
+The button clicks, and the record takes about two and a half seconds to wind down to silence. A
+record going back to the crate whooshes, the next whooshes onto the platter, and the arm comes
+down with a tick.
 
 **Decisions so far**
 1. First version, the easel: watercolour on textured paper, with the Montessori metal insets to
    paint through, and a pot for each colour sounding its note.
-2. Now: "Remove the drawing game. In its place, make a simple dj scratching game."
+2. "Remove the drawing game. In its place, make a simple dj scratching game."
    - Where the record is turned to is where the music is. The record and the music are one, so a
      sound found on the record can be found again by turning back to it, as on a real record.
-   - Simple first: one record and a button at Seed. The crate, the pads and the slider come with
-     the stages.
-   - Colours keep their meaning. The horn is on yellow and toots yellow's note; the boom is on the
-     plain wood of the colour beats' drum, because a beat has no note. The records are in the
-     playroom's colours, but a record is a loop, not a note.
+   - Colours keep their meaning: a pad with a note wears its colour, a beat is plain wood. The
+     records are in the playroom's colours, but a record is a loop, not a note.
    - Left untouched for three minutes, the turntable winds down and rests, as the colour beats do.
    - The metal insets went with the easel. The sandpaper letters and numerals still prepare the
      hand for writing.
+3. Now: "He currently taps more than scratches. The scratches on the blue record sound good, the
+   others are very robotic and odd. More pads would be good." And: "Setting the record to open
+   while stopped and he has to press play is the best."
+   - The robot was the speed changing in steps. The first turntable set the record's speed once a
+     frame, from touches that do not come evenly, and a held note heard those steps as a buzz,
+     about as loud as the note itself; drums hide them, which is why the blue record was fine.
+     Now the record follows the finger as if it had weight, and the sound glides to each new
+     speed: the buzz is 11 to 14 dB under the note, where before it was level with it or louder.
+     The price is a little lag: the sound follows a finger about 70 ms behind, where before it
+     was about 40.
+   - And the records are now made the way the blue one is, of short struck sounds: the tune on
+     wooden knocks instead of the marimba, and the sheep's long baa swapped for a hen's cluck.
+   - Pads: 2 at Seed, 4 at Sprout, 6 at Bloom. The scratch pad joins tapping and scratching: a tap
+     makes the record scratch, so he hears and sees what a hand on the record can do.
+   - The record opens stopped, and the button is the first thing to press: play, on green.
 
 **Questions**
-- Does he scratch, or mostly tap the pads? If he scratches, a second turntable and a crossfader to
-  mix between them is the next step; if he taps, more pads.
-- Should the record start turning when the game opens, as now, or wait for the button?
+- Does he watch the record when the scratch pad scratches it, and then try it with his hand?
 -
 
 **Ideas**
+- A second turntable and a crossfader, if he takes to scratching.
 - A blank record that takes the loop he has built in the colour beats, to scratch while the
   playroom is open.
 

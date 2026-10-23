@@ -1,5 +1,6 @@
-// The colour towers' cubes: the five colours and their notes, the three wooden beats, what each
-// stage puts on the shelf, and a fresh choice of colours each time the shelf is taken out.
+// The colour beats' cubes: the five colours and their notes, the three wooden beats and their
+// marks, what each stage puts on the shelf, and a fresh choice of colours each time the shelf is
+// taken out.
 //
 // The set changes; the rules do not. Whatever the dice say:
 //   - each colour keeps its note, the one it has in every game, so red is always C;
@@ -10,7 +11,7 @@
 //
 // Pure, so the suite can roll thousands of sets in Node and check every one.
 
-import { rng, shuffle } from '../util.js';
+import { rng, shuffle, TAU } from '../util.js';
 
 export const COLOURS = [
     { name: 'red', colour: '#E79A98', degree: 0 },
@@ -27,6 +28,45 @@ export const BEATS = [
     { name: 'clap', colour: '#DDBF94', mark: 'burst' },
     { name: 'shaker', colour: '#ECD9B8', mark: 'seeds' },
 ];
+
+// What is burnt into a beat's face: a drum's skin, a clap's burst, a shaker's seeds, `s` across,
+// centred on (x, y). The turntable's beat pads wear the same marks.
+export function drawMark(ctx, mark, x, y, s, colour) {
+    ctx.save();
+    ctx.strokeStyle = colour;
+    ctx.fillStyle = colour;
+    ctx.lineWidth = Math.max(1.5, s * 0.06);
+    ctx.lineCap = 'round';
+    if (mark === 'skin') {
+        ctx.beginPath();
+        ctx.arc(x, y, s * 0.27, 0, TAU);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x, y, s * 0.08, 0, TAU);
+        ctx.fill();
+    } else if (mark === 'burst') {
+        ctx.beginPath();
+        for (let i = 0; i < 8; i++) {
+            const a = (i / 8) * TAU;
+            ctx.moveTo(x + Math.cos(a) * s * 0.1, y + Math.sin(a) * s * 0.1);
+            ctx.lineTo(x + Math.cos(a) * s * 0.27, y + Math.sin(a) * s * 0.27);
+        }
+        ctx.stroke();
+    } else {
+        for (const [dx, dy] of [
+            [-1, -1],
+            [1, -1],
+            [0, 0],
+            [-1, 1],
+            [1, 1],
+        ]) {
+            ctx.beginPath();
+            ctx.arc(x + dx * s * 0.18, y + dy * s * 0.18, s * 0.065, 0, TAU);
+            ctx.fill();
+        }
+    }
+    ctx.restore();
+}
 
 // `steps`: the columns of the loop; `colours` and `beats`: its rows; `step`: seconds a column.
 export const STAGES = [
