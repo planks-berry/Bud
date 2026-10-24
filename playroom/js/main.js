@@ -3,9 +3,9 @@
 
 import { Stage } from './stage.js';
 import * as audio from './audio.js';
-import { settings, level as levelOf } from './settings.js';
+import { settings, level as levelOf, ordered } from './settings.js';
 import { StartScene, startSounds } from './start.js';
-import { ShelfScene } from './shelf.js';
+import { ShelfScene, shelfSounds } from './shelf.js';
 import { TOYS } from './toys/index.js';
 import { setupParent } from './parent.js';
 import { VERSION } from './version.js';
@@ -21,6 +21,7 @@ const app = {
     toys: TOYS,
     shelf: null,
     current: null,
+    cornerOpen: false,
 
     // A toy's stage as a number, 0 to 2. Toys ask while they are being created, which is after
     // `current` names them.
@@ -28,16 +29,51 @@ const app = {
         return levelOf(id);
     },
 
-    // The toys the grown-up has put out. Never none: an empty shelf would be a dead end.
+    // The toys the grown-up has put out, in the order they chose. Never none: an empty shelf would
+    // be a dead end.
     visibleToys() {
-        const shown = TOYS.filter((toy) => settings.hidden.indexOf(toy.id) < 0);
-        return shown.length ? shown : TOYS;
+        const all = ordered(TOYS);
+        const shown = all.filter((toy) => settings.hidden.indexOf(toy.id) < 0);
+        return shown.length ? shown : all;
     },
 
-    enterShelf() {
+    // Every toy, out or not, in the shelf's order: the grown-ups' list.
+    orderedToys() {
+        return ordered(TOYS);
+    },
+
+    // From the bud, the shelf says hello: its trays wake one by one, each with a note.
+    enterShelf(greet) {
         if (!this.shelf) this.shelf = new ShelfScene(this);
+        if (greet) this.shelf.greet();
         stage.show(this.shelf, { kind: 'fade', duration: 0.7 });
         gate.hidden = false;
+    },
+
+    // Goodnight is over: every tray is asleep, and the playroom closes to its bud, as it opened.
+    sleep() {
+        this.setBedtime(0);
+        gate.hidden = true;
+        home.hidden = true;
+        stage.show(new StartScene(this), { kind: 'fade', duration: 1.4 });
+    },
+
+    // Goodnight in a few minutes: over that time the sun in the shelf's window sets and the moon
+    // rises, and then the toys fall asleep the next time the shelf is out. In a toy, the way home
+    // shows the moon once it is up. 0 calls it off.
+    bedtime: 0,
+    setBedtime(minutes) {
+        clearTimeout(this.bedtimer);
+        home.classList.remove('bedtime');
+        this.bedtime = minutes ? Date.now() + minutes * 60000 : 0;
+        this.bedtimeFrom = Date.now();
+        if (minutes) {
+            this.bedtimer = setTimeout(() => {
+                if (this.current) home.classList.add('bedtime');
+                stage.wake();
+            }, minutes * 60000);
+        }
+        this.refreshShelf();
     },
 
     openToy(id) {
@@ -63,6 +99,7 @@ const app = {
         audio.play('whoosh', { variant: 'down' }, { gain: 0.9, wet: 0.25 });
         stage.show(this.shelf, { kind: 'close', rect, duration: 0.45 });
         home.hidden = true;
+        home.classList.remove('bedtime');
         gate.hidden = false;
     },
 
@@ -79,6 +116,7 @@ const app = {
     // Render the toys' sounds a few at a time while the child is looking at the shelf, so the first
     // touch in a toy does not wait for synthesis.
     warmUp() {
+        audio.prepare(shelfSounds());
         for (const toy of TOYS) audio.prepare(toy.sounds(levelOf(toy.id)));
     },
 };

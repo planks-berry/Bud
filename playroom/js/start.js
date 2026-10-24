@@ -70,7 +70,7 @@ export class StartScene extends Scene {
             this.bloom = clamp(this.bloomTime / 0.9, 0, 1);
             if (this.bloomTime > 1.25 && !this.left) {
                 this.left = true;
-                this.app.enterShelf();
+                this.app.enterShelf(true);
             }
         }
         // Always animating: the stem sways and the invitation pulses. It is one screen, seen

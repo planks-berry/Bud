@@ -7,11 +7,19 @@ const KEY = 'playroom.settings.v1';
 
 export const STAGES = ['seed', 'sprout', 'bloom'];
 
+// The new things a grown-up can turn on or off, each with its own switch in the corner. Each is on
+// until it is turned off.
+export const EXTRAS = ['hello', 'goodnight', 'shyFish'];
+
 const DEFAULTS = {
     // Every toy's stage, unless it has one of its own in `stages`.
     stage: 'sprout',
     stages: {},
     hidden: [],
+    // The shelf's order, toy ids from the first tray to the last, once a grown-up has moved one.
+    // Empty: the playroom's own order. A toy that is not in it (one added since) goes at the end.
+    order: [],
+    extras: { hello: true, goodnight: true, shyFish: true },
     throughSilent: true,
     volume: 0.85,
 };
@@ -29,6 +37,13 @@ function load() {
             }
             if (Array.isArray(stored.hidden))
                 settings.hidden = stored.hidden.filter((id) => typeof id === 'string');
+            if (Array.isArray(stored.order))
+                settings.order = stored.order.filter((id) => typeof id === 'string');
+            if (stored.extras && typeof stored.extras === 'object') {
+                for (const name of EXTRAS) {
+                    if (typeof stored.extras[name] === 'boolean') settings.extras[name] = stored.extras[name];
+                }
+            }
             if (typeof stored.throughSilent === 'boolean') settings.throughSilent = stored.throughSilent;
             if (typeof stored.volume === 'number' && stored.volume >= 0 && stored.volume <= 1)
                 settings.volume = stored.volume;
@@ -64,6 +79,42 @@ export function setStage(id, stage) {
 export function setAllStages(stage) {
     settings.stage = stage;
     settings.stages = {};
+    save();
+}
+
+// The toys in the shelf's order: the grown-up's, with any toy it does not name at the end, in the
+// playroom's own order.
+export function ordered(toys) {
+    const byId = new Map(toys.map((toy) => [toy.id, toy]));
+    const out = [];
+    for (const id of settings.order) {
+        const toy = byId.get(id);
+        if (toy && out.indexOf(toy) < 0) out.push(toy);
+    }
+    for (const toy of toys) if (out.indexOf(toy) < 0) out.push(toy);
+    return out;
+}
+
+// Move a toy one place earlier (-1) or later (+1) on the shelf.
+export function move(toys, id, step) {
+    const ids = ordered(toys).map((toy) => toy.id);
+    const from = ids.indexOf(id);
+    const to = from + step;
+    if (from < 0 || to < 0 || to >= ids.length) return;
+    ids.splice(from, 1);
+    ids.splice(to, 0, id);
+    settings.order = ids;
+    save();
+}
+
+// Back to the playroom's own order.
+export function resetOrder() {
+    settings.order = [];
+    save();
+}
+
+export function setExtra(name, on) {
+    settings.extras[name] = on;
     save();
 }
 

@@ -76,6 +76,17 @@ body {
     left: 16px;
 }
 
+.home .moon {
+    display: none;
+    position: absolute;
+    top: -8px;
+    right: -8px;
+}
+
+.home.bedtime .moon {
+    display: block;
+}
+
 .gate {
     top: 12px;
     right: 12px;
@@ -366,6 +377,67 @@ button.switch {
 
 .steps li {
     margin-bottom: 8px;
+}
+
+/* A quieter button: a whole-width choice that is not the panel's Done. */
+.plain {
+    display: block;
+    width: 100%;
+    margin: 4px 0 8px;
+    padding: 12px 14px;
+    border: 2px solid #E7D8C2;
+    border-radius: 14px;
+    background: #FFFDF8;
+    font-size: 15px !important;
+    font-weight: 700;
+    text-align: left;
+}
+
+.plain[aria-pressed="true"] {
+    border-color: #98B985;
+    background: #EEF4E7;
+}
+
+.plain[disabled] {
+    opacity: 0.45;
+}
+
+/* A toy's place on the shelf: earlier and later. */
+.places {
+    display: -webkit-flex;
+    display: flex;
+    -webkit-flex: none;
+    flex: none;
+    margin: 0 10px 0 0;
+}
+
+.places button {
+    width: 34px;
+    height: 34px;
+    margin: 0 0 0 6px;
+    padding: 0;
+    border: 2px solid #E7D8C2;
+    border-radius: 10px;
+    background: #FFFDF8;
+    font-size: 16px !important;
+    line-height: 1;
+    color: #8B7766 !important;
+}
+
+.places button[disabled] {
+    opacity: 0.3;
+}
+
+.badge {
+    display: inline-block !important;
+    margin: 0 0 0 8px !important;
+    padding: 1px 8px;
+    border-radius: 9px;
+    background: #F3DE97;
+    font-size: 12px !important;
+    font-weight: 700;
+    color: #6B5A4C !important;
+    vertical-align: 2px;
 }
 
 .done {

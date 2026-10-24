@@ -818,6 +818,33 @@ export const recipes = {
         return finish(out, sr, 0.5);
     },
 
+    // The bird in Bird Song: a near-pure whistle that scoops up into its note, warbles there and
+    // falls away at the end. A finger's glide along the flowers is sung back as a run of the short
+    // variant, each gliding in `from` the note before: long notes that close together would smear
+    // into a cluster instead of a glide.
+    warble(sr, p) {
+        const f = p.f || noteHz(2, 84);
+        const short = p.variant === 'short';
+        const len = short ? 0.14 : 0.3;
+        const from = p.from || f * 0.84;
+        const glide = p.from ? 0.03 : 0.02;
+        const out = makeBuffer(sr, len);
+        let phase = 0;
+        for (let n = 0; n < out.length; n++) {
+            const t = n / sr;
+            const settle = clamp((t - 0.04) / 0.05, 0, 1);
+            const wobble = Math.sin(TAU * 8 * t) * settle;
+            const fall = 1 - 0.035 * clamp((t / len - 0.75) / 0.25, 0, 1);
+            const freq = (f + (from - f) * Math.exp(-t / glide)) * (1 + 0.022 * wobble) * fall;
+            phase += (TAU * freq) / sr;
+            const attack = clamp(t / 0.012, 0, 1);
+            const release = clamp((len - t) / (short ? 0.05 : 0.1), 0, 1);
+            const tremolo = 1 - 0.06 * settle - 0.06 * wobble;
+            out[n] = (Math.sin(phase) + 0.1 * Math.sin(2 * phase)) * attack * release * tremolo;
+        }
+        return finish(out, sr, 0.6);
+    },
+
     // One beat of a small tractor's engine: a low thump and a puff.
     putt(sr, p) {
         const next = rng(p.seed || 50);
@@ -1189,6 +1216,7 @@ export const MIX = {
     ribbit: 0.83,
     hoot: 0.24,
     chirp: 0.44,
+    warble: 0.32,
     putt: 0.37,
     toot: 0.4,
     crow: 0.4,

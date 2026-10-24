@@ -7,6 +7,14 @@
 //
 // There is no text. A child who cannot read can see every choice, and the grown-up's settings are
 // behind a press-and-hold on the leaf in the corner.
+//
+// The shelf opens and closes the day the same way each time, as a ritual does. Hello: arriving
+// from the bud, the trays wake one by one, each with a note, climbing the scale. Goodnight: the
+// picture on the wall is a window, and a tap on its moon brings the night. The sun sets, the room
+// dims, and the toys fall asleep one by one, the last tray first, each to the next note of a
+// lullaby; a tap on a tray tucks it in at once. When the last is asleep the lullaby ends and the
+// playroom closes to its bud. A grown-up can also set the moon to rise over five minutes, a gentle
+// warning, after which the night comes the next time the shelf is out.
 
 import { Scene } from './stage.js';
 import {
@@ -22,18 +30,47 @@ import {
     ellipse,
     disc,
 } from './draw.js';
-import { Spring, shade } from './util.js';
+import { Spring, shade, clamp, lerp, mixRgb, hexToRgb, rgbString } from './util.js';
+import { noteHz } from './synth.js';
 import * as audio from './audio.js';
+
+// Hello climbs the scale, a tray a note, quickly; goodnight's lullaby is slower, a tray a note,
+// and ends with its own three notes once every tray is asleep. Both stay on the playroom's scale.
+const HELLO_GAP = 0.11;
+const LULLABY = [3, 2, 3, 4, 3, 2, 3, 2, 1, 0, 2, 3, 4, 5, 4, 3];
+const LULLABY_END = [2, 1, 0];
+const SLEEP_GAP = 0.9;
+const DUSK = 1.5;
+
+// Every sound the hello and goodnight ask for, so the shelf can have them ready.
+export function shelfSounds() {
+    const list = [];
+    for (let d = 0; d <= 12; d++) list.push(['marimba', { f: noteHz(d, 60) }]);
+    for (const d of LULLABY.concat(LULLABY_END)) list.push(['musicBox', { f: noteHz(d, 72) }]);
+    list.push(['hoot', { f: noteHz(2, 60) }]);
+    return list;
+}
 
 export class ShelfScene extends Scene {
     constructor(app) {
         super(app);
         this.items = [];
         this.bg = null;
+        // The hello in progress, and the night: null while it is day.
+        this.greeting = null;
+        this.night = null;
+        this.ticker = 0;
+    }
+
+    // Arriving from the bud: the trays wake one by one, if the hello is on.
+    greet() {
+        this.night = null;
+        this.greeting = this.app.settings.extras.hello ? { t: 0, woken: 0 } : null;
     }
 
     layout() {
         this.release();
+        const previous = this.items;
         const { w, h, u } = this;
         const toys = this.app.visibleToys();
         const n = Math.max(1, toys.length);
@@ -68,8 +105,33 @@ export class ShelfScene extends Scene {
             const plankY = unit.y + best.cellH * (row + 1) - 14 * u;
             const x = unit.x + best.cellW * col + (best.cellW - best.trayW) / 2;
             const y = plankY - best.trayH - 4 * u;
-            return { toy, x, y, w: best.trayW, h: best.trayH, press: new Spring(0, 520, 24), layer: null };
+            return {
+                toy,
+                x,
+                y,
+                w: best.trayW,
+                h: best.trayH,
+                press: new Spring(0, 520, 24),
+                wake: new Spring(1, 260, 13),
+                asleep: false,
+                asleepAt: 0,
+                layer: null,
+            };
         });
+        // Laid out again mid-hello or mid-goodnight (a rotation): each tray keeps where it was.
+        for (const item of this.items) {
+            const was = previous.find((old) => old.toy === item.toy);
+            if (!was) continue;
+            item.wake.value = was.wake.value;
+            item.wake.target = was.wake.target;
+            item.asleep = was.asleep;
+            item.asleepAt = was.asleepAt;
+        }
+        // The window on the wall, where the picture used to hang, above the shelf's top.
+        const ww = 104 * u;
+        const wh = 80 * u;
+        const wy = clamp(Math.max(64 * u, unit.y * 0.5), wh / 2 + 10 * u, unit.y - 30 * u - wh / 2);
+        this.window = { x: w * 0.72 - ww / 2, y: wy - wh / 2, w: ww, h: wh };
 
         this.drawBackground();
         for (const item of this.items) this.drawTray(item);
@@ -92,8 +154,6 @@ export class ShelfScene extends Scene {
         ellipse(ctx, w / 2, this.floor + (h - this.floor) * 0.62, w * 0.36, (h - this.floor) * 0.3);
         ctx.fillStyle = 'rgba(188, 211, 168, 0.55)';
         ctx.fill();
-
-        this.drawPicture(ctx, w * 0.72, Math.max(70 * u, unit.y * 0.5), 92 * u, 70 * u);
 
         // The unit: two posts and a plank under each row of trays.
         const post = 16 * u;
@@ -146,24 +206,47 @@ export class ShelfScene extends Scene {
         this.bg = layer;
     }
 
-    // A small framed picture of hills under a sun: the wall should feel lived in, not decorated.
-    drawPicture(ctx, cx, cy, w, h) {
+    // The window: hills under a sun, and, when the goodnight moon is on, a pale moon waiting in its
+    // sky. `dusk` 0 is day; towards 1 the sun sets behind the hills, the sky deepens to night, the
+    // moon rises and brightens, and stars come out.
+    drawWindow(ctx, dusk, moon) {
         const u = this.u;
-        const x = cx - w / 2;
-        const y = cy - h / 2;
+        const { x, y, w, h } = this.window;
         fillRound(ctx, x + 4 * u, y + 5 * u, w, h, 6 * u, SHADOW_SOFT);
         fillRound(ctx, x, y, w, h, 6 * u, PALETTE.woodDark);
         ctx.save();
         roundRect(ctx, x + 7 * u, y + 7 * u, w - 14 * u, h - 14 * u, 3 * u);
-        ctx.fillStyle = PALETTE.cream;
+        const day = hexToRgb(PALETTE.cream);
+        const evening = [246, 196, 160];
+        const night = [47, 58, 99];
+        const sky = dusk < 0.5 ? mixRgb(day, evening, dusk * 2) : mixRgb(evening, night, (dusk - 0.5) * 2);
+        ctx.fillStyle = rgbString(sky);
         ctx.fill();
         ctx.clip();
-        disc(ctx, x + w * 0.66, y + h * 0.42, h * 0.16, PALETTE.butter);
+        if (dusk > 0.6) {
+            const stars = (dusk - 0.6) / 0.4;
+            for (const [sx, sy] of [
+                [0.2, 0.25],
+                [0.42, 0.18],
+                [0.8, 0.3],
+                [0.58, 0.4],
+                [0.3, 0.45],
+            ])
+                disc(ctx, x + w * sx, y + h * sy, 1.6 * u, `rgba(255, 246, 214, ${stars * 0.9})`);
+        }
+        disc(ctx, x + w * 0.66, y + h * lerp(0.42, 1.05, clamp(dusk * 1.3, 0, 1)), h * 0.16, PALETTE.butter);
+        if (moon) {
+            const mx = x + w * lerp(0.28, 0.36, dusk);
+            const my = y + h * lerp(0.36, 0.3, dusk);
+            const mr = h * lerp(0.12, 0.16, dusk);
+            disc(ctx, mx, my, mr, `rgba(255, 244, 200, ${lerp(0.55, 1, dusk)})`);
+            disc(ctx, mx + mr * 0.45, my - mr * 0.25, mr * 0.85, rgbString(sky));
+        }
         ellipse(ctx, x + w * 0.3, y + h * 0.95, w * 0.45, h * 0.38);
-        ctx.fillStyle = PALETTE.sage;
+        ctx.fillStyle = rgbString(mixRgb(hexToRgb(PALETTE.sage), [40, 52, 82], dusk * 0.7));
         ctx.fill();
         ellipse(ctx, x + w * 0.8, y + h, w * 0.4, h * 0.3);
-        ctx.fillStyle = PALETTE.sageDeep;
+        ctx.fillStyle = rgbString(mixRgb(hexToRgb(PALETTE.sageDeep), [34, 44, 72], dusk * 0.7));
         ctx.fill();
         ctx.restore();
     }
@@ -263,9 +346,25 @@ export class ShelfScene extends Scene {
         return { x: item.x, y: item.y, w: item.w, h: item.h, r: 14 * this.u };
     }
 
+    // The window answers only while the goodnight moon is on; a tap on it brings the night.
+    inWindow(x, y) {
+        const r = this.window;
+        const slop = 10 * this.u;
+        return x > r.x - slop && x < r.x + r.w + slop && y > r.y - slop && y < r.y + r.h + slop;
+    }
+
     down(p) {
+        if (this.app.settings.extras.goodnight && !this.night && this.inWindow(p.x, p.y)) {
+            p.owner = { window: true };
+            return;
+        }
         const item = this.hit(p.x, p.y);
         if (!item) return;
+        if (this.night) {
+            // At night a tap tucks a tray in.
+            if (!item.asleep) this.tuck(item);
+            return;
+        }
         p.owner = item;
         item.press.target = 1;
         audio.play('wood', { f: 1046.5 }, { gain: 0.65, wet: 0.1, pan: (p.x / this.w) * 2 - 1 });
@@ -273,7 +372,7 @@ export class ShelfScene extends Scene {
 
     move(p) {
         const item = p.owner;
-        if (!item) return;
+        if (!item || item.window) return;
         const slop = 24 * this.u;
         if (
             p.x < item.x - slop ||
@@ -289,30 +388,188 @@ export class ShelfScene extends Scene {
     up(p) {
         const item = p.owner;
         if (!item) return;
+        if (item.window) {
+            if (this.inWindow(p.x, p.y) && !this.app.stage.busy) this.beginNight();
+            return;
+        }
         item.press.target = 0;
-        if (!this.app.stage.busy) this.app.openToy(item.toy.id);
+        if (!this.app.stage.busy) {
+            // Any tray still to wake wakes now: the hello is over once a toy is chosen.
+            this.greeting = null;
+            for (const it of this.items) it.wake.value = it.wake.target = 1;
+            this.app.openToy(item.toy.id);
+        }
     }
 
     cancel(p) {
-        if (p.owner) p.owner.press.target = 0;
+        if (p.owner && !p.owner.window) p.owner.press.target = 0;
+    }
+
+    //--------------------------------------------------------------------------
+    // Hello and goodnight
+
+    beginNight() {
+        if (this.night) return;
+        this.greeting = null;
+        this.duskFrom = this.dusk();
+        this.night = { t: 0, tucked: 0, next: SLEEP_GAP + DUSK, ending: -1 };
+        for (const item of this.items) item.wake.value = item.wake.target = 1;
+        audio.play('hoot', { f: noteHz(2, 60) }, { gain: 0.55, wet: 0.45, delay: 0.7 });
+    }
+
+    // A tray falls asleep to the lullaby's next note.
+    tuck(item) {
+        const night = this.night;
+        item.asleep = true;
+        item.asleepAt = night.t;
+        const degree = LULLABY[night.tucked % LULLABY.length];
+        night.tucked++;
+        audio.play(
+            'musicBox',
+            { f: noteHz(degree, 72) },
+            { gain: 0.85, wet: 0.4, pan: ((item.x + item.w / 2) / this.w) * 2 - 1 }
+        );
+    }
+
+    // How far the day has gone: the night's own dusk, or the moon a grown-up set rising.
+    dusk() {
+        if (this.night) return clamp(this.duskFrom + (this.night.t / DUSK) * (1 - this.duskFrom), 0, 1);
+        const app = this.app;
+        if (!app.bedtime || !app.settings.extras.goodnight) return 0;
+        const span = Math.max(1, app.bedtime - app.bedtimeFrom);
+        return clamp((Date.now() - app.bedtimeFrom) / span, 0, 1) * 0.6;
     }
 
     update(dt) {
         let busy = false;
-        for (const item of this.items) if (item.press.update(dt)) busy = true;
+        for (const item of this.items) {
+            if (item.press.update(dt)) busy = true;
+            if (item.wake.update(dt)) busy = true;
+        }
+
+        const greeting = this.greeting;
+        if (greeting) {
+            // Every tray starts asleep, and wakes in its turn.
+            if (!greeting.started) {
+                greeting.started = true;
+                for (const item of this.items) item.wake.value = item.wake.target = 0;
+            }
+            greeting.t += dt;
+            busy = true;
+            // The trays wake once the shelf has faded in, one by one, climbing the scale.
+            while (greeting.woken < this.items.length && greeting.t >= 0.55 + greeting.woken * HELLO_GAP) {
+                const item = this.items[greeting.woken];
+                item.wake.target = 1;
+                item.wake.kick(5);
+                audio.note('marimba', greeting.woken % 13, 60, {
+                    gain: 0.7,
+                    wet: 0.25,
+                    pan: ((item.x + item.w / 2) / this.w) * 2 - 1,
+                });
+                greeting.woken++;
+            }
+            if (greeting.woken >= this.items.length) this.greeting = null;
+        }
+
+        // The moon a grown-up set is up: the night comes, once the shelf is out and still, and the
+        // grown-ups' corner is closed.
+        const app = this.app;
+        if (
+            !this.night &&
+            app.bedtime &&
+            app.settings.extras.goodnight &&
+            Date.now() >= app.bedtime &&
+            app.stage.scene === this &&
+            !app.stage.busy &&
+            !app.cornerOpen
+        ) {
+            this.beginNight();
+        }
+
+        const night = this.night;
+        if (night) {
+            night.t += dt;
+            busy = true;
+            // The toys fall asleep by themselves, the last tray first, unless tucked in sooner.
+            if (night.ending < 0 && night.t >= night.next) {
+                const awake = this.items.filter((item) => !item.asleep);
+                if (awake.length) {
+                    this.tuck(awake[awake.length - 1]);
+                    night.next = night.t + SLEEP_GAP;
+                } else {
+                    night.ending = night.t + 0.6;
+                    LULLABY_END.forEach((degree, i) =>
+                        audio.play(
+                            'musicBox',
+                            { f: noteHz(degree, 72) },
+                            { gain: 0.8, wet: 0.45, delay: 0.6 + i * 0.6 }
+                        )
+                    );
+                }
+            }
+            if (night.ending >= 0 && night.t >= night.ending + LULLABY_END.length * 0.6 + 1.2) {
+                this.night = null;
+                for (const item of this.items) item.asleep = false;
+                app.sleep();
+            }
+        } else if (app.bedtime && app.settings.extras.goodnight && app.stage.scene === this && !this.ticker) {
+            // While the moon a grown-up set is rising, the shelf looks again every second or so.
+            this.ticker = setTimeout(() => {
+                this.ticker = 0;
+                app.stage.wake();
+            }, 1000);
+        }
         return busy;
     }
 
     draw(ctx) {
+        const u = this.u;
         ctx.drawImage(this.bg.canvas, 0, 0, this.w, this.h);
+        const dusk = this.dusk();
+        const goodnight = this.app.settings.extras.goodnight;
+        const night = this.night;
+        const dim = night ? clamp(night.t / DUSK, 0, 1) : 0;
         for (const item of this.items) {
-            const s = 1 - item.press.value * 0.06;
+            const awake = clamp(item.wake.value, 0, 1.2);
+            const s = (1 - item.press.value * 0.06) * (0.9 + 0.1 * awake);
             const lw = (item.w + item.pad * 2) * s;
             const lh = (item.h + item.pad * 2) * s;
             const cx = item.x + item.w / 2;
-            const cy = item.y + item.h / 2 + item.press.value * 3 * this.u;
+            const cy = item.y + item.h / 2 + item.press.value * 3 * u + (1 - Math.min(1, awake)) * 10 * u;
+            ctx.globalAlpha = clamp(0.35 + 0.65 * awake, 0, 1);
             ctx.drawImage(item.layer.canvas, cx - lw / 2, cy - lh / 2, lw, lh);
+            ctx.globalAlpha = 1;
         }
+        if (dim > 0) {
+            ctx.fillStyle = `rgba(30, 38, 72, ${0.34 * dim})`;
+            ctx.fillRect(0, 0, this.w, this.h);
+            for (const item of this.items)
+                if (item.asleep) this.drawAsleep(ctx, item, night.t - item.asleepAt);
+        }
+        this.drawWindow(ctx, dusk, goodnight);
+    }
+
+    // A tray asleep: darker, with a little z rising from it.
+    drawAsleep(ctx, item, age) {
+        const u = this.u;
+        const k = clamp(age / 0.6, 0, 1);
+        fillRound(ctx, item.x, item.y, item.w, item.h, 14 * u, `rgba(30, 38, 72, ${0.3 * k})`);
+        const zx = item.x + item.w - 26 * u;
+        const zy = item.y + 18 * u - k * 10 * u;
+        const z = 9 * u;
+        ctx.save();
+        ctx.globalAlpha = k;
+        ctx.strokeStyle = 'rgba(255, 246, 214, 0.95)';
+        ctx.lineWidth = 2.6 * u;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(zx - z / 2, zy - z / 2);
+        ctx.lineTo(zx + z / 2, zy - z / 2);
+        ctx.lineTo(zx - z / 2, zy + z / 2);
+        ctx.lineTo(zx + z / 2, zy + z / 2);
+        ctx.stroke();
+        ctx.restore();
     }
 
     release() {
@@ -321,7 +578,12 @@ export class ShelfScene extends Scene {
         for (const item of this.items) freeLayer(item.layer);
     }
 
+    // Put away after goodnight: its layers go now, and come back when it is next shown, though at
+    // the same size.
     exit() {
+        clearTimeout(this.ticker);
+        this.ticker = 0;
         this.release();
+        this.invalidate();
     }
 }

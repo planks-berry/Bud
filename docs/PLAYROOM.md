@@ -38,8 +38,13 @@ an adult can hold still. The panel has words in it, because it is for someone wh
   (Sprout is the default). Each toy can then be moved on, or back, by itself, and its row says what
   each of its stages puts out. A guide moves one material on when a child starts pushing at what
   it can do, not the whole shelf at once. The sandpaper letters and numerals have no stages.
-- **The toys.** Which are out, and each one's stage. Fewer choices help a young child settle into
-  one; the Montessori habit is to put a few out and rotate them every week or two.
+- **The toys.** Which are out, where, and each one's stage. Fewer choices help a young child settle
+  into one; the Montessori habit is to put a few out and rotate them every week or two. The list
+  runs in the shelf's order, and arrows move a toy earlier or later on the shelf; one press brings
+  back the playroom's own order. A new toy is marked New, and has its own switch like the rest.
+- **New things.** A switch for each new part of the playroom, all on to begin with: the hello song,
+  the goodnight moon and the shy fish. And **goodnight in five minutes**: the sun in the shelf's
+  window sets and the moon rises over five minutes, and then the toys go to sleep.
 - **Sound.** Whether to play through the silent switch, and an overall volume.
 
 Settings live in the iPad's local storage for this site and survive restarts. Nothing records what
@@ -49,11 +54,20 @@ the child does: no reports, no history, nothing sent anywhere.
 
 ## The shelf
 
-Twelve toys in three rows, ordered as a Montessori shelf is: simple to complex, left to right, top
-to bottom. The first toys ask for nothing but a touch; then a steadier hand, and then symbols. The
-bottom row is the builders': the dig, where a finger is a digger's bucket; the crane, which does
-the same work at a distance, through a hook; and the farm and the building site, worlds to build
-rather than materials, which hold a little of everything before them.
+Thirteen toys in rows, ordered as a Montessori shelf is: simple to complex, left to right, top to
+bottom. The first toys ask for nothing but a touch; then a steadier hand, and then symbols. Then
+the builders': the dig, where a finger is a digger's bucket; the crane, which does the same work at
+a distance, through a hook; and the farm and the building site, worlds to build rather than
+materials, which hold a little of everything before them. A new toy joins at the end, so the trays
+a child knows keep their order, until a grown-up moves it.
+
+**Hello and goodnight.** The playroom opens and closes the same way every day. When the bud opens,
+the trays wake one by one, each with a note, climbing the scale. The picture on the shelf's wall
+is a window, with the sun in it and a moon: tap the moon and dusk falls, and the toys fall asleep
+one by one, from the last tray, each to the next note of a lullaby; a tap tucks one in at once.
+When the last is asleep, the playroom closes to its bud. Set for later from the corner, the sun
+sets and the moon rises over five minutes, with no clock and no numbers, and in a toy the house
+button shows the moon once it is up.
 
 Each toy also has its own section, written to be revised, in [PLAYROOM-GAMES.md](PLAYROOM-GAMES.md).
 
@@ -66,7 +80,7 @@ Every toy has three layers, which are found by playing, never unlocked:
 
 | Toy | Montessori area | touch | move | make | What the stage changes |
 |---|---|---|---|---|---|
-| **Pond** | Nature, care of animals | Tap the water: a ripple and a water drop, pitched left-low to right-high | Push lily pads; open and close a lotus | Hold a finger still and the fish come to nibble; scatter food from the pot and they gather to eat | 3 / 4 / 5 fish, 2 / 3 / 4 pads |
+| **Pond** | Nature, care of animals | Tap the water: a ripple and a water drop, pitched left-low to right-high | Push lily pads; open and close a lotus | Hold a finger still and the fish come to nibble; scatter food from the pot and they gather to eat. The shy fish (a switch in the corner) peeks out from under its pad, and comes to a finger held still a step at a time | 3 / 4 / 5 fish, 2 / 3 / 4 pads; the shy fish comes in one go / in three steps / with a friend |
 | **Busy board** | Practical life (dressing frames, bolt boards) | Lamp switch; a little door with a different picture behind it each time | A colour dial that clicks up the scale; a sun on a slider with a slide whistle; a zip | Crank a music box (Twinkle, Twinkle) at any speed; at Bloom the door has a bolt to slide first | 4 controls at Seed, 6 after; bolt at Bloom |
 | **Tone bars** | Music, auditory sense | Tap a bar; sweep for a glissando; chords with several fingers | Choose a wooden or a metal mallet | The shell plays back the last phrase; at Bloom, hold a bar to lift it and move it | 5 / 8 / 10 bars |
 | **Colour beats** | Music; sensorial: colour | Tap an empty cubby on the shelf and its cube drops in, sounding; tap a cube and it comes out. A light runs along the shelf, round and round, and plays every cube it reaches | Draw a line of cubes with a finger, or empty one; hold the ball under the shelf and the light goes where the finger takes it, playing as it goes | A loop of tune and beat: each column a beat, each row a sound, the colours their notes (as on the crane) and plain wooden cubes a drum, a clap and a shaker; what a column holds sounds together; new colours each time it comes out | 4 columns, 2 colours and a drum / 8, 3 colours, a drum and a shaker / 8, all 5 colours, a drum, a clap and a shaker |
@@ -78,6 +92,7 @@ Every toy has three layers, which are found by playing, never unlocked:
 | **Crane** | Sensorial (building with shapes), and the work of the hand at a distance | Tap a part for its colour's note, the cab for the horn, the hook to set it swinging | Drag the hook: the trolley and cable follow, it takes the part it is lowered onto, and drops it where it is let go, onto a grid so a stack stands. A part can also be carried by hand, the crane following | A building of any shape, which moves in by itself: a cat in a window, plants on the ledges, a bird nesting on top; a tap at its foot plays it bottom to top, each part lit. And trucks to load: one in a part's colour waits for the parts marked out on its deck, takes only its own colour, and drives off loaded, and a second crane restocks the pile | 4 big blocks / blocks, beams and windows / and arches, a roof and a wrecking ball |
 | **Farm** | None: after Pok Pok's builder | Tap anything: every piece answers, and tapped grass grows a flower | An island of tiles, seen from a corner like a model on a table, on a table that starts empty: a tile put down on the table makes it bigger, a path, field, pond or stream put down on a tile changes it, and pieces stand on tiles, move, swap and go back to the tray; what is hidden behind a building shows through it; a broom, held, sweeps the table empty again | A farm that joins up: paths for the tractor to drive, streams that carry a pond's water along to the fields, fields by water that grow on their own, a pond big enough for ducks; the sun turns it to night, when the lights come on and other things wake | 7 / 11 / 14 kinds of piece and a grass tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
 | **Building site** | None: the farm's builder | Tap anything: every piece answers | As the farm, with earth, roads and plots for tiles, from an empty table, and the broom to sweep it | Machines that work in chains: the digger digs a plot and loads the truck, the truck tips onto the pile, the mixer fills the hole with concrete, the crane lifts a building onto the foundation a floor at a time, each floor a note higher, and tops it out with a tree; the foreman's whistle sets them all going | 6 / 9 / 12 kinds of piece and an earth tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
+| **Bird song** | Music, auditory sense; and taking turns | Tap a bell flower for its colour's note; tap the bird and it sings its tune again | Run a finger along the flowers: a glide, and the bird glides it back | The bird sings a tune and waits, wing to its ear; whatever is played it sings back in the same rhythm, then a new tune from the last note played. Tunes grow by a note after three answered turns, and never shrink | 3 flowers, tunes of 2 / 5 flowers, tunes of 3 / and a second bird, tunes growing to 5 |
 
 ### How Montessori and Pok Pok were reconciled
 
@@ -161,7 +176,8 @@ panel is the only text.
   same clock.
 - **A mix, written down.** Each recipe has one level in `MIX` (in `synth.js`), and the toys pass
   only relative gain. The levels were set from a loudness estimate of every sound:
-  - musical notes (and a beam's clank, and the colour beats' drum) sit near −17 dB;
+  - musical notes (and a beam's clank, and the colour beats' drum) sit near −17 dB, and Bird
+    Song's whistle just under them, since a held whistle sounds louder than a struck bell;
   - animal voices near −19;
   - foley (clicks, latches, pats, a reversing beep, a chain, a crunch, a whistle, a clap, a
     shaker) near −21;
@@ -242,7 +258,7 @@ In Node:
 - every module parses as ES2017;
 - no API or CSS newer than Safari 12;
 - the offline copy is complete;
-- all 148 recipe variants render finite, unclipped, click-free and DC-free at 44.1 and 48 kHz;
+- all 154 recipe variants render finite, unclipped, click-free and DC-free at 44.1 and 48 kHz;
 - every sound sits in its band of the mix;
 - all 36 glyphs stay on the writing lines;
 - every sound the toys ask for with fixed parameters renders, so none is missing one it needs;
@@ -251,14 +267,22 @@ In Node:
   played round and round (so going round has no seam), and as loud as the notes;
 - a scratch through a held note slides rather than buzzes: a C5 scratched with uneven touches, at
   60 and 30 frames a second, through the record's following and the sound's glide, its fast
-  wobble at least 9 dB under the note.
+  wobble at least 9 dB under the note;
+- every tune Bird Song's bird composes, 3000 a stage, begins on the last note played, has the
+  stage's length, stays on its flowers, steps or skips one and never repeats a note three times;
+  what it sings back keeps the child's rhythm, a long wait shortened and a run along the flowers a
+  glide, at most his last twelve notes; and its tunes grow by a note after three answered turns,
+  up to the stage's most.
 
 Then in Chromium, as an iPad (1024 × 768 at 2×, touch), the suite drives every toy with real touch
 events. It measures the audio that reaches the speaker through an analyser after the compressor.
 It also checks:
 
 - that the first touch is what starts sound;
-- that the frame loop sleeps when nothing moves;
+- that the shelf says hello, its trays waking one by one, and then the frame loop sleeps when
+  nothing moves;
+- in the pond: that the shy fish keeps to its lily pad, comes out to a finger held still and
+  nibbles it, and darts home when the finger moves;
 - in the colour beats: that the shelf opens with its rows lowest note lowest and a heartbeat on
   the drum; that a tap puts a cube in, sounding, and takes it out again; that a stroke fills or
   empties a row; that the light plays a column at a time, a column's cubes together, each column
@@ -305,9 +329,24 @@ It also checks:
   plays its floors from the ground up; that the foreman's whistle sets the machines going; the
   night; at Bloom, a roller that leaves the road fresh and a lamp that lights; that the broom sweeps
   the site empty too; and that the site comes off the shelf as an empty table;
+- in bird song: that the bird sings first and then waits, wing to its ear, with the flowers open;
+  that it waits for him to finish, sings his notes back, and begins its next tune on his last
+  note; that a flower tapped while it sings is not taken as an answer; that a run along the
+  flowers comes back as a glide; that a tap on the bird hands it the turn; that its tunes grow
+  after three answers; that with nothing played it sings again, twice, then rests, with no
+  frames drawn, until a flower wakes it; and at Bloom, that the second bird answers the first and
+  both sing his notes back;
 - that leaving a toy stops its sounds;
 - that the grown-ups' gate needs a three-second hold;
 - that one toy's stage can be moved on by itself, and the shared stage clears it again;
+- that the arrows move a toy along the shelf, the list following and the order remembered, and
+  one press brings back the playroom's own order; that only the new game is marked new;
+- that each new thing has a switch, on to begin with and remembered; that goodnight in five
+  minutes can be set and called off; and that with the shy fish off, the pond has only its own
+  fish;
+- goodnight: that a tap on the moon brings the night, a tap tucks a toy in, and the playroom closes
+  to its bud, which opens it again with its hello; and that, set for later, the moon shows on the
+  house button in a toy, and the night comes once the shelf is out;
 - that a rotation is followed;
 - that the page opens with no connection;
 - that a newly published copy is taken up by itself: at once while the bud waits, and mid-play
@@ -341,11 +380,12 @@ playroom/
     audio.js                the Web Audio engine
     synth.js                every sound, as a recipe; the tuning; the mix
     draw.js, util.js        palette, shapes, layers, springs, colour, paint mixing
-    start.js, shelf.js      the bud, and the shelf
+    start.js, shelf.js      the bud, and the shelf with its hello and goodnight
     settings.js, parent.js  the grown-ups' corner
     toys/                   one file per toy; glyphs.js holds the letters and numerals, cubes.js
                             the colour beats' cubes and the beats' marks, records.js the
                             turntable's records, scratch.js how its record follows a hand,
+                            tunes.js Bird Song's tunes,
                             farmart.js the farm's pictures, board.js the isometric board the
                             farm and the building site are built on, iso.js its boxes, roofs
                             and walls, machines.js the site's palette and machines, and
@@ -357,6 +397,7 @@ playroom/
 
 ## Not yet done
 
+- **The rest of the proposal for new games**: phases 2 to 4, nine games and redesigns.
 - **A garden.** Seeds, a watering can, flowers that open with a chime, and the bud's own story. The
   farm's fields and watering farmer now cover some of it.
 - **The movable alphabet**, the next step after the sandpaper letters, once a child is building

@@ -323,7 +323,8 @@ export function now() {
 
 function keyOf(name, params) {
     const f = params.f ? params.f.toFixed(2) : '';
-    return `${name}|${f}|${params.variant || ''}|${params.seed || ''}`;
+    const from = params.from ? `|${params.from.toFixed(2)}` : '';
+    return `${name}|${f}|${params.variant || ''}|${params.seed || ''}${from}`;
 }
 
 function dataFor(name, params) {

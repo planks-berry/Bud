@@ -5,11 +5,11 @@ revised. The technical side (the old iPad, the audio engine, the tests) is in
 [PLAYROOM.md](PLAYROOM.md). This file is about what each game is and why. The code calls the games
 "toys".
 
-**Status, 23 October 2026.**
-- **Built:** twelve games, tested in two simulated iPad browsers (one with everything Safari 12
-  lacks removed). The newest is the turntable, in place of the easel, now with pads and smoother
-  scratching. The colour tower is now the colour beats, a step sequencer, and the farm and the
-  building site start on an empty table.
+**Status, 24 October 2026.**
+- **Built:** thirteen games, tested in two simulated iPad browsers (one with everything Safari 12
+  lacks removed). The newest are phase 1 of the proposal for new games: Bird Song, a new game; the
+  shy fish, in the pond; and hello and goodnight, the playroom's way in and out. Each has a switch
+  in the grown-ups' corner, which can now also set the order of the shelf.
 - **Where:** live at https://planks-berry.github.io/Bud/playroom/, published from `main`. Work
   continues on branch `claude/montessori-playroom`.
 - **Not yet checked on a real iPad:** the speaker mix and the iPad Air's frame rate can only be
@@ -37,11 +37,13 @@ What was asked, and the answers that have shaped everything since.
 ## How the playroom is put together
 
 - **The bud.** The first screen is a closed bud. Touching it makes it bloom with a soft chord, then
-  the shelf opens. It also starts the sound, which iOS allows only after a touch.
-- **The shelf.** Twelve games on a low wooden shelf, one to a tray, in three rows. They are ordered
-  simple to complex, left to right and top to bottom; the bottom row is the builders': the dig, the
-  crane, the farm and the building site. There are no words anywhere: each tray is a picture of its
-  game. Touching a tray opens the game, and the house button in the corner puts it back.
+  the shelf opens and says hello. It also starts the sound, which iOS allows only after a touch.
+- **The shelf.** Thirteen games on a low wooden shelf, one to a tray, in rows. They are ordered
+  simple to complex, left to right and top to bottom, ending with the builders': the dig, the
+  crane, the farm and the building site. A new game joins at the end, so the trays he knows keep
+  their order; the grown-ups' corner can move any game along the shelf. There are no words
+  anywhere: each tray is a picture of its game. Touching a tray opens the game, and the house
+  button in the corner puts it back.
 - **Layers, found by playing, never unlocked.** Every game has three:
   - **touch**: something happens at the first contact, always;
   - **move**: dragging, carrying, turning, combining;
@@ -53,7 +55,10 @@ What was asked, and the answers that have shaped everything since.
   Inside:
   - every game's stage at once, and each game's own stage, with what each stage puts out;
   - which games are on the shelf (fewer choices help a young child settle; rotate every week or
-    two);
+    two), and where: arrows move a game earlier or later, and one press brings back the
+    playroom's own order. A new game is marked new;
+  - new things: a switch for each new part of the playroom (the hello song, the goodnight moon,
+    the shy fish), all on to begin with, and goodnight in five minutes;
   - sound through the silent switch, and volume;
   - how to set up the iPad: Add to Home Screen, Guided Access, gestures off.
 
@@ -67,7 +72,23 @@ What was asked, and the answers that have shaped everything since.
 - **A set mix.** Each sound has one level, and the tests hold it in its band: notes loudest, then
   knocks and clicks, then air and paper.
 - **Colours have notes.** Red is C, yellow E, green G, blue A, purple the C above. The colour beats,
-  the crane, the building site and the turntable's pads use the same pairs.
+  the crane, the building site, the turntable's pads and Bird Song's flowers use the same pairs.
+
+## Hello and goodnight
+
+The playroom opens and closes the same way every day, the way Mister Rogers began and ended every
+programme. Each has a switch in the grown-ups' corner, on to begin with.
+
+- **Hello.** When the bud opens, the trays wake one by one, each with a marimba note, climbing the
+  scale. A tray chosen before the end wakes them all.
+- **Goodnight.** The picture on the shelf's wall is a window: the sun in it, and a moon when
+  goodnight is on. Tap the moon and dusk falls, an owl hoots, and the toys fall asleep one by one
+  from the last tray, each to the next note of a lullaby; a tap on a tray tucks it in at once. When
+  the last is asleep the lullaby ends, and the playroom closes to its bud, as it opened.
+- **Goodnight in five minutes**, from the corner: over five minutes the sun in the window sets and
+  the moon rises, with no clock and no numbers. Then the night comes, the next time the shelf is
+  out (and not while the corner is open). In a game, the house button shows the moon once it is
+  up: time to come back to the shelf.
 
 ---
 
@@ -96,10 +117,19 @@ answers a single touch.
 - Make: hold a finger still in the water and the fish come to nibble it. Drag from the pot to
   scatter food, and they gather to eat.
 
+**The shy fish** (a switch in the grown-ups' corner, on to begin with): one more fish, lilac with
+big eyes, lives under a lily pad and peeks out from under its rim, and sometimes hides right under.
+A finger held still in the water gives it courage a little at a time: it peeks toward the finger,
+comes out a step at a time, and nibbles. A finger that moves, a splash, or a touch on its pad sends
+it under, never sulking, and it tries again as soon as the finger is still. Once it has nibbled it
+trusts him, and comes in half the time.
+
 **Stages**
-- Seed: 3 fish, 2 lily pads.
-- Sprout: 4 fish, 3 lily pads.
-- Bloom: 5 fish, 4 lily pads.
+- Seed: 3 fish, 2 lily pads. The shy fish sets out after 2 seconds and nibbles at about 4½.
+- Sprout: 4 fish, 3 lily pads. The shy fish comes in three steps, at 1, 2½ and 4 seconds, and
+  nibbles at about 5½.
+- Bloom: 5 fish, 4 lily pads. A second shy fish, under another pad, follows once the first has
+  dared, more slowly.
 
 **Sound:**
 - water drops, from the G above middle C up to an E nearly two octaves higher, by position;
@@ -109,6 +139,11 @@ answers a single touch.
 **Decisions so far**
 - The fish need nothing from the child to be content. Feeding them is something to do, never
   something owed.
+- The shy fish is patience met by a friend who is shy: Mister Rogers treated shyness as one more
+  feeling, to be waited for kindly. With the shy fish off, the pond is exactly as it was; with it
+  on, the other fish and the pads are where they always are.
+- Its times are measured to the nibble, not to when it sets out: the proposal's 1, 3 and 5 seconds
+  plus the swim put the first nibble 7 to 8 seconds away, too long at Seed.
 
 **Questions**
 -
@@ -780,10 +815,58 @@ his whistle.
 **Ideas**
 -
 
+### 13. Bird song
+
+**What it is:** a bird on a branch, and bell flowers below it in the playroom's colours. The bird
+sings a short tune, then raises a wing to its ear and waits. Whatever he plays on the flowers is
+his answer: the bird waits for him to finish, sings his notes back in his own rhythm, and then
+sings a new tune that begins on the note he ended with.
+
+**Roots:** Ms Rachel's pause, with a hand to her ear; Toony the Loon in Thinkin' Things, who plays a
+tune for the child to play back; Montessori's bells. And taking turns, which is hard at nearly
+three: here the bird always waits for him, and he can learn to wait for the bird.
+
+**Layers**
+- Touch: tap a flower for its note; the colours keep their notes from every game. Tap the bird and
+  it sings its tune again; once he has played, a tap on the bird hands it the turn at once.
+- Move: run a finger along the flowers for a glide, and the bird glides it back.
+- Make: a song of turns, his and the bird's.
+
+**Stages**
+- Seed: 3 flowers (red, yellow, green), tunes of 2 notes, growing to 3.
+- Sprout: all 5 flowers, tunes of 3, growing to 4.
+- Bloom: a second bird, who answers the first bird's tune before both listen, and both sing his
+  notes back; the two take turns to lead. Tunes of 3, growing to 5.
+
+**Sound:** the flowers ring as glockenspiel bells. The bird whistles a warbling note that scoops
+up into its pitch, an octave above the flowers; the second bird sings at the flowers' own pitch. A
+glide comes back as short notes, each sliding in from the one before.
+
+**Decisions so far**
+- Never wrong: whatever he plays is sung back, and nothing is marked. A tune grows by a note after
+  three answered turns in a row, and never shrinks.
+- The turn is shown, not told. While the bird sings, the flowers close a little and ring only
+  softly, and the bird finishes its tune before it listens. When it is his turn they open with a
+  ripple and the bird cups its ear.
+- He has finished when 1.2 seconds pass with no new note and no finger on the flowers.
+- Quiet is fine: after 9 seconds the bird sings its tune again, twice, and then tucks its head in
+  and rests until a flower or the bird is touched.
+- The proposal's second bird was a part for a grown-up to play. Since you talk with him about what
+  happens rather than taking a turn yourself, the second bird shows two birds taking turns instead.
+- It joins the shelf at the end, so the trays he knows keep their order.
+
+**Questions**
+-
+
+**Ideas**
+-
+
 ---
 
 ## Not built yet
 
+- **The rest of the proposal for new games**: phases 2 to 4, nine games and redesigns, in
+  "Playroom proposal: twelve new games".
 - **A garden:** seeds, a watering can, flowers that open with a chime, and the bud's own story.
   The farm's fields and watering farmer now cover some of it.
 - **The movable alphabet** (see the letters).
@@ -802,7 +885,8 @@ his whistle.
 
 - `playroom/`: the playroom itself. One file per game in `playroom/js/toys/`, with its drawings
   beside it (`farmart.js`, `digart.js`, `craneart.js`, `siteart.js`), the colour beats' cubes in
-  `cubes.js`, the machines the dig and the site share in `machines.js`, and the board the farm and
-  the site share in `board.js`.
+  `cubes.js`, Bird Song's tunes in `tunes.js`, the machines the dig and the site share in
+  `machines.js`, and the board the farm and the site share in `board.js`. The shelf, with its hello
+  and goodnight, is `playroom/js/shelf.js`.
 - `docs/PLAYROOM.md`: how it is built, why, and how it is tested.
 - `docs/PLAYROOM-GAMES.md`: this file.

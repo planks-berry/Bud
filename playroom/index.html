@@ -35,6 +35,11 @@
         <path d="M9 15 V27 a2 2 0 0 0 2 2 H23 a2 2 0 0 0 2 -2 V15" fill="#F3DE97" stroke="#6B5A4C" stroke-width="3.4" stroke-linejoin="round"/>
         <rect x="14.5" y="20" width="5" height="9" rx="1.5" fill="#6B5A4C"/>
     </svg>
+    <!-- Shown once the goodnight moon a grown-up set for later is up: time to go home. -->
+    <svg class="moon" width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
+        <circle cx="15" cy="15" r="13" fill="#2F3A63"/>
+        <path d="M19 6 a9.5 9.5 0 1 0 5 15 a7.5 7.5 0 1 1 -5 -15 Z" fill="#F7E7A6"/>
+    </svg>
 </button>
 
 <button id="gate" class="corner gate" aria-label="For grown-ups: press and hold for three seconds" hidden>
@@ -59,8 +64,28 @@
 
         <section>
             <h2>The toys</h2>
-            <p class="hint">Which are on the shelf, and the stage of each. Fewer choices help a young child settle into one: put a few out and rotate them every week or two. Move a toy on when your child starts pushing at what it can do.</p>
+            <p class="hint">Which are on the shelf, where, and the stage of each. The list runs in the shelf's order, left to right and top row first; the arrows move a toy earlier or later. Fewer choices help a young child settle into one: put a few out and rotate them every week or two. Move a toy on when your child starts pushing at what it can do.</p>
             <div data-shelf></div>
+            <button class="plain" data-reset-order>Back to the playroom's own order</button>
+        </section>
+
+        <section>
+            <h2>New things</h2>
+            <p class="hint">A new game arrives on the shelf above, marked new, with its own switch. Each new part of the playroom has a switch here. All start on; turn off anything you would rather keep back for now.</p>
+            <button class="toggle" data-extra="hello" aria-pressed="true">
+                <span class="label"><strong>Hello song</strong><span>When the bud opens, the trays wake one by one, each with a note.</span></span>
+                <span class="switch"></span>
+            </button>
+            <button class="toggle" data-extra="goodnight" aria-pressed="true">
+                <span class="label"><strong>Goodnight moon</strong><span>A moon in the window on the shelf's wall. Tap it and the toys fall asleep one by one to a lullaby, each tray tucked in with a tap, until the playroom closes to its bud.</span></span>
+                <span class="switch"></span>
+            </button>
+            <button class="plain" data-bedtime>Goodnight in five minutes</button>
+            <p class="hint note" data-bedtime-note>Over five minutes the sun in the window sets and the moon rises; then the toys go to sleep, the next time the shelf is out. In a game, the house button shows the moon once it is up.</p>
+            <button class="toggle" data-extra="shyFish" aria-pressed="true">
+                <span class="label"><strong>The shy fish</strong><span>In the pond, one fish hides under a lily pad, and comes a little closer each time a finger stays still a little longer.</span></span>
+                <span class="switch"></span>
+            </button>
         </section>
 
         <section>

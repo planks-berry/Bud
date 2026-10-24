@@ -4,7 +4,18 @@
 //
 // The panel is ordinary HTML with words in it, because it is for someone who reads.
 
-import { settings, save, STAGES, stageOf, setStage, setAllStages } from './settings.js';
+import {
+    settings,
+    save,
+    STAGES,
+    EXTRAS,
+    stageOf,
+    setStage,
+    setAllStages,
+    move,
+    resetOrder,
+    setExtra,
+} from './settings.js';
 import * as audio from './audio.js';
 import { VERSION, PUBLISHED, STAMPED } from './version.js';
 
@@ -48,13 +59,18 @@ export function setupParent(app, gate) {
         render();
         panel.hidden = false;
         gate.hidden = true;
+        // A goodnight that comes due waits until the grown-up has finished here.
+        app.cornerOpen = true;
     }
 
     function close() {
         panel.hidden = true;
-        gate.hidden = !!app.current;
+        app.cornerOpen = false;
+        // The leaf belongs to the shelf: not in a toy, and not on the bud after a goodnight.
+        gate.hidden = app.stage.scene !== app.shelf;
         // A toy moved on needs its new sounds ready before it is opened.
         app.warmUp();
+        app.stage.wake();
     }
 
     function render() {
@@ -82,17 +98,34 @@ export function setupParent(app, gate) {
         }
         panel.querySelector('[data-mixed]').hidden = !!shared;
 
+        // The toys in the shelf's order, each with its place, its switch and its stage.
         const shelf = panel.querySelector('[data-shelf]');
         shelf.innerHTML = '';
-        for (const toy of app.toys) {
+        const toys = app.orderedToys();
+        toys.forEach((toy, place) => {
             const shown = settings.hidden.indexOf(toy.id) < 0;
             const row = document.createElement('div');
             row.className = shown ? 'toy' : 'toy off';
             row.setAttribute('data-toy', toy.id);
             row.innerHTML =
-                `<div class="head"><span class="label"><strong>${toy.title}</strong>` +
+                `<div class="head"><span class="label"><strong>${toy.title}` +
+                `${toy.isNew ? '<span class="badge">New</span>' : ''}</strong>` +
                 `<span>${toy.about}</span></span>` +
+                `<span class="places">` +
+                `<button data-earlier aria-label="Earlier on the shelf"${place === 0 ? ' disabled' : ''}>&uarr;</button>` +
+                `<button data-later aria-label="Later on the shelf"${place === toys.length - 1 ? ' disabled' : ''}>&darr;</button>` +
+                `</span>` +
                 `<button class="switch" aria-pressed="${shown}" aria-label="On the shelf"></button></div>`;
+            row.querySelector('[data-earlier]').addEventListener('click', () => {
+                move(app.toys, toy.id, -1);
+                app.refreshShelf();
+                render();
+            });
+            row.querySelector('[data-later]').addEventListener('click', () => {
+                move(app.toys, toy.id, 1);
+                app.refreshShelf();
+                render();
+            });
             row.querySelector('.switch').addEventListener('click', () => {
                 const index = settings.hidden.indexOf(toy.id);
                 if (index >= 0) settings.hidden.splice(index, 1);
@@ -121,7 +154,19 @@ export function setupParent(app, gate) {
                 row.appendChild(segments);
             }
             shelf.appendChild(row);
+        });
+        panel.querySelector('[data-reset-order]').disabled = !settings.order.length;
+
+        for (const name of EXTRAS) {
+            panel
+                .querySelector(`[data-extra="${name}"]`)
+                .setAttribute('aria-pressed', String(settings.extras[name]));
         }
+        const bedtime = panel.querySelector('[data-bedtime]');
+        bedtime.hidden = !settings.extras.goodnight;
+        bedtime.setAttribute('aria-pressed', String(!!app.bedtime));
+        bedtime.textContent = app.bedtime ? 'Goodnight is coming: call it off' : 'Goodnight in five minutes';
+        panel.querySelector('[data-bedtime-note]').hidden = !settings.extras.goodnight;
 
         const silent = panel.querySelector('[data-silent]');
         silent.setAttribute('aria-pressed', String(settings.throughSilent));
@@ -129,6 +174,26 @@ export function setupParent(app, gate) {
         const volume = panel.querySelector('[data-volume]');
         volume.value = String(settings.volume);
     }
+
+    panel.querySelector('[data-reset-order]').addEventListener('click', () => {
+        resetOrder();
+        app.refreshShelf();
+        render();
+    });
+
+    for (const name of EXTRAS) {
+        panel.querySelector(`[data-extra="${name}"]`).addEventListener('click', () => {
+            setExtra(name, !settings.extras[name]);
+            if (name === 'goodnight' && !settings.extras.goodnight) app.setBedtime(0);
+            app.refreshShelf();
+            render();
+        });
+    }
+
+    panel.querySelector('[data-bedtime]').addEventListener('click', () => {
+        app.setBedtime(app.bedtime ? 0 : 5);
+        render();
+    });
 
     panel.querySelector('[data-silent]').addEventListener('click', () => {
         settings.throughSilent = !settings.throughSilent;

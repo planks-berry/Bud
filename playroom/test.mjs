@@ -178,6 +178,11 @@ const PARAMS = {
     ribbit: [{ f: noteHz(-2, 60) }],
     hoot: [{ f: noteHz(2, 60) }],
     chirp: [{ f: noteHz(2, 96) }, { f: noteHz(0, 96), variant: 'peep' }],
+    warble: [
+        { f: noteHz(0, 84) },
+        { f: noteHz(5, 84), variant: 'short', from: noteHz(4, 84) },
+        { f: noteHz(0, 72) },
+    ],
     putt: [{}],
     toot: [{ f: noteHz(3, 60) }, { f: noteHz(5, 60) }],
     crow: [{}],
@@ -301,7 +306,11 @@ function loudness(samples, sr) {
 }
 
 const BANDS = [
-    ['notes', [-19.5, -14.5], ['marimba', 'glock', 'chime', 'musicBox', 'drop', 'wood', 'clank', 'drum']],
+    [
+        'notes',
+        [-19.5, -14.5],
+        ['marimba', 'glock', 'chime', 'musicBox', 'drop', 'wood', 'clank', 'drum', 'warble'],
+    ],
     [
         'voices',
         [-21.5, -16.5],
@@ -560,6 +569,77 @@ check(
     );
 }
 
+// ---- Bird Song: every tune the bird composes, and every answer it sings back, keeps its rules ----
+
+{
+    const tunes = await import(pathToFileURL(join(here, 'js/toys/tunes.js')).href);
+    const cubes = await import(pathToFileURL(join(here, 'js/toys/cubes.js')).href);
+    const faults = [];
+    tunes.STAGES.forEach((stage, level) => {
+        const count = stage.flowers.length;
+        if (stage.flowers.some((name) => !cubes.COLOURS.some((kind) => kind.name === name)))
+            faults.push(`stage ${level}: a flower in no colour of the playroom's`);
+        const opener = tunes.OPENERS[level];
+        if (opener.length !== stage.first || opener.some((name) => stage.flowers.indexOf(name) < 0))
+            faults.push(`stage ${level}: its first tune`);
+        let seed = 11 + level;
+        const next = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+        for (let roll = 0; roll < 3000 && faults.length < 5; roll++) {
+            const start = roll % count;
+            const length = stage.first + (roll % (stage.most - stage.first + 1));
+            const tune = tunes.compose(start, length, count, next);
+            const where = `stage ${level}, roll ${roll}: ${tune.join(' ')}`;
+            if (tune.length !== length || tune[0] !== start) faults.push(`${where}: length or start`);
+            if (tune.some((at) => !Number.isInteger(at) || at < 0 || at >= count))
+                faults.push(`${where}: off the flowers`);
+            for (let k = 1; k < tune.length; k++) {
+                if (Math.abs(tune[k] - tune[k - 1]) > 2) faults.push(`${where}: a leap`);
+                if (k >= 2 && tune[k] === tune[k - 1] && tune[k - 1] === tune[k - 2])
+                    faults.push(`${where}: three the same`);
+            }
+        }
+    });
+    check(
+        "every tune the bird composes, 3000 a stage, begins on his last note, has the stage's length, stays on its flowers, steps or skips one, and never repeats a note three times",
+        faults.length === 0,
+        faults.slice(0, 3).join('; ')
+    );
+
+    const taps = tunes.echo([
+        { index: 0, t: 0 },
+        { index: 2, t: 0.5 },
+        { index: 1, t: 3 },
+    ]);
+    const glide = tunes.echo([0, 1, 2, 3, 4].map((index, k) => ({ index, t: k * 0.08 })));
+    const many = tunes.echo(Array.from({ length: 20 }, (_, k) => ({ index: k % 5, t: k * 0.3 })));
+    const close = (a, b) => Math.abs(a - b) < 1e-9;
+    check(
+        'the bird sings his notes back in his rhythm, a long wait shortened; a run along the flowers as a glide; at most his last twelve',
+        taps.map((n) => n.index).join(' ') === '0 2 1' &&
+            close(taps[1].at, 0.5) &&
+            close(taps[2].at, 1.1) &&
+            taps.every((n) => !n.short && n.glide === undefined) &&
+            glide.every((n) => n.short) &&
+            glide.slice(1).every((n, k) => n.glide === k) &&
+            close(glide[1].at, 0.11) &&
+            many.length === 12 &&
+            many[0].index === 3,
+        JSON.stringify(glide)
+    );
+
+    let grow = { streak: 0, length: 3 };
+    const lengths = [];
+    for (let k = 0; k < 9; k++) {
+        grow = tunes.grown(grow.streak, grow.length, 5);
+        lengths.push(grow.length);
+    }
+    check(
+        "the tunes grow by a note after three answered turns, up to the stage's most",
+        lengths.join(' ') === '3 3 4 4 4 5 5 5 5',
+        lengths.join(' ')
+    );
+}
+
 //==============================================================================
 // The browser
 
@@ -736,7 +816,37 @@ async function suite(mode) {
     await page.waitForTimeout(1800);
     check('then the shelf', (await sceneName()) === 'ShelfScene');
     const trays = await scene(() => window.playroom.shelf.items.map((item) => item.toy.id));
-    check('twelve trays on the shelf', trays.length === 12, trays.join(' '));
+    check(
+        'thirteen trays on the shelf, the newest last',
+        trays.length === 13 && trays[12] === 'birdsong',
+        trays.join(' ')
+    );
+
+    // Hello: the trays wake one by one, each with a note, and then the shelf is still.
+    const hello = await scene(() => {
+        const s = window.playroom.shelf;
+        return { greeting: !!s.greeting, asleep: s.items.filter((item) => item.wake.target === 0).length };
+    });
+    const helloOver = await page
+        .waitForFunction(
+            () =>
+                !window.playroom.shelf.greeting &&
+                window.playroom.shelf.items.every((item) => item.wake.settled()),
+            null,
+            { timeout: 6000 }
+        )
+        .then(
+            () => true,
+            () => false
+        );
+    check(
+        'the shelf says hello: its trays wake one by one, until all are awake',
+        hello.greeting &&
+            hello.asleep > 0 &&
+            helloOver &&
+            (await scene(() => window.playroom.shelf.items.every((item) => item.wake.target === 1))),
+        JSON.stringify(hello)
+    );
     await shot('shelf');
 
     // A still shelf draws nothing: an iPad left on the playroom stays cool.
@@ -768,6 +878,42 @@ async function suite(mode) {
     await touch.tap(420, 380);
     check('a tap on the water sounds', (await peak(300)) > 0.02);
     check('and ripples', (await scene(() => window.playroom.stage.scene.ripples.length)) > 0);
+
+    // The shy fish keeps to its lily pad, until a finger has been still in the water for a while:
+    // then it comes out a step at a time, and nibbles. A finger that moves sends it home.
+    const shy = await scene(() => {
+        const s = window.playroom.stage.scene;
+        const f = s.fish.find((fish) => fish.shy);
+        if (!f) return null;
+        const pad = f.home;
+        const away = Math.atan2(s.cy - pad.y, s.cx - pad.x);
+        return {
+            home: Math.hypot(f.x - pad.x, f.y - pad.y) < pad.r * 1.2,
+            at: [pad.x + Math.cos(away) * 230, pad.y + Math.sin(away) * 230],
+        };
+    });
+    let shyNibbled = false;
+    let shyCourage = -1;
+    if (shy) {
+        await touch.down(shy.at[0], shy.at[1]);
+        shyNibbled = await page
+            .waitForFunction(() => window.playroom.stage.scene.fish.find((f) => f.shy).nibbled, null, {
+                timeout: 11000,
+            })
+            .then(
+                () => true,
+                () => false
+            );
+        await touch.move(shy.at[0] + 60, shy.at[1]);
+        await page.waitForTimeout(120);
+        shyCourage = await scene(() => window.playroom.stage.scene.fish.find((f) => f.shy).courage);
+        await touch.up();
+    }
+    check(
+        'the shy fish keeps to its lily pad, comes out to a finger held still and nibbles it, and darts home when the finger moves',
+        !!shy && shy.home && shyNibbled && shyCourage === 0,
+        JSON.stringify({ shy, shyNibbled, shyCourage })
+    );
     const pot = await scene(() => ({
         x: window.playroom.stage.scene.pot.x,
         y: window.playroom.stage.scene.pot.y,
@@ -2660,6 +2806,152 @@ async function suite(mode) {
     );
     await home();
 
+    // ---- bird song -------------------------------------------------------------------------------
+    //
+    // The bird sings first, then waits with its wing to its ear. Whatever is played on the flowers
+    // it sings back, in the rhythm it was played, and its next tune begins on the last note played.
+
+    await open('birdsong');
+    check('bird song opens', (await sceneName()) === 'BirdScene');
+    const song = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            return {
+                mode: s.mode,
+                tune: s.tune.slice(),
+                heard: s.heard.map((n) => n.index),
+                sung: s.timeline
+                    ? s.timeline.events.map((e) => ({
+                          birds: e.birds.join('+'),
+                          index: e.index,
+                          short: e.short,
+                          glide: e.glide,
+                      }))
+                    : [],
+                length: s.length,
+                reminders: s.reminders,
+                flowers: s.flowers.map((f) => [f.x, f.y + s.bellH * 0.5]),
+                birds: s.birds.map((b) => [b.x, b.y - s.r * 0.3]),
+                listening:
+                    s.birds.every((b) => b.cup.target === 1) && s.flowers.every((f) => f.open.target === 1),
+            };
+        });
+    const turn = (mode = 'turn', timeout = 8000) =>
+        page
+            .waitForFunction((mode) => window.playroom.stage.scene.mode === mode, mode, { timeout })
+            .then(
+                () => true,
+                () => false
+            );
+    let tweet = await song();
+    check(
+        'the bird sings first: its opening tune, aloud',
+        tweet.mode === 'birds' && tweet.sung.length === 3 && (await peak(1300)) > 0.02,
+        JSON.stringify(tweet.sung)
+    );
+    check('then it waits, wing to its ear, and the flowers open', (await turn()) && (await song()).listening);
+    await shot('birdsong');
+    for (const k of [0, 2, 1]) {
+        await touch.tap(tweet.flowers[k][0], tweet.flowers[k][1]);
+        await page.waitForTimeout(300);
+    }
+    const answer = await song();
+    const tookTurn = await turn('birds', 3000);
+    tweet = await song();
+    const sungBack = tweet.sung.slice(0, 3);
+    check(
+        'it waits for him to finish, sings his notes back, and its next tune begins on his last note',
+        answer.heard.join(' ') === '0 2 1' &&
+            answer.mode === 'turn' &&
+            tookTurn &&
+            sungBack.map((n) => n.index).join(' ') === '0 2 1' &&
+            tweet.sung[3].index === 1 &&
+            tweet.tune[0] === 1,
+        JSON.stringify({ heard: answer.heard, sung: tweet.sung.map((n) => n.index) })
+    );
+    await touch.tap(tweet.flowers[4][0], tweet.flowers[4][1]);
+    await turn();
+    check(
+        'a flower tapped while the bird sings rings, but is not taken as an answer',
+        (await song()).heard.length === 0
+    );
+
+    const glideY = tweet.flowers[0][1];
+    // A quick run, as a child's is: about a tenth of a second a flower.
+    await touch.drag(line(tweet.flowers[0][0] - 40, glideY, tweet.flowers[4][0] + 40, glideY, 12), 8);
+    await turn('birds', 3000);
+    const glided = (await song()).sung.slice(0, 5);
+    check(
+        'a finger run along the flowers comes back as a glide',
+        glided.map((n) => n.index).join(' ') === '0 1 2 3 4' &&
+            glided.every((n) => n.short) &&
+            glided.slice(1).every((n, k) => n.glide === k),
+        JSON.stringify(glided)
+    );
+    await turn();
+    await touch.tap(tweet.flowers[3][0], tweet.flowers[3][1]);
+    await page.waitForTimeout(150);
+    await touch.tap(tweet.birds[0][0], tweet.birds[0][1]);
+    await page.waitForTimeout(100);
+    tweet = await song();
+    check(
+        'a tap on the bird, once he has played, hands it the turn at once; and after three answers its tunes have grown',
+        tweet.mode === 'birds' && tweet.sung[0].index === 3 && tweet.length === 4 && tweet.tune.length === 4,
+        JSON.stringify({ mode: tweet.mode, length: tweet.length })
+    );
+
+    // Quiet is fine: the tune again, twice, and then the bird rests until a flower is touched.
+    await turn();
+    const quieten = () => scene(() => (window.playroom.stage.scene.quiet = 8.95));
+    const reminded = [];
+    for (let k = 0; k < 2; k++) {
+        await quieten();
+        reminded.push(await turn('birds', 2000));
+        await turn();
+    }
+    await quieten();
+    const restedNow = await turn('rest', 2000);
+    // The flowers' last swing and glow die away, and then nothing moves.
+    await page.waitForTimeout(3200);
+    const restA = await scene(() => window.playroom.stage.frames);
+    await page.waitForTimeout(600);
+    const restB = await scene(() => window.playroom.stage.frames);
+    await touch.tap(tweet.flowers[2][0], tweet.flowers[2][1]);
+    await page.waitForTimeout(100);
+    tweet = await song();
+    check(
+        'with nothing played it sings its tune again, twice, then rests, still, until a flower wakes it',
+        reminded.every(Boolean) &&
+            restedNow &&
+            restB === restA &&
+            tweet.mode === 'turn' &&
+            tweet.heard.join(' ') === '2' &&
+            tweet.length === 4,
+        JSON.stringify({ reminded, restedNow, frames: restB - restA, mode: tweet.mode })
+    );
+    check('home from bird song', (await home()) === 'ShelfScene');
+
+    // At Bloom a second bird answers the first before both listen, and both sing his notes back.
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('birdsong', 'bloom'));
+    await open('birdsong');
+    tweet = await song();
+    const duet = tweet.sung.map((n) => n.birds).join(' ');
+    await turn();
+    await touch.tap(tweet.flowers[4][0], tweet.flowers[4][1]);
+    await turn('birds', 3000);
+    const together = (await song()).sung;
+    check(
+        'at Bloom two birds: the second answers the first before they listen, and both sing his notes back',
+        tweet.birds.length === 2 &&
+            duet === '0 0 0 1 1 1' &&
+            together[0].birds === '0+1' &&
+            together[0].index === 4,
+        `${duet}; ${together.map((n) => n.birds).join(' ')}`
+    );
+    await shot('birdsong-bloom');
+    await home();
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('birdsong', 'sprout'));
+
     // ---- the grown-up's corner ------------------------------------------------------------------
 
     const gate = await page.evaluate(() => {
@@ -2721,12 +3013,94 @@ async function suite(mode) {
     );
 
     await page.click('[data-toy="busy"] .switch');
-    check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 11);
+    check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 12);
     await page.click('[data-toy="busy"] .switch');
-    check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 12);
+    check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 13);
+
+    // The shelf's order: the arrows move a toy along it, the list follows, the order is remembered,
+    // and the playroom's own order is a press away. A new game says so.
+    const shelfOrder = () => scene(() => window.playroom.shelf.items.map((item) => item.toy.id).join(' '));
+    const listOrder = () =>
+        page.evaluate(() =>
+            [...document.querySelectorAll('[data-shelf] [data-toy]')]
+                .map((row) => row.getAttribute('data-toy'))
+                .join(' ')
+        );
+    const ownOrder = await shelfOrder();
+    const ends = await page.evaluate(() => ({
+        first: document.querySelector('[data-toy="pond"] [data-earlier]').disabled,
+        last: document.querySelector('[data-toy="birdsong"] [data-later]').disabled,
+        badges: [...document.querySelectorAll('[data-shelf] .badge')]
+            .map((b) => b.closest('[data-toy]').getAttribute('data-toy'))
+            .join(' '),
+    }));
+    await page.click('[data-toy="birdsong"] [data-earlier]');
+    await page.click('[data-toy="birdsong"] [data-earlier]');
+    const movedOrder = await shelfOrder();
+    const movedList = await listOrder();
+    const keptOrder = (await stored()).order;
+    await page.click('[data-reset-order]');
+    check(
+        "the arrows move a toy along the shelf, the list follows and it is remembered; one press brings back the playroom's own order",
+        ends.first &&
+            ends.last &&
+            ends.badges === 'birdsong' &&
+            movedOrder.split(' ').indexOf('birdsong') === 10 &&
+            movedList === movedOrder &&
+            keptOrder.indexOf('birdsong') === 10 &&
+            (await shelfOrder()) === ownOrder &&
+            (await stored()).order.length === 0,
+        `${movedOrder} | ${JSON.stringify(ends)}`
+    );
+
+    // The new things: each has a switch, on to begin with and remembered; goodnight in five minutes
+    // can be set and called off.
+    const extras = () =>
+        page.evaluate(() =>
+            [...document.querySelectorAll('[data-extra]')]
+                .map((b) => `${b.getAttribute('data-extra')} ${b.getAttribute('aria-pressed')}`)
+                .join(', ')
+        );
+    const extrasAtFirst = await extras();
+    await page.click('[data-extra="hello"]');
+    const helloOff = await scene(() => {
+        window.playroom.shelf.greet();
+        return window.playroom.shelf.greeting === null;
+    });
+    await page.click('[data-extra="hello"]');
+    await page.click('[data-extra="shyFish"]');
+    const extrasStored = (await stored()).extras;
+    await page.click('[data-bedtime]');
+    const bedtimeIn = await scene(() => window.playroom.bedtime - Date.now());
+    const bedtimeSays = await page.evaluate(() => document.querySelector('[data-bedtime]').textContent);
+    await page.click('[data-bedtime]');
+    const bedtimeOff = await scene(() => window.playroom.bedtime === 0);
+    await page.click('[data-extra="goodnight"]');
+    const goodnightOff = await page.evaluate(() => document.querySelector('[data-bedtime]').hidden);
+    await page.click('[data-extra="goodnight"]');
+    check(
+        'each new thing has a switch, on to begin with and remembered; goodnight in five minutes can be set and called off',
+        extrasAtFirst === 'hello true, goodnight true, shyFish true' &&
+            helloOff &&
+            extrasStored.hello === true &&
+            extrasStored.shyFish === false &&
+            bedtimeIn > 290000 &&
+            bedtimeIn <= 300000 &&
+            /call it off/.test(bedtimeSays) &&
+            bedtimeOff &&
+            goodnightOff,
+        `${extrasAtFirst}; ${JSON.stringify(extrasStored)}; ${bedtimeSays}`
+    );
     await shot('parent-toys');
     await page.click('[data-close]');
     check('Done closes the settings', await page.evaluate(() => document.getElementById('parent').hidden));
+    await open('pond');
+    check(
+        'with the shy fish switched off, the pond has only its own fish',
+        await scene(() => !window.playroom.stage.scene.fish.some((f) => f.shy))
+    );
+    await home();
+    await page.evaluate(async () => (await import('./js/settings.js')).setExtra('shyFish', true));
     await open('busy');
     const board = await scene(() => {
         const widgets = window.playroom.stage.scene.widgets;
@@ -2898,6 +3272,80 @@ async function suite(mode) {
         'leaving a toy stops its sounds',
         (await scene(() => window.playroom.audio.stats().textures)) === 0
     );
+
+    // ---- goodnight ---------------------------------------------------------------------------------
+    //
+    // The moon in the shelf's window brings the night: the toys fall asleep one by one to a lullaby,
+    // a tap tucks one in at once, and when the last is asleep the playroom closes to its bud. Set
+    // for later from the corner, the moon shows on the way home, and the night comes on the shelf.
+
+    const tuckAll = async () => {
+        const rects = await scene(() =>
+            window.playroom.shelf.items
+                .filter((item) => !item.asleep)
+                .map((item) => window.playroom.shelf.rectOf(item.toy.id))
+        );
+        for (const r of rects) await touch.tap(r.x + r.w / 2, r.y + r.h / 2);
+    };
+    // The bud, once it has faded in: touches are not taken during a change of scene.
+    const bud = () =>
+        page
+            .waitForFunction(
+                () =>
+                    window.playroom.stage.scene.constructor.name === 'StartScene' &&
+                    !window.playroom.stage.busy,
+                null,
+                { timeout: 12000 }
+            )
+            .then(
+                () => true,
+                () => false
+            );
+    await page.waitForTimeout(400);
+    const moon = await scene(() => {
+        const r = window.playroom.shelf.window;
+        return [r.x + r.w / 2, r.y + r.h / 2];
+    });
+    await touch.tap(moon[0], moon[1]);
+    await page.waitForTimeout(300);
+    const nightFell = await scene(() => !!window.playroom.shelf.night);
+    await page.waitForTimeout(1300);
+    await shot('goodnight');
+    const first = await scene(() => window.playroom.shelf.rectOf(window.playroom.shelf.items[0].toy.id));
+    await touch.tap(first.x + first.w / 2, first.y + first.h / 2);
+    const tuckedIn = await scene(() => window.playroom.shelf.items[0].asleep);
+    await tuckAll();
+    check(
+        'a tap on the moon brings the night, a tap tucks a toy in, and the playroom closes to its bud',
+        nightFell && tuckedIn && (await bud()),
+        JSON.stringify({ nightFell, tuckedIn })
+    );
+    await touch.tap(512, 330);
+    await page.waitForTimeout(1800);
+    check(
+        'and the bud opens it again, with its hello',
+        (await sceneName()) === 'ShelfScene' && (await scene(() => !!window.playroom.shelf.greeting))
+    );
+    await page.waitForFunction(() => !window.playroom.shelf.greeting, null, { timeout: 6000 });
+
+    await open('bars');
+    await scene(() => window.playroom.setBedtime(0.02));
+    await page.waitForTimeout(1600);
+    const moonOnHome = await page.evaluate(() =>
+        document.getElementById('home').classList.contains('bedtime')
+    );
+    await home();
+    await page.waitForTimeout(600);
+    const nightCame = await scene(() => !!window.playroom.shelf.night);
+    await tuckAll();
+    check(
+        'set for later, the moon shows on the way home, and the night comes once the shelf is out',
+        moonOnHome && nightCame && (await bud()) && (await scene(() => window.playroom.bedtime === 0)),
+        JSON.stringify({ moonOnHome, nightCame })
+    );
+    await touch.tap(512, 330);
+    await page.waitForTimeout(1800);
+    await page.waitForFunction(() => !window.playroom.shelf.greeting, null, { timeout: 6000 });
 
     // ---- nothing went wrong along the way ----------------------------------------------------------
 

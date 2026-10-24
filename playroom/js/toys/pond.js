@@ -9,6 +9,12 @@
 //   make   - hold a finger still in the water and the fish come to nibble it. Drag from the
 //            pot to scatter food, and they gather to eat: caring for animals is Montessori
 //            practical life, and the fish do not need anything from the child to be content.
+//
+// With the shy fish on (a grown-up's switch), one more fish lives under a lily pad, peeking out from
+// under its rim. A finger held still gives it courage a little at a time: it peeks toward the
+// finger, comes closer, and at last nibbles. A finger that moves, a splash, or a touch on its pad
+// sends it under, and it tries again as soon as the finger is still; once it has nibbled it trusts
+// him, and comes sooner. Patience, met by a friend who is shy.
 
 import { Scene } from '../stage.js';
 import { PALETTE, makeLayer, freeLayer, grain, ellipse, disc, fillRound } from '../draw.js';
@@ -22,6 +28,24 @@ const FLOWERS = [1, 2, 2];
 const SHAPE = 3.4;
 const MAX_CRUMBS = 40;
 const DROP_DEGREES = [3, 12];
+
+// The shy fish's courage, a step at a time: after this many seconds of a still finger, it comes
+// this share of the way from its pad. At Seed in one step; at Sprout and Bloom in three, and at
+// Bloom a second shy fish follows the first once the first has dared.
+const SHY_STEPS = [
+    [[2, 1]],
+    [
+        [1, 1 / 3],
+        [2.5, 2 / 3],
+        [4, 1],
+    ],
+    [
+        [1, 1 / 3],
+        [2.5, 2 / 3],
+        [4, 1],
+    ],
+];
+const SHY_LOOK = { body: '#DCD0EE', fin: '#C5B4E2', spots: null, eye: 1.5 };
 
 const FISH_LOOKS = [
     { body: '#F4B897', fin: '#EFA27F', spots: null },
@@ -100,6 +124,36 @@ class PondScene extends Scene {
                 });
             }
             this.separatePads(1);
+            // The shy fish draw on their own numbers, so the pond is laid out the same with them or
+            // without. Each keeps hold of its own pad: touching a pad reorders the list.
+            if (this.app.settings.extras.shyFish) {
+                const shy = rng(23);
+                for (let i = 0; i < (this.level === 2 ? 2 : 1); i++) {
+                    const home = this.pads[i % this.pads.length];
+                    this.fish.push({
+                        x: home.x,
+                        y: home.y,
+                        a: shy() * TAU,
+                        v: 10 * u,
+                        len: 62 * u,
+                        look: SHY_LOOK,
+                        phase: shy() * TAU,
+                        seed: shy() * TAU,
+                        target: null,
+                        retarget: 0,
+                        flee: 0,
+                        fleeTarget: null,
+                        // The first nibble comes the moment it arrives: that is the reward for waiting.
+                        nibble: 0,
+                        shy: true,
+                        home,
+                        courage: 0,
+                        trust: 0,
+                        nibbled: false,
+                        follows: i > 0 ? this.fish[this.fish.length - 1] : null,
+                    });
+                }
+            }
         } else {
             // Rotated: keep everything in the water.
             for (const f of this.fish) this.keepInside(f, 30 * u);
@@ -307,6 +361,7 @@ class PondScene extends Scene {
             pad.tx = pad.x;
             pad.ty = pad.y;
             p.owner = { kind: 'pad', pad, dx: pad.x - p.x, dy: pad.y - p.y };
+            for (const f of this.fish) if (f.home === pad) f.flee = Math.max(f.flee, 0.8);
             if (pad.flower && dist(p.x, p.y, pad.x, pad.y) < pad.r * 0.5) {
                 const opening = pad.flower.open.target < 0.5;
                 pad.flower.open.target = opening ? 1 : 0;
@@ -444,8 +499,16 @@ class PondScene extends Scene {
         let speed = 30 * u;
         let eating = null;
         let nibbling = null;
+        let face = null;
 
-        if (f.flee > 0) {
+        if (f.shy) {
+            const plan = this.shyPlan(f, dt);
+            goal = plan.goal;
+            speed = plan.speed;
+            eating = plan.eating || null;
+            nibbling = plan.nibbling || null;
+            if (plan.face !== undefined) face = plan.face;
+        } else if (f.flee > 0) {
             f.flee -= dt;
             goal = f.fleeTarget;
             speed = (34 + 190 * f.flee) * u;
@@ -487,6 +550,8 @@ class PondScene extends Scene {
         }
 
         let desired = Math.atan2(goal.y - f.y, goal.x - f.x);
+        // A shy fish that has come to its place stops there and turns to look.
+        if (face !== null && dist(f.x, f.y, goal.x, goal.y) < 12 * u) desired = face;
         const aheadX = f.x + Math.cos(f.a) * 60 * u;
         const aheadY = f.y + Math.sin(f.a) * 60 * u;
         if (!this.inside(aheadX, aheadY, 34 * u)) desired = Math.atan2(this.cy - f.y, this.cx - f.x);
@@ -522,12 +587,74 @@ class PondScene extends Scene {
                 f.nibble = 0.45 + Math.random() * 0.5;
                 audio.play(
                     'bubble',
-                    { f: 2200 },
-                    { gain: 1, rate: random(0.8, 1.25), pan: (f.x / this.w) * 2 - 1 }
+                    { f: f.shy ? 3000 : 2200 },
+                    { gain: f.shy ? 0.75 : 1, rate: random(0.8, 1.25), pan: (f.x / this.w) * 2 - 1 }
                 );
                 this.bubbles.push({ x: mouthX, y: mouthY, t: 0 });
+                if (f.shy) {
+                    f.nibbled = true;
+                    f.trust = 1;
+                }
             }
         }
+    }
+
+    // Where the shy fish goes: home under its pad, unless a finger has been still long enough to
+    // bring it out, a step at a time. A friend waits for the first to dare, and a little longer.
+    shyPlan(f, dt) {
+        const u = this.u;
+        const pad = f.home;
+        let lure = null;
+        let near = Infinity;
+        for (const l of this.lures) {
+            if (!l.active) continue;
+            const d = dist(f.x, f.y, l.x, l.y);
+            if (d < near) {
+                near = d;
+                lure = l;
+            }
+        }
+        // At home it rests near the rim with its face out from under the pad, looking about, and
+        // now and then hides right under; toward a still finger it looks, and keeps looking. Away
+        // from home it hurries back, and comes to rest there.
+        const look = lure ? Math.atan2(lure.y - pad.y, lure.x - pad.x) : f.seed + this.time * 0.07;
+        const peeking = f.flee <= 0 && (lure || Math.sin(this.time * 0.45 + f.seed) > -0.35);
+        const rest = peeking ? pad.r * 0.7 : 0;
+        const home = { x: pad.x + Math.cos(look) * rest, y: pad.y + Math.sin(look) * rest };
+        const away = dist(f.x, f.y, home.x, home.y);
+        if (f.flee > 0) {
+            f.flee -= dt;
+            f.courage = 0;
+            return { goal: home, speed: clamp(away * 3, 0, (60 + 160 * f.flee) * u), face: look };
+        }
+        const homeward = { goal: home, speed: clamp(away * 1.5, 0, 90 * u), face: look };
+        let eating = null;
+        let best = pad.r * 1.5;
+        for (const c of this.crumbs) {
+            const d = dist(pad.x, pad.y, c.x, c.y);
+            if (d < best) {
+                best = d;
+                eating = c;
+            }
+        }
+        if (eating) return { goal: eating, speed: 46 * u, eating };
+        if (!lure || (f.follows && !f.follows.nibbled)) {
+            f.courage = 0;
+            return homeward;
+        }
+        f.courage += dt;
+        const wait = (f.trust ? 0.5 : 1) * (f.follows ? 1.5 : 1);
+        let reach = 0;
+        for (const [after, share] of SHY_STEPS[this.level]) if (f.courage >= after * wait) reach = share;
+        if (reach >= 1) {
+            const speed = near > 60 * u ? clamp(near * 0.6, 44 * u, 90 * u) : 14 * u;
+            return { goal: lure, speed, nibbling: lure };
+        }
+        if (!reach) return homeward;
+        // Each step out takes about a second, and there the fish waits, facing the finger, deciding.
+        const step = { x: pad.x + (lure.x - pad.x) * reach, y: pad.y + (lure.y - pad.y) * reach };
+        const toward = Math.atan2(lure.y - f.y, lure.x - f.x);
+        return { goal: step, speed: clamp(dist(f.x, f.y, step.x, step.y) * 1.2, 0, 80 * u), face: toward };
     }
 
     updatePads(dt) {
@@ -696,8 +823,9 @@ class PondScene extends Scene {
         ellipse(ctx, L * 0.15, -L * 0.04, L * 0.16, L * 0.05);
         ctx.fillStyle = 'rgba(255,255,255,0.22)';
         ctx.fill();
-        disc(ctx, L * 0.36, -L * 0.08, Math.max(1.5, L * 0.028), PALETTE.ink);
-        disc(ctx, L * 0.36, L * 0.08, Math.max(1.5, L * 0.028), PALETTE.ink);
+        const eye = Math.max(1.5, L * 0.028) * (f.look.eye || 1);
+        disc(ctx, L * 0.36, -L * 0.08, eye, PALETTE.ink);
+        disc(ctx, L * 0.36, L * 0.08, eye, PALETTE.ink);
         ctx.restore();
     }
 
