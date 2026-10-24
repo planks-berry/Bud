@@ -95,13 +95,15 @@ Every toy has three layers, which are found by playing, never unlocked:
 | **Tone bars** | Music, auditory sense | Tap a bar; sweep for a glissando; chords with several fingers | Choose a wooden or a metal mallet | The shell plays back the last phrase; at Bloom, hold a bar to lift it and move it | 5 / 8 / 10 bars |
 | **Colour beats** | Music; sensorial: colour | Tap an empty cubby on the shelf and its cube drops in, sounding; tap a cube and it comes out. A light runs along the shelf, round and round, and plays every cube it reaches | Draw a line of cubes with a finger, or empty one; hold the ball under the shelf and the light goes where the finger takes it, playing as it goes | A loop of tune and beat: each column a beat, each row a sound, the colours their notes (as on the crane) and plain wooden cubes a drum, a clap and a shaker; what a column holds sounds together; new colours each time it comes out | 4 columns, 2 colours and a drum / 8, 3 colours, a drum and a shaker / 8, all 5 colours, a drum, a clap and a shaker |
 | **Pouring** | Practical life | Tap a glass: it rings lower the fuller it is | Carry a pitcher over a glass and it tilts and pours | Colours mix as paint does; glasses overflow onto the tray and the sponge wipes it up; a pitcher put back in its place fills again | 1 / 2 / 3 pitchers, 2 / 3 / 4 glasses |
-| **Turntable** | Music, auditory sense: speed is pitch | Tap the button: the record, waiting, spins up and plays, and winds down to a stop again; tap a pad: a horn, a boom, a cow, a clap, a shaker, or the scratch pad, which scratches the record by itself | Hold the record and move it to and fro: a scratch, the music going wherever the record goes, backwards and forwards, faster and higher | A scratch over a loop, or a beat on the pads over it; records from a crate, each two bars pressed from the playroom's own sounds: a tune, a beat, the animals; at Bloom, a slider for the speed | one record, a horn and a boom / three records, and a cow and a scratch pad / and a clap, a shaker and a speed slider |
+| **Turntable** | Music, auditory sense: speed is pitch | Tap the button: the record, waiting, spins up and plays, and winds down to a stop again; tap a pad: a horn, a boom, a cow, a clap, a shaker, or the scratch pad, which scratches the record by itself | Hold the record and move it to and fro: a scratch, the music going wherever the record goes, backwards and forwards, faster and higher | A scratch over a loop, or a beat on the pads over it; records from a crate, each two bars pressed from the playroom's own sounds: a tune, a beat, the animals; at Bloom, a slider for the speed. With its switch on, the friend at the decks takes turns with him: it answers his pads / leads with a scratch and answers his / takes two bars each with him, his beat staying in the record's loop | one record, a horn and a boom / three records, and a cow and a scratch pad / and a clap, a shaker and a speed slider |
 | **Sandpaper letters** | Language | Choose a board from the box; trace it | A guide's finger shows how each is written, once, and again on request | Only the sand makes a sound; the smooth board is silent | – |
 | **Sandpaper numerals** | Mathematics | As the letters | As the letters | A bowl lays out that many counters in pairs, Montessori's cards and counters, one rising note each | – |
 | **Dig** | Practical life: transferring, with a material that keeps its shape | Tap the sand and it sprays; tap the digger for its horn, the truck for two beeps | The bucket follows a finger: down into the sand it fills, lifted it carries, let go it pours; the digger crawls after a finger beyond its reach. Drag the truck, and tap its bed to tip it | The ground itself: heaps, holes and ramps, of sand that slumps to its natural slope and is never made or lost; things buried in it, the first always found at the first bite | a digger and a heap / and a dump truck, and things buried / and a bulldozer, and earth under the sand |
 | **Crane** | Sensorial (building with shapes), and the work of the hand at a distance | Tap a part for its colour's note, the cab for the horn, the hook to set it swinging | Drag the hook: the trolley and cable follow, it takes the part it is lowered onto, and drops it where it is let go, onto a grid so a stack stands. A part can also be carried by hand, the crane following | A building of any shape, which moves in by itself: a cat in a window, plants on the ledges, a bird nesting on top; a tap at its foot plays it bottom to top, each part lit. And trucks to load: one in a part's colour waits for the parts marked out on its deck, takes only its own colour, and drives off loaded, and a second crane restocks the pile | 4 big blocks / blocks, beams and windows / and arches, a roof and a wrecking ball |
 | **Farm** | None: after Pok Pok's builder | Tap anything: every piece answers, and tapped grass grows a flower | An island of tiles, seen from a corner like a model on a table, on a table that starts empty: a tile put down on the table makes it bigger, a path, field, pond or stream put down on a tile changes it, and pieces stand on tiles, move, swap and go back to the tray; what is hidden behind a building shows through it; a broom, held, sweeps the table empty again | A farm that joins up: paths for the tractor to drive, streams that carry a pond's water along to the fields, fields by water that grow on their own, a pond big enough for ducks; the sun turns it to night, when the lights come on and other things wake | 7 / 11 / 14 kinds of piece and a grass tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
 | **Building site** | None: the farm's builder | Tap anything: every piece answers | As the farm, with earth, roads and plots for tiles, from an empty table, and the broom to sweep it | Machines that work in chains: the digger digs a plot and loads the truck, the truck tips onto the pile, the mixer fills the hole with concrete, the crane lifts a building onto the foundation a floor at a time, each floor a note higher, and tops it out with a tree; the foreman's whistle sets them all going | 6 / 9 / 12 kinds of piece and an earth tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
+| **Weather song** | Music; and feelings, after Mister Rogers | Tip the rain-stick, ring a bell, beat the big drum: each is a weather; tap the friend and it hops | Push the cloud along: wind, and the friend's scarf flies out | His music is the friend's weather and mood: a drizzle and a sleepy friend under a leaf, the sun and a dance, thunder and a cross friend who sighs and smiles when it passes; a whole day, morning to night, when the friend sleeps until a tap brings the morning | a rain-stick and 3 bells / and 5 bells and the big drum / and fog with a shy friend, a rainbow with a proud one, and the day painted as a strip of sky |
+| **Freeze parade** | Music: rhythm and movement; self-control | Each beat on the big drum is a step for the parade; tap an animal and it calls out | A steady beat marches them, quick beats hurry them; stopping freezes them mid-step | A parade round the pond, over the bridge and home past the barn, where the rooster crows; stopped, they freeze in silly poses, wobble, one sneezes, and at last they lie down to wait | a drum, a cow, a sheep and a pig / and two ducks with a tambourine / and a quick hare, a slow tortoise, and a band playing along |
 | **Bird song** | Music, auditory sense; and taking turns | Tap a bell flower for its colour's note; tap the bird to hand it the turn, or, before playing, to hear its tune again | Run a finger along the flowers: a glide, and the bird glides it back | The bird sings a tune and waits, wing to its ear, asking with rings and a hop when he pauses, and, every five seconds he plays on, by standing tall and flapping; handed the turn, it sings his notes back in the same rhythm, then a new tune from the last note played. Tunes grow by a note after three answered turns, and never shrink | 3 flowers, tunes of 2 / 5 flowers, tunes of 3 / and a second bird, tunes growing to 5 |
 
 ### How Montessori and Pok Pok were reconciled
@@ -188,10 +190,11 @@ panel is the only text.
   only relative gain. The levels were set from a loudness estimate of every sound:
   - musical notes (and a beam's clank, and the colour beats' drum) sit near −17 dB, and Bird
     Song's whistle just under them, since a held whistle sounds louder than a struck bell;
-  - animal voices near −19;
+  - animal voices, and a parade animal's sneeze, near −19;
   - foley (clicks, latches, pats, a reversing beep, a chain, a crunch, a whistle, a clap, a
-    shaker, a bird's wingbeats) near −21;
-  - air and paper (a load sliding out, wet concrete, a brake's hiss) near −24;
+    shaker, a bird's wingbeats, a tambourine, little cymbals, the friend's sigh) near −21;
+  - air and paper (a load sliding out, wet concrete, a brake's hiss, a rain-stick's patter, a
+    long roll of thunder) near −24;
   - a single zip tooth or engine beat, which come in streams, near −27.
 
   `test.mjs` holds every sound to its band, so the mix cannot drift.
@@ -268,7 +271,7 @@ In Node:
 - every module parses as ES2017;
 - no API or CSS newer than Safari 12;
 - the offline copy is complete;
-- all 154 recipe variants render finite, unclipped, click-free and DC-free at 44.1 and 48 kHz;
+- all 174 recipe variants render finite, unclipped, click-free and DC-free at 44.1 and 48 kHz;
 - every sound sits in its band of the mix;
 - all 36 glyphs stay on the writing lines;
 - every sound the toys ask for with fixed parameters renders, so none is missing one it needs;
@@ -283,7 +286,19 @@ In Node:
   what it sings back keeps the child's rhythm, a long wait shortened and a run along the flowers a
   glide, at most his last twelve notes; its tunes grow by a note after three answered turns, up to
   the stage's most; and it bids for its turn after five seconds of his playing, in a gap of a
-  third of a second between his notes, or two seconds later if he leaves none.
+  third of a second between his notes, or two seconds later if he leaves none;
+- Weather Song's weather: each kind passes by itself (thunder halves in 2.2 seconds, a drizzle in
+  5, sunshine in 6); the friend is content, sleepy in a drizzle, happy in the sun, cross in the
+  thunder, calm with a sigh when it passes, and content again; Seed has no thunder; at Bloom, sun
+  in the rain makes a rainbow and a proud friend, and a long quiet brings the fog and a shy one,
+  until he plays again; a day goes from morning to night, the friend sleepy and then asleep,
+  thunder in the night waking it cross and letting it sleep again, and at Bloom the whole day
+  painted, a piece at a time, as a strip of sky;
+- Freeze Parade's rules: the parade's pace is the time between his beats, steadied, a first beat
+  an easy walk; it freezes when no beat has come for 1.7 times his pace, never sooner than 0.9 s
+  or later than 2.2; the cow, the sheep and the pig march to the drum at any pace, the ducks only
+  to the tambourine, the hare two steps a hop only to a quick beat, the tortoise only to a slow
+  one; and each stage's parade is as described, the band's march on the scale and ending on C.
 
 Then in Chromium, as an iPad (1024 × 768 at 2×, touch), the suite drives every toy with real touch
 events. It measures the audio that reaches the speaker through an analyser after the compressor.
@@ -351,6 +366,23 @@ It also checks:
   played but not handed over, it asks twice with a chirp, then rests keeping his notes, which a tap
   on it still sings back; and at Bloom, that the second bird answers the first and both sing his
   notes back;
+- in weather song: that the rain-stick tips with a patter and a drizzle falls, the friend sleepy
+  under a leaf; that the bells bring the sun and a dance; that the drum brings thunder and a cross
+  friend, who is calm when it rolls away and then smiles; that the cloud pushed along is a wind
+  that lifts the friend's scarf; that at night the friend falls asleep and, once all is still,
+  nothing moves, until a tap on it brings the morning; that Seed has three bells and no drum; and
+  at Bloom, a rainbow and a proud friend, the fog and a shy one, and the strip of sky;
+- in freeze parade: that four beats are four steps for each animal; that when he stops they
+  freeze, wobbling, and one sneezes; that at last they lie down to wait, and a beat brings them up
+  and marching; that passing the barn opens its door; that at Sprout the ducks march to the
+  tambourine and only to it; and at Bloom, that the hare hops ahead to a quick beat while the
+  tortoise waits, the tortoise walks to a slow one while the hare waits, and the band plays along;
+- at the turntable with the friend: that at Seed it waits while he plays and then answers his
+  pads on the same pads, reaching over to tap each; that at Sprout it leads with a scratch and a
+  pad and waits for him, and answers his scratch with a scratch; that at Bloom, with the record
+  going round, it plays its two bars and listens through his, and the pads he taps stay in the
+  record's loop and play each time round; and that with its switch off there is no friend and the
+  turntable has its room back (the turntable's own checks run with it off);
 - that leaving a toy stops its sounds;
 - that the grown-ups' gate needs a three-second hold;
 - that one toy's stage can be moved on by itself, and the shared stage clears it again;
@@ -405,10 +437,14 @@ playroom/
     start.js, shelf.js      the bud, and the shelf with its hello and goodnight
     settings.js, parent.js  the grown-ups' corner; keypad.js its passcode, band.js the
                             goodnight timer's band
+    friend.js               the friend, its moods and how it shows them
     toys/                   one file per toy; glyphs.js holds the letters and numerals, cubes.js
                             the colour beats' cubes and the beats' marks, records.js the
                             turntable's records, scratch.js how its record follows a hand,
-                            tunes.js Bird Song's tunes,
+                            tunes.js Bird Song's tunes, skies.js Weather Song's weather,
+                            march.js and paradeart.js Freeze Parade's rules and animals,
+                            instruments.js the drum and tambourine they share,
+                            deckfriend.js the friend at the turntable,
                             farmart.js the farm's pictures, board.js the isometric board the
                             farm and the building site are built on, iso.js its boxes, roofs
                             and walls, machines.js the site's palette and machines, and
@@ -420,7 +456,7 @@ playroom/
 
 ## Not yet done
 
-- **The rest of the proposal for new games**: phases 2 to 4, nine games and redesigns.
+- **The rest of the proposal for new games**: phases 3 and 4, six games.
 - **A garden.** Seeds, a watering can, flowers that open with a chime, and the bud's own story. The
   farm's fields and watering farmer now cover some of it.
 - **The movable alphabet**, the next step after the sandpaper letters, once a child is building

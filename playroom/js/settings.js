@@ -9,7 +9,7 @@ export const STAGES = ['seed', 'sprout', 'bloom'];
 
 // The new things a grown-up can turn on or off, each with its own switch in the corner. Each is on
 // until it is turned off.
-export const EXTRAS = ['hello', 'goodnight', 'shyFish'];
+export const EXTRAS = ['hello', 'goodnight', 'shyFish', 'turntableFriend'];
 
 const DEFAULTS = {
     // Every toy's stage, unless it has one of its own in `stages`.
@@ -19,7 +19,7 @@ const DEFAULTS = {
     // The shelf's order, toy ids from the first tray to the last, once a grown-up has moved one.
     // Empty: the playroom's own order. A toy that is not in it (one added since) goes at the end.
     order: [],
-    extras: { hello: true, goodnight: true, shyFish: true },
+    extras: { hello: true, goodnight: true, shyFish: true, turntableFriend: true },
     // At goodnight: 'themselves', the toys fall asleep one by one on their own; 'child', each stays
     // awake until it is tapped.
     tuck: 'themselves',

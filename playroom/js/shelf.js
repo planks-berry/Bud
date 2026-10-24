@@ -470,12 +470,15 @@ export class ShelfScene extends Scene {
             }
             greeting.t += dt;
             busy = true;
-            // The trays wake once the shelf has faded in, one by one, climbing the scale.
+            // The trays wake once the shelf has faded in, one by one, climbing the scale: a note a tray,
+            // spread over the thirteen there are however many trays are out.
+            const climb = Math.max(1, this.items.length - 1);
             while (greeting.woken < this.items.length && greeting.t >= 0.55 + greeting.woken * HELLO_GAP) {
                 const item = this.items[greeting.woken];
                 item.wake.target = 1;
                 item.wake.kick(5);
-                audio.note('marimba', greeting.woken % 13, 60, {
+                const degree = Math.round((greeting.woken * Math.min(12, climb)) / climb);
+                audio.note('marimba', degree, 60, {
                     gain: 0.7,
                     wet: 0.25,
                     pan: ((item.x + item.w / 2) / this.w) * 2 - 1,

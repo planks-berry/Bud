@@ -258,6 +258,12 @@ function addVoice(out, sr, len, pitch, env, formants, opts = {}) {
     }
 }
 
+// Add `piece` into `out` from `start` seconds, at `amp`.
+function mixAt(out, sr, piece, start, amp = 1) {
+    const n0 = Math.floor(start * sr);
+    for (let i = 0; i < piece.length && n0 + i < out.length; i++) out[n0 + i] += piece[i] * amp;
+}
+
 // An envelope that rises over `a` seconds, holds, and falls away over the last `r` of `len`.
 function swell(a, len, r) {
     return (t) => Math.min(1, t / a) * Math.max(0, Math.min(1, (len - t) / r));
@@ -863,6 +869,152 @@ export const recipes = {
         return finish(out, sr, 0.5);
     },
 
+    // A rain-stick tipped over: pebbles trickling down through the thorns inside a dry cactus tube, a
+    // dense patter at first that thins out as the last of them land, each one a tiny dry click.
+    rainstick(sr, p) {
+        const next = rng(p.seed || 64);
+        const len = 1.7;
+        const out = makeBuffer(sr, len);
+        const tube = new BandPass(sr, 3000, 1.1);
+        for (let g = 0; g < 480; g++) {
+            const at = 0.015 + Math.pow(next(), 1.5) * (len - 0.3);
+            const amp = (0.3 + next() * 0.7) * Math.min(1, at / 0.1) * (1 - (at / len) * 0.7);
+            addBurst(out, sr, next, 0.0015 + next() * 0.002, amp, (x) => tube.process(x), at, 1.6);
+            if (next() < 0.2) addMode(out, sr, 1900 + next() * 2600, amp * 0.12, 0.012, at);
+        }
+        fadeIn(out, sr, 0.003);
+        return finish(out, sr, 0.55);
+    },
+
+    // Thunder, after the big drum: a soft crack and then a long low roll that swells again two or
+    // three times as it goes away. Weather, never a bang: nothing in it is meant to startle.
+    thunder(sr, p) {
+        const next = rng(p.seed || 65);
+        const len = 2.6;
+        const out = makeBuffer(sr, len);
+        const a = new OnePole(sr, 520);
+        const b = new OnePole(sr, 380);
+        const rolls = [
+            [0.1, 0.12, 1],
+            [0.55, 0.22, 0.75],
+            [1.15, 0.32, 0.5],
+            [1.8, 0.38, 0.28],
+        ];
+        for (let n = 0; n < out.length; n++) {
+            const t = n / sr;
+            let env = 0;
+            for (const [at, width, amp] of rolls) env += amp * Math.exp(-Math.pow((t - at) / width, 2));
+            out[n] = b.lowpass(a.lowpass(next() * 2 - 1)) * env * Math.min(1, t / 0.04) * 4;
+        }
+        const crack = new BandPass(sr, 1400, 0.7);
+        addBurst(out, sr, next, 0.09, 0.18, (x) => crack.process(x), 0.02, 2.5);
+        fadeIn(out, sr, 0.01);
+        return finish(out, sr, 0.8);
+    },
+
+    // A tambourine shaken and struck: the skin's slap, and its jingles, pairs of little brass discs
+    // knocking together a hair apart, bright and quick to fade.
+    jingle(sr, p) {
+        const next = rng(p.seed || 67);
+        const out = makeBuffer(sr, 0.45);
+        const skin = new BandPass(sr, 520, 1.1);
+        addBurst(out, sr, next, 0.03, 0.5, (x) => skin.process(x), 0, 2);
+        for (let j = 0; j < 10; j++) {
+            const at = next() * 0.05;
+            const f = 3200 + next() * 2600;
+            const amp = 0.2 + next() * 0.2;
+            addMode(out, sr, f, amp, 0.07 + next() * 0.06, at);
+            addMode(out, sr, f * 1.47, amp * 0.6, 0.05, at);
+            addMode(out, sr, f * 2.13, amp * 0.3, 0.03, at);
+        }
+        const hiss = new BandPass(sr, 7000, 0.9);
+        addBurst(out, sr, next, 0.12, 0.25, (x) => hiss.process(x), 0.002, 2.5);
+        fadeIn(out, sr, 0.0008);
+        return finish(out, sr, 0.7);
+    },
+
+    // A pair of little hand cymbals brought together: a shimmer of many close, high partials that
+    // takes a while to die, over a wash of air.
+    cymbal(sr, p) {
+        const next = rng(p.seed || 68);
+        const out = makeBuffer(sr, 1.3);
+        for (let j = 0; j < 22; j++) {
+            const f = 2400 + next() * 6200;
+            addMode(out, sr, f, 0.12 + next() * 0.1, 0.25 + next() * 0.45, next() * 0.004, next() * TAU);
+        }
+        const air = new BandPass(sr, 6500, 0.8);
+        addBurst(out, sr, next, 0.5, 0.35, (x) => air.process(x), 0, 3);
+        fadeIn(out, sr, 0.001);
+        return finish(out, sr, 0.6);
+    },
+
+    // A sneeze, for a frozen animal that cannot help it: "ah... ah... choo!", small and silly rather
+    // than wet, at the animal's own pitch `f`.
+    sneeze(sr, p) {
+        const f = p.f || 330;
+        const next = rng(p.seed || 69);
+        const out = makeBuffer(sr, 1.0);
+        const ah = [
+            [800, 5, 1],
+            [1250, 6, 0.6],
+            [2700, 8, 0.25],
+        ];
+        for (const [start, dur, f0, f1, amp] of [
+            [0, 0.2, f * 0.9, f * 1.15, 0.6],
+            [0.3, 0.22, f * 1.05, f * 1.35, 0.8],
+        ]) {
+            const piece = makeBuffer(sr, dur);
+            addVoice(piece, sr, dur, (t) => f0 + ((f1 - f0) * t) / dur, swell(0.04, dur, 0.07), vowel(ah), {
+                breath: 0.6,
+                tilt: 1.3,
+                seed: 70,
+            });
+            mixAt(out, sr, piece, start, amp);
+        }
+        // The "ch": a quick hiss of air.
+        const ch = new BandPass(sr, 3200, 1.0);
+        addBurst(out, sr, next, 0.07, 0.9, (x) => ch.process(x), 0.62, 1.5);
+        // And the "oo", short and falling.
+        const oo = makeBuffer(sr, 0.22);
+        addVoice(
+            oo,
+            sr,
+            0.22,
+            (t) => f * 1.5 - f * 0.7 * (t / 0.22),
+            swell(0.015, 0.22, 0.12),
+            vowel([
+                [350, 5, 1],
+                [850, 6, 0.4],
+                [2300, 8, 0.12],
+            ]),
+            { breath: 0.4, tilt: 1.2, seed: 71 }
+        );
+        mixAt(out, sr, oo, 0.67, 1);
+        fadeIn(out, sr, 0.004);
+        return finish(out, sr, 0.6);
+    },
+
+    // The friend's sigh: a long breath out, mostly air, with a little voice in it that falls.
+    sigh(sr) {
+        const len = 1.25;
+        const out = makeBuffer(sr, len);
+        addVoice(
+            out,
+            sr,
+            len,
+            (t) => 300 - 70 * (t / len),
+            (t) => Math.min(1, t / 0.18) * Math.pow(Math.max(0, 1 - t / len), 1.3) * 0.5,
+            vowel([
+                [750, 5, 1],
+                [1150, 6, 0.55],
+                [2500, 8, 0.2],
+            ]),
+            { breath: 1.2, tilt: 1.7, bright: 3000, seed: 66 }
+        );
+        fadeIn(out, sr, 0.02);
+        return finish(out, sr, 0.5);
+    },
+
     // One beat of a small tractor's engine: a low thump and a puff.
     putt(sr, p) {
         const next = rng(p.seed || 50);
@@ -1236,6 +1388,12 @@ export const MIX = {
     chirp: 0.44,
     warble: 0.32,
     flutter: 0.92,
+    rainstick: 0.9,
+    jingle: 0.68,
+    cymbal: 0.72,
+    sneeze: 0.6,
+    thunder: 0.3,
+    sigh: 0.65,
     putt: 0.37,
     toot: 0.4,
     crow: 0.4,

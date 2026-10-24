@@ -6,14 +6,14 @@ revised. The technical side (the old iPad, the audio engine, the tests) is in
 "toys".
 
 **Status, 24 October 2026.**
-- **Built:** thirteen games, tested in two simulated iPad browsers (one with everything Safari 12
-  lacks removed). The newest are phase 1 of the proposal for new games: Bird Song, a new game; the
-  shy fish, in the pond; and hello and goodnight, the playroom's way in and out. Each has a switch
-  in the grown-ups' corner, which can now also set the order of the shelf. Since then: a goodnight
-  timer a grown-up locks with a passcode, shown as a band round the edge of every screen; a choice
-  between toys that fall asleep by themselves and toys he tucks in; and in Bird Song, the turn
-  passes to the bird when he taps it, and the bird bids for its turn, standing tall and flapping,
-  when he plays on.
+- **Built:** fifteen games, tested in two simulated iPad browsers (one with everything Safari 12
+  lacks removed). The newest are phase 2 of the proposal for new games, music that takes turns and
+  says feelings: two new games, Weather Song and Freeze Parade, and the friend at the turntable.
+  With them comes the friend, a small make-believe character with feelings, who lives in Weather
+  Song and visits the turntable. Before them, phase 1: Bird Song, the shy fish, and hello and
+  goodnight; then a goodnight timer a grown-up locks with a passcode, shown as a band round the
+  edge of every screen, and a choice between toys that fall asleep by themselves and toys he tucks
+  in. Every new thing has a switch in the grown-ups' corner, which can also set the shelf's order.
 - **Where:** live at https://planks-berry.github.io/Bud/playroom/, published from `main`. Work
   continues on branch `claude/montessori-playroom`.
 - **Not yet checked on a real iPad:** the speaker mix and the iPad Air's frame rate can only be
@@ -104,6 +104,21 @@ programme. Each has a switch in the grown-ups' corner, on to begin with.
   once; in a game, the house button shows the moon, and a minute later the game puts itself away
   and the night comes. The timer survives the playroom being reopened, and stopping or changing it
   takes the passcode. It works whether or not the goodnight moon is switched on.
+
+## The friend
+
+A small make-believe friend, round as a seed, with a sprout of two leaves on its head and a mint
+scarf: the playroom's one character with feelings, after your answer that make-believe friends
+are good and that he plays this way already. It never speaks. What it feels shows in its whole
+body, as a three-year-old's does: its eyes (open, heavy and sleepy, squeezed shut with happiness),
+its brows (down when it is cross), its mouth, its arms (up in a dance, folded when it is cross,
+over its face when it is shy, on its hips when it is proud), its leaves (perked or drooping), and
+how it stands. Its moods: content, happy, sleepy, cross, calm, shy, proud, listening and asleep.
+Feelings are weather here, never lessons: every one is allowed, and every one passes.
+
+It lives in Weather Song, where his music is its weather, and it visits the turntable, where it
+stands behind the decks in headphones and takes turns with him. Its colours are none of the five
+that carry notes, so it is never taken for one.
 
 ---
 
@@ -440,9 +455,30 @@ down with a tick.
      makes the record scratch, so he hears and sees what a hand on the record can do.
    - The record opens stopped, and the button is the first thing to press: play, on green.
 
+4. Phase 2 of the proposal, "Turntable: your turn", behind its own switch in the corner, on to
+   begin with: the friend at the decks. It stands behind the turntable, its top half showing over
+   the back, in headphones, and reaches over with its arms, to the record to scratch and to a pad
+   to tap it, sliding along behind to be near what it plays. It nods to the record as it plays,
+   and dozes off when the turntable has been left a minute with the record stopped.
+   - Seed: it answers his pads. When he pauses, it taps back what he tapped, on the same pads, in
+     his order and rhythm, up to four.
+   - Sprout: it leads, a scratch on the record and a pad, then leans in to listen. Whatever he does
+     next it answers with a phrase that uses his sound, his scratch with a scratch and his pads
+     with his pads, and a pad of its own after. With no answer it leads again after nine seconds;
+     after two leads unanswered it simply listens to the music.
+   - Bloom: with the record going round, call and response by the bar. A record is two bars, so
+     the turn changes each time it comes round: the friend's two bars, a short pattern on the pads
+     and now and then a scratch, then his two bars, while it listens. The pads he taps in his two
+     bars stay in the record's loop, by the eighth note they fell on, and play each time round, a
+     small mark in the pad's colour by the beat lights showing where. Each record keeps its own;
+     his next turn replaces them; they last while the playroom is open, and nothing is saved.
+   - The turntable itself is as it was. With the friend there it is drawn a little smaller, to
+     leave the friend room above it.
+
 **Questions**
 - Does he watch the record when the scratch pad scratches it, and then try it with his hand?
--
+- With the friend there: does he copy its scratch with his own hand? That is the step from tapping
+  to scratching that the proposal named.
 
 **Ideas**
 - A second turntable and a crossfader, if he takes to scratching.
@@ -888,12 +924,124 @@ turn, its wings beat with soft puffs of air, one on each downstroke.
 **Ideas**
 -
 
+### 14. Weather song
+
+**What it is:** the friend on a hill, and three instruments in the meadow below: a rain-stick, a
+frame of hand bells, and a big drum. The music he makes is the friend's weather. The rain-stick
+brings a drizzle, and the friend gets sleepy under a leaf; the bells bring the sun out, and the
+friend dances; the drum brings thunder, and the friend stamps, cross, arms folded. Then the
+thunder rolls away, and the friend sighs, and smiles. Every mood is allowed, and every mood
+passes.
+
+**Roots:** Mister Rogers' "What do you do with the mad that you feel?", and Margaret McFarland's
+"anything mentionable is manageable"; Sesame Street, which teaches feelings through characters. A
+feeling played out on a drum, watched, and let go.
+
+**Layers**
+- Touch: tip the rain-stick, which turns end over end with a patter of pebbles; ring a bell, each
+  its colour's note; beat the drum. Tap the friend and it hops; tap the sun and it shines.
+- Move: push the cloud along, and it is wind: the friend's scarf flies out, its leaves and the
+  flowers lean, and the rain slants.
+- Make: a whole day of weather, morning to night, as a song. The day goes by in about two and a
+  half minutes: the sun crosses the sky, evening comes, then night, with stars and a moon, and the
+  friend falls asleep. Thunder in the night wakes it, cross, and it goes back to sleep. Once the
+  night is over and all is still, nothing moves; a tap on the friend, or the moon, brings the
+  morning.
+
+**Stages**
+- Seed: sunny and sleepy. The rain-stick and three bells (red, yellow, green).
+- Sprout: and cross, and calm after. The big drum, and all five bells.
+- Bloom: and shy, and proud. After nine seconds with nothing played the fog comes in, and the
+  friend hides its face, peeking out, until he plays again. Sun while it is still raining makes a
+  rainbow, and the friend stands tall, hands on hips, proud of it. And the day so far is painted
+  along the top as a strip of sky, a dab for each piece of the day in the weather it had.
+
+**Sound:** the rain-stick is a patter of pebbles through a dry tube, and the rain a soft hiss that
+follows the drizzle; the bells ring the colours' notes; the drum booms, the cloud lights from
+inside, and thunder rolls a moment after, a long low roll and never a crack. The friend sighs when
+the thunder has passed, and stamps softly while it is cross. Wind whistles as the cloud is pushed.
+A rainbow comes with a rising run on a music box; an owl hoots as night falls, and birds chirp at
+dawn.
+
+**Decisions so far**
+- Each weather is a level that a touch raises and that passes by itself: thunder halves in about
+  two seconds, a drizzle in five, sunshine in six. A storm lasts only while he drums, so the
+  friend's crossness passes as soon as he stops: the "let it stop" the proposal asked to watch for.
+- How the friend feels is the weather's, in this order: cross in thunder; calm for three seconds
+  after it passes; proud of a rainbow; happy in the sun; sleepy in the rain; shy in the fog;
+  content otherwise. Sleepy in the evening, asleep at night.
+- No flashing: the lightning is a soft bolt and a glow inside the cloud, never the whole screen.
+- The strip of sky at Bloom is painted, not filled: only what the day has had shows, with no empty
+  track ahead of it, so it is a picture of the day and not a clock.
+- It joins the shelf after Bird Song, with a switch in the corner like every new game.
+
+**Questions**
+-
+
+**Ideas**
+-
+
+### 15. Freeze parade
+
+**What it is:** a meadow with a pond, a barn and a little bridge, and a path round the pond. The
+farm animals stand on the path in a line, and the big drum is his. Each beat is a step for the
+parade, so they march to his tempo: a steady beat marches them, quick beats hurry them. When he
+stops, they freeze mid-step in silly poses, a leg up, wobbling to keep still, and wait for him.
+Hold still and one of them sneezes, a small "ah... ah... choo!" that shakes the whole line; hold
+still longer and they lie down to wait. A beat, and they are up and off.
+
+**Roots:** musical statues; Cookie Monster's practice at stopping himself; and the trial of
+rhythm-and-movement lessons in 8 preschools, 213 children, that built self-regulation (QUT, 2023).
+
+**Layers**
+- Touch: each beat on the drum is a step. Tap an animal and it calls out: a moo, a baa, an oink,
+  a quack.
+- Move: his beat is the pace. Stopping is the other half of the game: they freeze, and the longer
+  he waits, the sillier it gets.
+- Make: a parade that goes where his beat takes it: over the bridge, where their steps knock on
+  its boards, round the pond, and home past the barn, where the door opens and the rooster on the
+  roof crows, each time round.
+
+**Stages**
+- Seed: one drum, and the cow, the sheep and the pig.
+- Sprout: two ducks join, and they march to a tambourine, not the drum: the whole parade needs
+  both.
+- Bloom: a hare at the front, who only hops to a quick beat, two steps a hop; a tortoise at the
+  back, who only walks to a slow one; and the parade plays along as a band: the cow's drum on every
+  beat, the sheep's horn playing a march a note a beat, the pig's cymbals at the start of each
+  bar. Only those still marching play.
+
+**Sound:** the drum is the same big drum as Weather Song's; the tambourine jingles; the animals'
+feet patter on the grass and knock on the bridge's boards. When the parade freezes, two wooden
+knocks, ta-dum. The band's march is on the playroom's scale and comes home to C.
+
+**Decisions so far**
+- The pace is his: the time between his last beats, steadied a little so one uneven tap does not
+  jolt the parade. A step takes most of a beat.
+- They freeze when no beat has come for well past where his next would have been: 1.7 times his
+  pace, never sooner than 0.9 seconds (so a slow beat is not a stop) or later than 2.2 (so a stop
+  is never missed). Each group freezes by its own instrument: the ducks by the tambourine.
+- A sneeze after 2.6 seconds of holding still, another after 6.5, and lying down after 12: the
+  waiting is where the fun is, which is the self-control the proposal asked to watch for.
+- Nothing blocks anything: the ducks and the tortoise walk on the inside of the path and the hare
+  on the outside, so the quick pass the slow and no one is ever stuck.
+- The meadow asks for a first beat with a slow ring round the drum, as the bud asks for a first
+  touch.
+- It joins the shelf after Weather Song, with its own switch.
+
+**Questions**
+-
+
+**Ideas**
+-
+
 ---
 
 ## Not built yet
 
-- **The rest of the proposal for new games**: phases 2 to 4, nine games and redesigns, in
-  "Playroom proposal: twelve new games".
+- **The rest of the proposal for new games**: phases 3 and 4, the Fix-it Shop, Torch in the
+  Dark, Bug Maker and the Bakery, then the Marble Machine and the Puppet Theatre, in "Playroom
+  proposal: twelve new games".
 - **A garden:** seeds, a watering can, flowers that open with a chime, and the bud's own story.
   The farm's fields and watering farmer now cover some of it.
 - **The movable alphabet** (see the letters).
@@ -912,8 +1060,11 @@ turn, its wings beat with soft puffs of air, one on each downstroke.
 
 - `playroom/`: the playroom itself. One file per game in `playroom/js/toys/`, with its drawings
   beside it (`farmart.js`, `digart.js`, `craneart.js`, `siteart.js`), the colour beats' cubes in
-  `cubes.js`, Bird Song's tunes in `tunes.js`, the machines the dig and the site share in
-  `machines.js`, and the board the farm and the site share in `board.js`. The shelf, with its hello
-  and goodnight, is `playroom/js/shelf.js`.
+  `cubes.js`, Bird Song's tunes in `tunes.js`, Weather Song's weather in `skies.js`, Freeze
+  Parade's rules in `march.js` and its animals in `paradeart.js`, the drum and tambourine they
+  share in `instruments.js`, the friend at the decks in `deckfriend.js`, the machines the dig and
+  the site share in `machines.js`, and the board the farm and the site share in `board.js`. The
+  friend itself is `playroom/js/friend.js`; the shelf, with its hello and goodnight,
+  `playroom/js/shelf.js`.
 - `docs/PLAYROOM.md`: how it is built, why, and how it is tested.
 - `docs/PLAYROOM-GAMES.md`: this file.

@@ -37,6 +37,7 @@ import * as audio from '../audio.js';
 import { recordsFor, press, STEP, LENGTH } from './records.js';
 import { COLOURS, BEATS, drawMark } from './cubes.js';
 import { GLIDE, follow, lead } from './scratch.js';
+import { DeckFriend } from './deckfriend.js';
 
 // The platter at full speed: 33 1/3 turns a minute, in radians a second.
 const SPIN = (TAU * 100) / 3 / 60;
@@ -107,6 +108,9 @@ class TurntableScene extends Scene {
         this.bg = null;
         this.sprites = {};
         this.load(0);
+        // With the grown-up's switch on, the friend is at the decks, behind the turntable, to take
+        // turns with him (deckfriend.js).
+        this.pal = app.settings.extras.turntableFriend ? new DeckFriend(this) : null;
     }
 
     // Put a record on: pressed the first time it is played, and played from its start.
@@ -128,24 +132,26 @@ class TurntableScene extends Scene {
         const extra = !this.pads.length ? 0 : cols === 1 ? 0.95 : slider ? 1.77 : 1.53;
         const portrait = h > w;
         // The platter's radius, R: the turntable is 2.4 R wide (and a strip for the pads beside it)
-        // and 2.24 R tall; the crate stands beside it, or below it on a tall screen.
+        // and 2.24 R tall; the crate stands beside it, or below it on a tall screen. The friend, if
+        // it is there, stands behind, half a radius of it showing over the top.
         const top = 92 * u;
         const bottom = h - 30 * u;
+        const behind = this.pal ? 0.5 : 0;
         let R;
         if (portrait) {
-            const height = 2.24 + (crate ? 1.0 : 0);
+            const height = 2.24 + (crate ? 1.0 : 0) + behind;
             R = Math.min((w * 0.94) / (2.4 + extra), (bottom - top) / height, 250 * u);
         } else {
             const width = 2.4 + extra + (crate ? 0.98 : 0);
-            R = Math.min((w * 0.94) / width, (bottom - top) / 2.3, 250 * u);
+            R = Math.min((w * 0.94) / width, (bottom - top) / (2.3 + behind), 250 * u);
         }
         this.R = R;
         const plinthW = (2.4 + extra) * R;
         const plinthH = 2.24 * R;
         const totalW = portrait || !crate ? plinthW : plinthW + 0.98 * R;
-        const totalH = portrait && crate ? plinthH + 1.0 * R : plinthH;
+        const totalH = (portrait && crate ? plinthH + 1.0 * R : plinthH) + behind * R;
         const left = (w - totalW) / 2;
-        const upper = top + Math.max(0, (bottom - top - totalH) / 2);
+        const upper = top + behind * R + Math.max(0, (bottom - top - totalH) / 2);
         this.plinth = { x: left, y: upper, w: plinthW, h: plinthH };
         this.cx = left + 1.2 * R;
         this.cy = upper + 1.12 * R;
@@ -172,6 +178,7 @@ class TurntableScene extends Scene {
         freeLayer(this.bg);
         this.freeSprites();
         this.drawBackground();
+        if (this.pal) this.pal.layout();
     }
 
     //--------------------------------------------------------------------------
@@ -269,6 +276,7 @@ class TurntableScene extends Scene {
         }
 
         let busy = this.motor || Math.abs(this.rate) > 0 || !!this.hand || !!this.swap || this.beat.glow > 0;
+        if (this.pal && this.pal.update(dt)) busy = true;
         for (const spring of [this.arm, this.button, this.knob]) if (spring.update(dt)) busy = true;
         for (const pad of this.pads) {
             if (pad.press.update(dt)) busy = true;
@@ -318,6 +326,7 @@ class TurntableScene extends Scene {
             // A turning record caught slides on a little under the finger, and stops.
             this.hand = { pointer: p, x: p.x, y: p.y, angle: this.angle + lead(this.spin) };
             p.owner = { type: 'record' };
+            if (this.pal) this.pal.heard('scratch');
         }
     }
 
@@ -372,7 +381,9 @@ class TurntableScene extends Scene {
         this.speed = Math.abs(speed - 1) < 0.06 ? 1 : speed;
     }
 
-    hit(pad) {
+    // A pad: its sound, and its light. `byFriend` when the friend, or the loop it keeps, plays it.
+    hit(pad, byFriend) {
+        if (this.pal && !byFriend) this.pal.heard('pad', pad.name);
         pad.press.kick(-9);
         pad.glow = 1;
         const pan = this.pan(pad.x);
@@ -620,6 +631,23 @@ class TurntableScene extends Scene {
         for (const pad of this.pads) this.drawPad(ctx, pad);
         if (this.fader) this.drawKnob(ctx);
         if (this.records.length > 1) this.drawSleeves(ctx);
+        if (this.pal) {
+            // At Bloom, the beats he has left in the record's loop: a little mark in the pad's colour
+            // by the beat lights, where in the loop each falls.
+            for (const [step, name] of this.pal.kept()) {
+                const pad = this.pads.find((p) => p.name === name);
+                if (!pad) continue;
+                const a = -Math.PI / 2 + (step / 16) * TAU;
+                disc(
+                    ctx,
+                    this.cx + Math.cos(a) * R * 1.16,
+                    this.cy + Math.sin(a) * R * 1.16,
+                    R * 0.035,
+                    pad.colour
+                );
+            }
+            this.pal.draw(ctx);
+        }
     }
 
     drawRecord(ctx, record, x, y, scale, angle) {

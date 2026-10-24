@@ -527,6 +527,18 @@ const TEXTURES = {
         level: 0.5,
         wet: 0.15,
     },
+    // Rain on leaves and grass: a soft, high hiss.
+    rain: {
+        source: 'pink',
+        filters: [
+            ['highpass', 1100, 0.6],
+            ['lowpass', 6500, 0.7],
+        ],
+        level: 0.3,
+        wet: 0.3,
+    },
+    // Wind: moving air, with a hollow whistle in it whose pitch rises as it blows harder.
+    wind: { source: 'pink', filters: [['bandpass', 520, 0.6]], resonant: true, level: 0.32, wet: 0.25 },
 };
 
 export class Texture {

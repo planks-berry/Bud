@@ -188,6 +188,12 @@ const PARAMS = {
         { beats: 3, gap: 0.2 },
         { beats: 4, gap: 0.2 },
     ],
+    rainstick: [{}],
+    thunder: [{}],
+    sigh: [{}],
+    jingle: [{}],
+    cymbal: [{}],
+    sneeze: [{ f: 330 }, { f: 520 }],
     putt: [{}],
     toot: [{ f: noteHz(3, 60) }, { f: noteHz(5, 60) }],
     crow: [{}],
@@ -319,7 +325,7 @@ const BANDS = [
     [
         'voices',
         [-21.5, -16.5],
-        ['moo', 'baa', 'oink', 'cluck', 'quack', 'ribbit', 'hoot', 'toot', 'crow', 'meow', 'woof'],
+        ['moo', 'baa', 'oink', 'cluck', 'quack', 'ribbit', 'hoot', 'toot', 'crow', 'meow', 'woof', 'sneeze'],
     ],
     [
         'foley',
@@ -343,9 +349,12 @@ const BANDS = [
             'clap',
             'shaker',
             'flutter',
+            'sigh',
+            'jingle',
+            'cymbal',
         ],
     ],
-    ['air', [-27, -21.5], ['bubble', 'rustle', 'whoosh', 'rumble', 'hiss', 'slosh']],
+    ['air', [-27, -21.5], ['bubble', 'rustle', 'whoosh', 'rumble', 'hiss', 'slosh', 'rainstick', 'thunder']],
     ['streams', [-30, -24.5], ['zip', 'putt']],
 ];
 const mixFaults = [];
@@ -659,6 +668,166 @@ check(
     );
 }
 
+// ---- Weather Song: what each instrument brings, how it passes, and how the friend feels -------
+
+{
+    const skies = await import(pathToFileURL(join(here, 'js/toys/skies.js')).href);
+    const { FEELINGS } = await import(pathToFileURL(join(here, 'js/friend.js')).href);
+    const { Weather } = skies;
+    const run = (w, seconds, step = 0.05) => {
+        const events = [];
+        for (let t = 0; t < seconds - 1e-9; t += step) {
+            w.step(step);
+            events.push(...w.events);
+        }
+        return events;
+    };
+    const close = (a, b, tol = 0.01) => Math.abs(a - b) < tol;
+
+    // Each passes by itself, halving in its own time.
+    const passing = new Weather(1);
+    passing.play('rain');
+    passing.play('sun');
+    passing.play('storm');
+    const at0 = { rain: passing.rain, sun: passing.sun, storm: passing.storm };
+    run(passing, 2.2);
+    const storm22 = passing.storm / at0.storm;
+    run(passing, 2.8);
+    check(
+        'each weather passes by itself: thunder halves in 2.2 seconds, a drizzle in 5, sunshine in 6',
+        close(storm22, 0.5, 0.02) && close(passing.rain / at0.rain, 0.5, 0.02) && passing.sun < at0.sun * 0.6,
+        JSON.stringify({ storm22, rain: passing.rain / at0.rain })
+    );
+
+    // The friend's moods, as the weather goes.
+    const moods = [];
+    const w = new Weather(1);
+    moods.push(w.mood());
+    w.play('rain');
+    w.step(0.05);
+    moods.push(w.mood());
+    run(w, 30);
+    moods.push(w.mood());
+    for (let i = 0; i < 3; i++) w.play('sun');
+    w.step(0.05);
+    moods.push(w.mood());
+    run(w, 30);
+    for (let i = 0; i < 2; i++) w.play('storm');
+    w.step(0.05);
+    moods.push(w.mood());
+    const passed = run(w, 4);
+    moods.push(w.mood());
+    run(w, 3.5);
+    moods.push(w.mood());
+    check(
+        'the friend is content, sleepy in a drizzle, happy in the sun, cross in the thunder, calm with a sigh when it passes, and content again',
+        moods.join(' ') === 'content sleepy content happy cross calm content' &&
+            passed.indexOf('calm') >= 0 &&
+            moods.every((m) => FEELINGS.indexOf(m) >= 0),
+        moods.join(' ')
+    );
+
+    const seed = new Weather(0);
+    seed.play('storm');
+    const bloom = new Weather(2);
+    bloom.play('rain');
+    bloom.play('rain');
+    bloom.play('sun');
+    bloom.play('sun');
+    const rainbow = run(bloom, 0.1);
+    const proud = bloom.mood();
+    run(bloom, 30);
+    const quietFog = run(bloom, 14) && bloom.mood();
+    bloom.play('sun');
+    run(bloom, 3);
+    const clears = bloom.fog;
+    check(
+        'Seed has no thunder; at Bloom, sun in the rain makes a rainbow and the friend is proud of it, and a long quiet brings the fog, and a shy friend, until he plays again',
+        seed.storm === 0 &&
+            rainbow.indexOf('rainbow') >= 0 &&
+            proud === 'proud' &&
+            quietFog === 'shy' &&
+            clears < 0.1,
+        JSON.stringify({ proud, quietFog, clears })
+    );
+
+    const day = new Weather(2);
+    const dayEvents = run(day, skies.DAY * (skies.NIGHT + 0.02), 0.25);
+    const dusk = day.mood();
+    run(day, skies.DAY * 0.1, 0.25);
+    const asleep = day.mood();
+    day.play('storm');
+    day.play('storm');
+    day.step(0.05);
+    const woken = day.mood();
+    run(day, 12, 0.25);
+    const backToSleep = day.mood();
+    run(day, skies.DAY, 0.25);
+    check(
+        'a day goes from morning to night: the friend gets sleepy and falls asleep; thunder in the night wakes it, cross, and it goes back to sleep; and at Bloom the day is painted, a piece at a time, as a strip of sky',
+        dayEvents.indexOf('night') >= 0 &&
+            dusk === 'sleepy' &&
+            asleep === 'asleep' &&
+            woken === 'cross' &&
+            backToSleep === 'asleep' &&
+            day.over() &&
+            day.strip.length === skies.STRIP &&
+            day.strip.every((kind) => typeof kind === 'string'),
+        JSON.stringify({ dusk, asleep, woken, backToSleep, strip: day.strip.length })
+    );
+}
+
+// ---- Freeze Parade: who marches to what, at what pace, and when they freeze --------------------
+
+{
+    const march = await import(pathToFileURL(join(here, 'js/toys/march.js')).href);
+    const close = (a, b, tol = 0.01) => Math.abs(a - b) < tol;
+    const { stepsFor, freezeAfter, Tempo, STAGES, MARCH, SLOW, QUICK } = march;
+    const tempo = new Tempo();
+    const intervals = [0, 0.5, 1.0, 1.5, 2.0, 2.5].map((t) => tempo.beat(t));
+    const steady = intervals[intervals.length - 1];
+    const restart = tempo.beat(10);
+    check(
+        "the parade's pace is his: the time between his beats, steadied, a first beat an easy walk; it freezes when no beat has come for well past his next, never sooner than 0.9 s or later than 2.2",
+        close(intervals[0], march.FIRST) &&
+            Math.abs(steady - 0.5) < 0.02 &&
+            close(restart, march.FIRST) &&
+            freezeAfter(0.2) === 0.9 &&
+            freezeAfter(2) === 2.2 &&
+            close(freezeAfter(0.8), 1.36) &&
+            tempo.stopped(10 + freezeAfter(tempo.interval) + 0.01) &&
+            !tempo.stopped(10 + freezeAfter(tempo.interval) - 0.01),
+        intervals.map((v) => v.toFixed(2)).join(' ')
+    );
+    check(
+        'the cow, the sheep and the pig march to the drum at any pace; the ducks only to the tambourine; the hare hops two steps, only to a quick beat; the tortoise walks, only to a slow one',
+        ['cow', 'sheep', 'pig'].every(
+            (a) =>
+                stepsFor(a, 'drum', 0.25) === 1 &&
+                stepsFor(a, 'drum', 1.2) === 1 &&
+                !stepsFor(a, 'tambourine', 0.5)
+        ) &&
+            stepsFor('duck', 'tambourine', 0.5) === 1 &&
+            !stepsFor('duck', 'drum', 0.5) &&
+            stepsFor('hare', 'drum', QUICK) === 2 &&
+            !stepsFor('hare', 'drum', QUICK + 0.05) &&
+            stepsFor('tortoise', 'drum', SLOW) === 1 &&
+            !stepsFor('tortoise', 'drum', SLOW - 0.05)
+    );
+    check(
+        "Seed's parade is the cow, the sheep and the pig; Sprout's adds two ducks and a tambourine; Bloom's a hare in front and a tortoise behind, and a band whose march is on the playroom's scale and comes home to C",
+        STAGES[0].animals.join(' ') === 'cow sheep pig' &&
+            !STAGES[0].tambourine &&
+            STAGES[1].animals.join(' ') === 'cow sheep pig duck duck' &&
+            STAGES[1].tambourine &&
+            STAGES[2].animals[0] === 'hare' &&
+            STAGES[2].animals[STAGES[2].animals.length - 1] === 'tortoise' &&
+            STAGES[2].band &&
+            MARCH.every((d) => Number.isInteger(d) && d >= 0 && d <= 5) &&
+            MARCH[MARCH.length - 1] === 0
+    );
+}
+
 //==============================================================================
 // The browser
 
@@ -836,8 +1005,8 @@ async function suite(mode) {
     check('then the shelf', (await sceneName()) === 'ShelfScene');
     const trays = await scene(() => window.playroom.shelf.items.map((item) => item.toy.id));
     check(
-        'thirteen trays on the shelf, the newest last',
-        trays.length === 13 && trays[12] === 'birdsong',
+        'fifteen trays on the shelf, the newest last',
+        trays.length === 15 && trays.slice(12).join(' ') === 'birdsong weather parade',
         trays.join(' ')
     );
 
@@ -1277,7 +1446,10 @@ async function suite(mode) {
     check('home from pouring', (await home()) === 'ShelfScene');
 
     // ---- turntable ------------------------------------------------------------------------
+    //
+    // The turntable alone first: the friend at the decks has its own checks after these.
 
+    await page.evaluate(async () => (await import('./js/settings.js')).setExtra('turntableFriend', false));
     await open('turntable');
     const deck = () =>
         scene(() => {
@@ -1512,6 +1684,191 @@ async function suite(mode) {
         `on ${onFrom.toFixed(2)} s`
     );
     check('home from the turntable', (await home()) === 'ShelfScene');
+
+    // ---- the friend at the turntable --------------------------------------------------------------
+    //
+    // With its switch on, the friend from Weather Song is behind the decks, in headphones, and takes
+    // turns with him: at Seed it answers his pads on the same pads; at Sprout it leads with a scratch
+    // and waits for him; at Bloom, with the record playing, they take two bars each, and the beat he
+    // taps in his stays in the record's loop.
+
+    await page.evaluate(async () => {
+        const settings = await import('./js/settings.js');
+        settings.setExtra('turntableFriend', true);
+        settings.setStage('turntable', 'seed');
+    });
+    await open('turntable');
+    // Every pad played, by whom, and how far the friend's hand was from it; and every scratch.
+    const watchDeck = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            s.hitLog = [];
+            s.scratchLog = [];
+            const hit = s.hit;
+            s.hit = function (pad, byFriend) {
+                const hand = this.pal && this.pal.hands[1];
+                this.hitLog.push({
+                    name: pad.name,
+                    friend: !!byFriend,
+                    t: this.time,
+                    reach: hand ? Math.hypot(hand.x - pad.x, hand.y - pad.y) / pad.r : -1,
+                });
+                return hit.call(this, pad, byFriend);
+            };
+            const scratch = s.scratch;
+            s.scratch = function () {
+                this.scratchLog.push(this.time);
+                return scratch.call(this);
+            };
+        });
+    const palState = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            const f = s.pal;
+            return {
+                on: !!f,
+                mode: f && f.mode,
+                mood: f && f.friend.mood,
+                turn: f && f.turn,
+                kept: f ? f.kept().map(([step, name]) => `${step}:${name}`) : [],
+                pads: s.pads.map((pad) => [pad.x, pad.y, pad.name]),
+                button: s.buttonAt,
+                r: s.R,
+                plinth: s.plinth.y,
+                record: [s.cx, s.cy, s.recordR],
+                hits: s.hitLog,
+                scratches: s.scratchLog,
+            };
+        });
+    await watchDeck();
+    let deckPal = await palState();
+    await touch.tap(deckPal.pads[0][0], deckPal.pads[0][1]);
+    await page.waitForTimeout(350);
+    await touch.tap(deckPal.pads[1][0], deckPal.pads[1][1]);
+    await page.waitForTimeout(150);
+    const palWaits = await palState();
+    await page.waitForTimeout(2300);
+    const palAnswered = await palState();
+    const his = palAnswered.hits.filter((h) => !h.friend);
+    const its = palAnswered.hits.filter((h) => h.friend);
+    await shot('turntable-friend');
+    check(
+        'at Seed the friend at the decks waits while he plays, then answers his pads on the same pads, in his order, reaching over to tap each',
+        deckPal.on &&
+            palWaits.mode === 'wait' &&
+            his.map((h) => h.name).join(' ') === 'horn boom' &&
+            its.map((h) => h.name).join(' ') === 'horn boom' &&
+            its[0].t - his[1].t > 1 &&
+            its.every((h) => h.reach >= 0 && h.reach < 0.5),
+        JSON.stringify(palAnswered.hits)
+    );
+    await home();
+
+    // At Sprout it leads: a scratch on the record and a pad, and then it waits for him.
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('turntable', 'sprout'));
+    await open('turntable');
+    await watchDeck();
+    await page.waitForTimeout(3600);
+    const led = await palState();
+    const [rx, ry, rr] = led.record;
+    await touch.down(rx + rr * 0.7, ry);
+    for (let i = 1; i <= 8; i++) {
+        await page.waitForTimeout(16);
+        await touch.move(rx + rr * 0.7, ry - (rr * 0.4 * i) / 8);
+    }
+    await touch.up();
+    await page.waitForTimeout(2300);
+    const scratchedBack = await palState();
+    check(
+        'at Sprout the friend leads, a scratch and a pad, and then waits for him; his scratch it answers with a scratch',
+        led.scratches.length === 1 &&
+            led.hits.filter((h) => h.friend).length === 1 &&
+            led.mode === 'wait' &&
+            led.mood === 'listen' &&
+            scratchedBack.scratches.length === 2,
+        JSON.stringify({
+            led: led.scratches.length,
+            mode: led.mode,
+            mood: led.mood,
+            after: scratchedBack.scratches.length,
+        })
+    );
+    await home();
+
+    // At Bloom, with the record going round: its two bars, then his, and his beat stays in the loop.
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('turntable', 'bloom'));
+    await open('turntable');
+    await watchDeck();
+    deckPal = await palState();
+    await touch.tap(deckPal.button.x, deckPal.button.y);
+    const turnIs = (turn) =>
+        page
+            .waitForFunction((turn) => window.playroom.stage.scene.pal.turn === turn, turn, { timeout: 9000 })
+            .then(
+                () => true,
+                () => false
+            );
+    await page.waitForTimeout(400);
+    const itsBars = await palState();
+    const hisTurn = await turnIs('him');
+    const cowPad = deckPal.pads.find((pad) => pad[2] === 'cow');
+    const clapPad = deckPal.pads.find((pad) => pad[2] === 'clap');
+    await page.waitForTimeout(800);
+    await touch.tap(cowPad[0], cowPad[1]);
+    await page.waitForTimeout(700);
+    await touch.tap(clapPad[0], clapPad[1]);
+    const itsTurnAgain = await turnIs('friend');
+    const keptAfter = await palState();
+    await page.waitForTimeout(5600);
+    const later = await palState();
+    const keptPlayed = later.hits.filter(
+        (h) =>
+            h.friend &&
+            h.t > keptAfter.hits[keptAfter.hits.length - 1].t &&
+            (h.name === 'cow' || h.name === 'clap')
+    );
+    await shot('turntable-friend-bloom');
+    check(
+        "at Bloom, with the record going round, the friend plays its two bars, then listens through his; what he taps in his stays in the record's loop and plays each time round",
+        itsBars.turn === 'friend' &&
+            itsBars.mode === 'play' &&
+            hisTurn &&
+            itsTurnAgain &&
+            keptAfter.kept.length === 2 &&
+            keptAfter.kept.some((k) => k.endsWith(':cow')) &&
+            keptAfter.kept.some((k) => k.endsWith(':clap')) &&
+            keptPlayed.length >= 2,
+        JSON.stringify({
+            itsBars: itsBars.mode,
+            hisTurn,
+            itsTurnAgain,
+            kept: keptAfter.kept,
+            keptPlayed: keptPlayed.length,
+        })
+    );
+    await touch.tap(deckPal.button.x, deckPal.button.y);
+    await home();
+
+    // Off, the turntable is as it was: no friend, and the room above it its own again.
+    const withFriend = deckPal;
+    await page.evaluate(async () => (await import('./js/settings.js')).setExtra('turntableFriend', false));
+    await open('turntable');
+    const alone = await palState();
+    check(
+        'with its switch off, there is no friend, and the turntable has its room back',
+        !alone.on && alone.plinth < withFriend.plinth && alone.r >= withFriend.r,
+        JSON.stringify({
+            on: alone.on,
+            plinth: [alone.plinth, withFriend.plinth],
+            r: [alone.r, withFriend.r],
+        })
+    );
+    await home();
+    await page.evaluate(async () => {
+        const settings = await import('./js/settings.js');
+        settings.setExtra('turntableFriend', true);
+        settings.setStage('turntable', 'sprout');
+    });
 
     // ---- sandpaper letters ----------------------------------------------------------------
 
@@ -3056,6 +3413,319 @@ async function suite(mode) {
     await home();
     await page.evaluate(async () => (await import('./js/settings.js')).setStage('birdsong', 'sprout'));
 
+    // ---- weather song -----------------------------------------------------------------------------
+    //
+    // His music is the friend's weather: the rain-stick a drizzle and a sleepy friend under a leaf,
+    // the bells the sun and a dance, the big drum thunder and a cross friend who sighs and smiles
+    // when it rolls away. The cloud pushed along is wind. A day goes by, and at night the friend
+    // sleeps, and nothing moves, until a tap on it brings the morning.
+
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('weather', 'sprout'));
+    await open('weather');
+    check('weather song opens', (await sceneName()) === 'WeatherScene');
+    const sky = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            const w = s.weather;
+            return {
+                mood: s.mood,
+                rain: w.rain,
+                sun: w.sun,
+                storm: w.storm,
+                fog: w.fog,
+                rainbow: w.rainbow,
+                day: w.day,
+                strip: w.strip.length,
+                umbrella: s.friend.umbrella.target,
+                drops: s.drops.length,
+                wind: s.wind,
+                scarf: s.friend.wind.value,
+                turned: s.stick.turn.target,
+                glow: s.glow,
+                stick: [s.stick.x, s.stick.y],
+                bells: s.bells.map((b) => [b.x, b.y + b.len]),
+                drum: s.drum && [s.drum.x, s.drum.y],
+                friend: [s.fx, s.fy - s.r],
+                cloud: [s.cloud.x, s.cloud.y],
+            };
+        });
+    const moodIs = (moods, timeout) =>
+        page
+            .waitForFunction((moods) => moods.indexOf(window.playroom.stage.scene.mood) >= 0, moods, {
+                timeout,
+            })
+            .then(
+                () => true,
+                () => false
+            );
+    let weather = await sky();
+    await touch.tap(...weather.stick);
+    const drizzleSound = await peak(500);
+    await page.waitForTimeout(500);
+    const drizzle = await sky();
+    check(
+        'the rain-stick tips end over end with a patter: a drizzle falls, and the friend is sleepy under a leaf',
+        drizzle.turned > 3 &&
+            drizzle.rain > 0.3 &&
+            drizzle.drops > 5 &&
+            drizzle.mood === 'sleepy' &&
+            drizzle.umbrella === 1 &&
+            drizzleSound > 0.01,
+        JSON.stringify({ rain: drizzle.rain, drops: drizzle.drops, mood: drizzle.mood, peak: drizzleSound })
+    );
+    for (const k of [0, 2, 4]) {
+        await touch.tap(...weather.bells[k]);
+        await page.waitForTimeout(220);
+    }
+    const sunny = await sky();
+    check(
+        'the bells bring the sun out, and the friend dances',
+        sunny.sun > sunny.rain && sunny.mood === 'happy' && (await peak(300)) > 0.01,
+        JSON.stringify({ sun: sunny.sun, rain: sunny.rain, mood: sunny.mood })
+    );
+    for (let i = 0; i < 3; i++) {
+        await touch.tap(...weather.drum);
+        await page.waitForTimeout(220);
+    }
+    const stormy = await sky();
+    check(
+        'the big drum brings thunder: the cloud lights up, and the friend stamps, cross',
+        stormy.storm > 0.3 && stormy.mood === 'cross' && (await peak(700)) > 0.02,
+        JSON.stringify({ storm: stormy.storm, mood: stormy.mood })
+    );
+    const calmed = await moodIs(['calm'], 9000);
+    const smiled = await moodIs(['content', 'happy', 'sleepy'], 6000);
+    check('then the thunder rolls away: the friend sighs, calm, and then smiles again', calmed && smiled);
+    await touch.drag(
+        line(weather.cloud[0], weather.cloud[1], weather.cloud[0] + 320, weather.cloud[1], 12),
+        16
+    );
+    const windy = await sky();
+    check(
+        "pushed along, the cloud is a wind, and the friend's scarf flies out",
+        windy.wind > 0.3 && windy.scarf > 0.2,
+        JSON.stringify({ wind: windy.wind, scarf: windy.scarf })
+    );
+    await shot('weather');
+    // The end of the day: the friend asleep under the stars, and once all is still, nothing moves.
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        const w = s.weather;
+        w.day = 0.995;
+        w.rain = w.sun = w.storm = 0;
+        s.cloud.x = s.cloud.hx;
+        s.cloud.y = s.cloud.hy;
+    });
+    const nightAsleep = await moodIs(['asleep'], 3000);
+    await page.waitForTimeout(4500);
+    const nightA = await scene(() => window.playroom.stage.frames);
+    await page.waitForTimeout(600);
+    const nightB = await scene(() => window.playroom.stage.frames);
+    await shot('weather-night');
+    await touch.tap(...weather.friend);
+    await page.waitForTimeout(400);
+    const morning = await sky();
+    check(
+        'at night the friend falls asleep, and once all is still nothing moves; a tap on it brings the morning',
+        nightAsleep && nightB === nightA && morning.day < 0.05 && morning.mood !== 'asleep',
+        JSON.stringify({ nightAsleep, frames: nightB - nightA, day: morning.day, mood: morning.mood })
+    );
+    await home();
+
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('weather', 'seed'));
+    await open('weather');
+    weather = await sky();
+    check(
+        'at Seed, sunny and sleepy: the rain-stick and three bells, and no drum',
+        weather.bells.length === 3 && !weather.drum
+    );
+    await home();
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('weather', 'bloom'));
+    await open('weather');
+    weather = await sky();
+    for (let i = 0; i < 2; i++) {
+        await touch.tap(...weather.stick);
+        await page.waitForTimeout(250);
+    }
+    for (const k of [1, 3]) {
+        await touch.tap(...weather.bells[k]);
+        await page.waitForTimeout(150);
+    }
+    const proud = await moodIs(['proud'], 2000);
+    const bow = await sky();
+    await shot('weather-bloom');
+    await scene(() => {
+        const w = window.playroom.stage.scene.weather;
+        w.rain = w.sun = w.rainbow = 0;
+        w.quiet = 20;
+    });
+    const shyFriend = await moodIs(['shy'], 6000);
+    const foggy = await sky();
+    await touch.tap(...weather.bells[0]);
+    const peeksOut = await moodIs(['content', 'happy'], 4000);
+    check(
+        'at Bloom, sun in the rain makes a rainbow, and the friend is proud; a long quiet brings the fog, and a shy friend, until he plays again; and the day so far is painted along the top',
+        proud && bow.rainbow > 0.5 && shyFriend && foggy.fog > 0.5 && peeksOut && foggy.strip > 0,
+        JSON.stringify({
+            proud,
+            rainbow: bow.rainbow,
+            shyFriend,
+            fog: foggy.fog,
+            peeksOut,
+            strip: foggy.strip,
+        })
+    );
+    await home();
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('weather', 'sprout'));
+
+    // ---- freeze parade ----------------------------------------------------------------------------
+    //
+    // The animals march to his drum, a step a beat; when he stops they freeze, wobbling, and in a
+    // while one sneezes, and at last they lie down to wait; a beat and they are up and off. At
+    // Sprout the ducks march to the tambourine; at Bloom the hare hops only to a quick beat and the
+    // tortoise walks only to a slow one, and the parade plays along as a band.
+
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('parade', 'seed'));
+    await open('parade');
+    check('freeze parade opens', (await sceneName()) === 'ParadeScene');
+    const parade = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            return {
+                animals: s.animals.map((a) => ({
+                    name: a.name,
+                    s: a.s,
+                    state: a.state,
+                    freeze: a.freeze.value,
+                    sit: a.sit.value,
+                    sneezed: a.sneeze >= 0,
+                    hit: a.hit,
+                })),
+                drum: [s.drum.x, s.drum.y],
+                tambourine: s.tambourine && [s.tambourine.x, s.tambourine.y],
+                step: s.step,
+                laps: s.laps,
+                door: s.door.target,
+                beats: s.beats,
+            };
+        });
+    const moved = (from, to, name) =>
+        to.animals
+            .filter((a) => a.name === name)
+            .map((a, i) => (a.s - from.animals.filter((b) => b.name === name)[i].s) / to.step);
+    let march = await parade();
+    const before = march;
+    for (let i = 0; i < 4; i++) {
+        await touch.tap(...march.drum);
+        await page.waitForTimeout(450);
+    }
+    const marched = await parade();
+    check(
+        'a beat on the drum is a step for the parade: four beats, four steps each',
+        ['cow', 'sheep', 'pig'].every((name) => Math.abs(moved(before, marched, name)[0] - 4) < 0.05) &&
+            marched.animals.every((a) => a.state === 'march') &&
+            (await peak(200)) >= 0,
+        JSON.stringify(['cow', 'sheep', 'pig'].map((name) => moved(before, marched, name)[0]))
+    );
+    await page.waitForTimeout(2200);
+    const frozen = await parade();
+    await shot('parade-freeze');
+    const sneezed = await page
+        .waitForFunction(() => window.playroom.stage.scene.animals.some((a) => a.sneeze >= 0), null, {
+            timeout: 4000,
+        })
+        .then(
+            () => true,
+            () => false
+        );
+    check(
+        'when he stops, they freeze, wobbling, mid-step; hold still and one of them sneezes',
+        frozen.animals.every((a) => a.state === 'freeze' && a.freeze > 0.7) && sneezed,
+        JSON.stringify(frozen.animals.map((a) => [a.name, a.state, a.freeze.toFixed(2)]))
+    );
+    await scene(() => {
+        window.playroom.stage.scene.groups.drum.frozenAt -= 30;
+    });
+    await page.waitForTimeout(1800);
+    const lying = await parade();
+    await touch.tap(...march.drum);
+    await page.waitForTimeout(500);
+    const upAgain = await parade();
+    check(
+        'at last they lie down to wait; and a beat brings them up and marching again',
+        lying.animals.every((a) => a.state === 'rest' && a.sit > 0.8) &&
+            upAgain.animals.every((a) => a.state === 'march') &&
+            ['cow', 'sheep', 'pig'].every((name) => Math.abs(moved(lying, upAgain, name)[0] - 1) < 0.05)
+    );
+    // Home past the barn: the rooster crows, and the door opens.
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        const shift = s.barnS - Math.max(...s.animals.map((a) => a.s)) - 10;
+        for (const a of s.animals) a.s = a.from = a.to = a.s + shift;
+    });
+    await touch.tap(...march.drum);
+    await page.waitForTimeout(500);
+    const home1 = await parade();
+    check(
+        'passing the barn, the parade is home: the barn door opens, and the rooster crows',
+        home1.laps === 1 && home1.door === 1
+    );
+    await home();
+
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('parade', 'sprout'));
+    await open('parade');
+    march = await parade();
+    for (let i = 0; i < 3; i++) {
+        await touch.tap(...march.tambourine);
+        await page.waitForTimeout(400);
+    }
+    const jingled = await parade();
+    for (let i = 0; i < 2; i++) {
+        await touch.tap(...march.drum);
+        await page.waitForTimeout(400);
+    }
+    const drummed = await parade();
+    check(
+        'at Sprout the ducks march to the tambourine, and only to it; the drum moves the others',
+        moved(march, jingled, 'duck').every((d) => Math.abs(d - 3) < 0.05) &&
+            moved(march, jingled, 'cow')[0] === 0 &&
+            moved(jingled, drummed, 'duck').every((d) => d === 0) &&
+            Math.abs(moved(jingled, drummed, 'cow')[0] - 2) < 0.05
+    );
+    await home();
+
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('parade', 'bloom'));
+    await open('parade');
+    march = await parade();
+    for (let i = 0; i < 7; i++) {
+        await touch.tap(...march.drum);
+        await page.waitForTimeout(300);
+    }
+    const quick = await parade();
+    await page.waitForTimeout(2600);
+    const beforeSlow = await parade();
+    for (let i = 0; i < 4; i++) {
+        await touch.tap(...march.drum);
+        await page.waitForTimeout(1000);
+    }
+    const slow = await parade();
+    await shot('parade-bloom');
+    check(
+        'at Bloom the hare hops ahead to a quick beat, two steps a hop, and the tortoise waits; to a slow beat the tortoise walks, and the hare waits; and the parade plays along as a band',
+        moved(march, quick, 'hare')[0] > 3.95 &&
+            moved(march, quick, 'tortoise')[0] === 0 &&
+            moved(beforeSlow, slow, 'tortoise')[0] > 1.95 &&
+            moved(beforeSlow, slow, 'hare')[0] === 0 &&
+            slow.beats >= 10,
+        JSON.stringify({
+            quick: [moved(march, quick, 'hare')[0], moved(march, quick, 'tortoise')[0]],
+            slow: [moved(beforeSlow, slow, 'tortoise')[0], moved(beforeSlow, slow, 'hare')[0]],
+            beats: slow.beats,
+        })
+    );
+    await home();
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('parade', 'sprout'));
+
     // ---- the grown-up's corner ------------------------------------------------------------------
 
     const gate = await page.evaluate(() => {
@@ -3117,9 +3787,9 @@ async function suite(mode) {
     );
 
     await page.click('[data-toy="busy"] .switch');
-    check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 12);
+    check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 14);
     await page.click('[data-toy="busy"] .switch');
-    check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 13);
+    check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 15);
 
     // The shelf's order: the arrows move a toy along it, the list follows, the order is remembered,
     // and the playroom's own order is a press away. A new game says so.
@@ -3133,7 +3803,7 @@ async function suite(mode) {
     const ownOrder = await shelfOrder();
     const ends = await page.evaluate(() => ({
         first: document.querySelector('[data-toy="pond"] [data-earlier]').disabled,
-        last: document.querySelector('[data-toy="birdsong"] [data-later]').disabled,
+        last: document.querySelector('[data-toy="parade"] [data-later]').disabled,
         badges: [...document.querySelectorAll('[data-shelf] .badge')]
             .map((b) => b.closest('[data-toy]').getAttribute('data-toy'))
             .join(' '),
@@ -3148,7 +3818,7 @@ async function suite(mode) {
         "the arrows move a toy along the shelf, the list follows and it is remembered; one press brings back the playroom's own order",
         ends.first &&
             ends.last &&
-            ends.badges === 'birdsong' &&
+            ends.badges === 'birdsong weather parade' &&
             movedOrder.split(' ').indexOf('birdsong') === 10 &&
             movedList === movedOrder &&
             keptOrder.indexOf('birdsong') === 10 &&
@@ -3175,7 +3845,7 @@ async function suite(mode) {
     const extrasStored = (await stored()).extras;
     check(
         'each new thing has a switch, on to begin with and remembered',
-        extrasAtFirst === 'hello true, goodnight true, shyFish true' &&
+        extrasAtFirst === 'hello true, goodnight true, shyFish true, turntableFriend true' &&
             helloOff &&
             extrasStored.hello === true &&
             extrasStored.shyFish === false,
@@ -3318,6 +3988,7 @@ async function suite(mode) {
         `${seed.steps} columns: ${seed.rows.join(' ')}`
     );
     await home();
+    await page.evaluate(async () => (await import('./js/settings.js')).setExtra('turntableFriend', false));
     await open('turntable');
     const seedDeck = await scene(() => {
         const s = window.playroom.stage.scene;
@@ -3371,6 +4042,7 @@ async function suite(mode) {
         `${bloomDeck.pads}; ${fast.rate.toFixed(2)} at the top, ${own.rate.toFixed(2)} in the middle`
     );
     await home();
+    await page.evaluate(async () => (await import('./js/settings.js')).setExtra('turntableFriend', true));
 
     // The dig at Bloom: a bulldozer, and earth under the sand.
     await page.evaluate(async () => (await import('./js/settings.js')).setStage('dig', 'bloom'));
