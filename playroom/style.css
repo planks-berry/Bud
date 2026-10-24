@@ -107,6 +107,47 @@ body {
     transition: stroke-dashoffset 3s linear;
 }
 
+/* ---- the goodnight timer's band ------------------------------------------------------------------ */
+
+/* Over everything, the corner included, and never in the way of a touch. */
+.band {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.band[hidden] {
+    display: none;
+}
+
+.band svg {
+    display: block;
+}
+
+.band path {
+    fill: none;
+    stroke-width: 8px;
+}
+
+.band .track {
+    stroke: rgba(107, 90, 76, 0.12);
+}
+
+.band .left {
+    stroke-linecap: round;
+}
+
+/* The time has gone: the whole frame is the night. */
+.band.night .track {
+    stroke: #2F3A63;
+}
+
+.band.night .left {
+    display: none;
+}
+
 /* ---- the grown-up's panel --------------------------------------------------------------------- */
 
 .parent {
@@ -149,6 +190,13 @@ body {
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: #8B7766;
+}
+
+.sheet h3 {
+    margin: 22px 0 4px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #5E4E42;
 }
 
 .hint {
@@ -438,6 +486,139 @@ button.switch {
     font-weight: 700;
     color: #6B5A4C !important;
     vertical-align: 2px;
+}
+
+/* ---- the passcode keypad --------------------------------------------------------------------- */
+
+.keypad {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 4;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-align-items: center;
+    align-items: center;
+    -webkit-justify-content: center;
+    justify-content: center;
+    background: rgba(94, 74, 60, 0.4);
+}
+
+.keypad[hidden] {
+    display: none;
+}
+
+.pad {
+    box-sizing: border-box;
+    width: 320px;
+    padding: 22px 24px 18px;
+    border-radius: 24px;
+    background: #FBF6EE;
+    box-shadow: 0 8px 0 rgba(112, 84, 58, 0.14);
+    text-align: center;
+}
+
+.pad .title {
+    margin: 0 0 6px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #5E4E42;
+}
+
+/* Room for two lines, so the keys do not jump as the words change. */
+.pad .hint {
+    min-height: 2.8em;
+    margin-bottom: 14px;
+}
+
+.dots {
+    margin: 0 0 16px;
+}
+
+.dots i {
+    display: inline-block;
+    box-sizing: border-box;
+    width: 16px;
+    height: 16px;
+    margin: 0 8px;
+    border: 2px solid #B99068;
+    border-radius: 50%;
+}
+
+.dots i.on {
+    border-color: #6B5A4C;
+    background: #6B5A4C;
+}
+
+.keys {
+    display: -webkit-flex;
+    display: flex;
+    -webkit-flex-wrap: wrap;
+    flex-wrap: wrap;
+    -webkit-justify-content: space-between;
+    justify-content: space-between;
+}
+
+.keys button {
+    width: 31%;
+    height: 56px;
+    margin: 0 0 8px;
+    padding: 0;
+    border: 2px solid #E7D8C2;
+    border-radius: 14px;
+    background: #FFFDF8;
+    font-size: 24px !important;
+    font-weight: 700;
+    color: #5E4E42 !important;
+}
+
+.keys button.small {
+    font-size: 13px !important;
+    font-weight: 600;
+    color: #8B7766 !important;
+}
+
+.pad .plain {
+    margin: 6px 0 0;
+    text-align: center;
+}
+
+/* A wrong passcode: the card shakes its head. */
+.pad.shake {
+    -webkit-animation: shake 0.4s ease-out;
+    animation: shake 0.4s ease-out;
+}
+
+@-webkit-keyframes shake {
+    20% {
+        -webkit-transform: translateX(-10px);
+    }
+    40% {
+        -webkit-transform: translateX(9px);
+    }
+    60% {
+        -webkit-transform: translateX(-6px);
+    }
+    80% {
+        -webkit-transform: translateX(3px);
+    }
+}
+
+@keyframes shake {
+    20% {
+        transform: translateX(-10px);
+    }
+    40% {
+        transform: translateX(9px);
+    }
+    60% {
+        transform: translateX(-6px);
+    }
+    80% {
+        transform: translateX(3px);
+    }
 }
 
 .done {

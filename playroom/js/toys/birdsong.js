@@ -1,19 +1,23 @@
-// Bird Song: a bird on a branch sings a short tune, then tilts its head and waits. Whatever he
-// plays on the bell flowers below is his answer: the bird listens until he has finished, sings his
-// notes back, and then sings a new tune that begins on the note he ended with. A conversation in
-// music, and practice at the thing a conversation needs: taking turns.
+// Bird Song: a bird on a branch sings a short tune, then raises a wing to its ear and waits.
+// Whatever he plays on the bell flowers below is his answer, for as long as he likes; when he has
+// finished, he taps the bird to hand it the turn. The bird sings his notes back, and then a new tune
+// that begins on the note he ended with. A conversation in music, and practice at the thing a
+// conversation needs: taking turns, and a clear way to trade them.
 //
 //   touch  - tap a flower for its note. The colours keep the notes they have in every game: red C,
-//            yellow E, green G, blue A, purple the C above. Tap the bird and it sings its tune
-//            again; once he has played, a tap on the bird hands it the turn at once.
+//            yellow E, green G, blue A, purple the C above. Tap the bird: once he has played, that
+//            hands it the turn; before, it sings its tune again.
 //   move   - run a finger along the flowers for a glide, and the bird glides it back.
 //   make   - a song of turns, his and the bird's.
 //
 // Never wrong: whatever he plays is sung back, and nothing is ever marked. A tune grows by a note
 // after three answered turns in a row, and never shrinks. While the bird sings, the flowers close
 // a little and ring only softly, and the bird finishes its tune before it listens; when it is his
-// turn they open again with a ripple. Quiet is fine too: after a while the bird sings its tune
-// again, twice, and then tucks its head in and rests until a flower or the bird is touched.
+// turn they open again with a ripple. When he pauses, a slow ring round the bird, the one the bud
+// asks for a first touch with, and a hop ask him for the bird's turn. Quiet is fine too: after a
+// while the bird sings its tune again, or, if he has played, chirps to ask for its turn, twice, and
+// then tucks its head in and rests until a flower or the bird is touched; woken by a tap, it still
+// sings back what he played.
 //
 // At Bloom a second bird joins: it answers the first bird's tune before both listen to him, and
 // the two take turns to lead. Taking turns, shown rather than told.
@@ -27,10 +31,12 @@ import { COLOURS } from './cubes.js';
 import { STAGES, OPENERS, FINISHED, REMIND, REMINDERS, compose, echo, grown } from './tunes.js';
 
 // The pause between the parts of the birds' turn, how far the flowers close while the birds sing,
-// and how far a listening head is cocked.
+// how far a listening head is cocked, and how often the bird asks for its turn with a ring and a
+// hop once he has paused.
 const PAUSE = 0.5;
 const CLOSED = 0.3;
 const LISTEN = 0.45;
+const ASK_EVERY = 2.6;
 
 // The birds: a robin who leads, an octave above the flowers, and at Bloom a blue friend at the
 // flowers' own pitch.
@@ -80,6 +86,7 @@ class BirdScene extends Scene {
         this.quiet = 0;
         this.lastNote = -10;
         this.reminders = 0;
+        this.asked = -1;
         this.streak = 0;
         this.holds = new Set();
         this.notes = [];
@@ -355,7 +362,8 @@ class BirdScene extends Scene {
         }
     }
 
-    // He has finished: the birds sing his notes back, then a new tune from where he ended.
+    // He has handed the bird its turn: the birds sing his notes back, then a new tune from where he
+    // ended.
     answer() {
         const heard = this.heard;
         const grew = grown(this.streak, this.length, this.stage.most);
@@ -390,6 +398,26 @@ class BirdScene extends Scene {
         }
         this.reminders++;
         this.perform([{ birds: [this.lead], notes: this.tuneNotes() }], 0);
+    }
+
+    // He has played, and gone quiet without handing the bird its turn: it asks, with a chirp and a
+    // hop, twice, and then rests, keeping what he played for when it is woken.
+    nudge() {
+        if (this.reminders >= REMINDERS) {
+            this.rest();
+            return;
+        }
+        this.reminders++;
+        this.quiet = FINISHED;
+        const bird = this.birds[this.lead];
+        bird.bob.kick(4);
+        bird.ruffle.kick(4);
+        audio.play('chirp', { f: noteHz(2, 96) }, { gain: 0.6, pan: (bird.x / this.w) * 2 - 1, wet: 0.3 });
+    }
+
+    // He has played and paused: the bird asks for its turn.
+    inviting() {
+        return this.mode === 'turn' && this.heard.length > 0 && this.quiet >= FINISHED;
     }
 
     rest() {
@@ -449,17 +477,19 @@ class BirdScene extends Scene {
         }
     }
 
+    // Once he has played, a tap on a bird hands the birds their turn, even after it has dozed off;
+    // before, it sings its tune again. While they sing, it only ruffles its feathers.
     tapBird(bird) {
         bird.ruffle.kick(5);
-        if (this.mode === 'turn') {
-            // Once he has played, the bird takes its turn at once; before, it sings its tune again.
-            if (this.heard.length) this.answer();
-            else this.perform([{ birds: [this.birds.indexOf(bird)], notes: this.tuneNotes() }], 0.15);
-            this.reminders = 0;
-        } else if (this.mode === 'rest') {
-            this.wake();
-            this.perform([{ birds: [this.birds.indexOf(bird)], notes: this.tuneNotes() }], 0.5);
-        }
+        if (this.mode !== 'turn' && this.mode !== 'rest') return;
+        const resting = this.mode === 'rest';
+        this.wake();
+        if (this.heard.length) this.answer();
+        else
+            this.perform(
+                [{ birds: [this.birds.indexOf(bird)], notes: this.tuneNotes() }],
+                resting ? 0.5 : 0.15
+            );
     }
 
     down(p) {
@@ -512,8 +542,20 @@ class BirdScene extends Scene {
             // A finger still on the flowers is still playing, for a while.
             const playing = this.holds.size > 0 && this.time - this.lastNote < 2.5;
             if (!playing) this.quiet += dt;
-            if (this.heard.length && this.quiet >= FINISHED) this.answer();
-            else if (!this.heard.length && this.quiet >= REMIND) this.remind();
+            if (this.quiet >= REMIND) {
+                if (this.heard.length) this.nudge();
+                else this.remind();
+            }
+            // Asking for its turn: each time round the ring, a hop, looking out at him.
+            if (this.inviting()) {
+                const round = Math.floor((this.quiet - FINISHED) / ASK_EVERY);
+                if (round !== this.asked) {
+                    this.asked = round;
+                    const bird = this.birds[this.lead];
+                    bird.bob.kick(2.5);
+                    bird.eye = { x: 0.1, y: 0.3 };
+                }
+            } else this.asked = -1;
         }
 
         for (const flower of this.flowers) {
@@ -567,6 +609,19 @@ class BirdScene extends Scene {
     draw(ctx) {
         ctx.drawImage(this.bg.canvas, 0, 0, this.w, this.h);
         for (const flower of this.flowers) this.drawFlower(ctx, flower);
+        // Asking for its turn: rings spreading out from the bird, two at a time so one is always
+        // there, stronger than the bud's, since here there is more to look at.
+        if (this.inviting()) {
+            const bird = this.birds[this.lead];
+            const start = ((this.quiet - FINISHED) % ASK_EVERY) / ASK_EVERY;
+            ctx.lineWidth = 5 * this.u;
+            for (const phase of [start, (start + 0.5) % 1]) {
+                const ring = this.r * (1.2 + phase * 1.1);
+                ctx.strokeStyle = `rgba(221, 148, 140, ${0.7 * (1 - phase)})`;
+                ellipse(ctx, bird.x, bird.y - this.r * 0.3, ring, ring * 0.92);
+                ctx.stroke();
+            }
+        }
         for (const bird of this.birds) {
             ctx.save();
             ctx.translate(bird.x, bird.y + bird.bob.value * 40 * this.u);
@@ -834,6 +889,7 @@ export const toy = {
         const stage = STAGES[level];
         const flowers = stage.flowers.map((name) => COLOURS.find((c) => c.name === name));
         const list = flowers.map((kind) => ['glock', { f: noteHz(kind.degree, 72) }]);
+        list.push(['chirp', { f: noteHz(2, 96) }]);
         for (const look of BIRDS.slice(0, stage.birds)) {
             flowers.forEach((kind, i) => {
                 const f = noteHz(kind.degree, look.base);

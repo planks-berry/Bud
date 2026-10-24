@@ -2808,8 +2808,9 @@ async function suite(mode) {
 
     // ---- bird song -------------------------------------------------------------------------------
     //
-    // The bird sings first, then waits with its wing to its ear. Whatever is played on the flowers
-    // it sings back, in the rhythm it was played, and its next tune begins on the last note played.
+    // The bird sings first, then waits with its wing to its ear. He plays on the flowers for as long
+    // as he likes, and hands the bird its turn with a tap; it sings his notes back, in the rhythm he
+    // played them, and its next tune begins on his last note.
 
     await open('birdsong');
     check('bird song opens', (await sceneName()) === 'BirdScene');
@@ -2830,6 +2831,7 @@ async function suite(mode) {
                     : [],
                 length: s.length,
                 reminders: s.reminders,
+                inviting: s.inviting(),
                 flowers: s.flowers.map((f) => [f.x, f.y + s.bellH * 0.5]),
                 birds: s.birds.map((b) => [b.x, b.y - s.r * 0.3]),
                 listening:
@@ -2843,6 +2845,11 @@ async function suite(mode) {
                 () => true,
                 () => false
             );
+    const handOver = async () => {
+        await touch.tap(tweet.birds[0][0], tweet.birds[0][1]);
+        await page.waitForTimeout(120);
+        return song();
+    };
     let tweet = await song();
     check(
         'the bird sings first: its opening tune, aloud',
@@ -2850,24 +2857,32 @@ async function suite(mode) {
         JSON.stringify(tweet.sung)
     );
     check('then it waits, wing to its ear, and the flowers open', (await turn()) && (await song()).listening);
-    await shot('birdsong');
     for (const k of [0, 2, 1]) {
         await touch.tap(tweet.flowers[k][0], tweet.flowers[k][1]);
         await page.waitForTimeout(300);
     }
-    const answer = await song();
-    const tookTurn = await turn('birds', 3000);
-    tweet = await song();
-    const sungBack = tweet.sung.slice(0, 3);
+    // He has stopped: the bird waits, and asks for its turn.
+    await page.waitForTimeout(2200);
+    const paused = await song();
+    await shot('birdsong');
+    tweet = await handOver();
     check(
-        'it waits for him to finish, sings his notes back, and its next tune begins on his last note',
-        answer.heard.join(' ') === '0 2 1' &&
-            answer.mode === 'turn' &&
-            tookTurn &&
-            sungBack.map((n) => n.index).join(' ') === '0 2 1' &&
+        'when he stops, the bird asks for its turn and waits; his tap on it hands the turn over, and it sings his notes back, its next tune beginning on his last note',
+        paused.mode === 'turn' &&
+            paused.inviting &&
+            paused.heard.join(' ') === '0 2 1' &&
+            tweet.mode === 'birds' &&
+            tweet.sung
+                .slice(0, 3)
+                .map((n) => n.index)
+                .join(' ') === '0 2 1' &&
             tweet.sung[3].index === 1 &&
             tweet.tune[0] === 1,
-        JSON.stringify({ heard: answer.heard, sung: tweet.sung.map((n) => n.index) })
+        JSON.stringify({
+            stopped: paused.mode,
+            inviting: paused.inviting,
+            sung: tweet.sung.map((n) => n.index),
+        })
     );
     await touch.tap(tweet.flowers[4][0], tweet.flowers[4][1]);
     await turn();
@@ -2879,8 +2894,8 @@ async function suite(mode) {
     const glideY = tweet.flowers[0][1];
     // A quick run, as a child's is: about a tenth of a second a flower.
     await touch.drag(line(tweet.flowers[0][0] - 40, glideY, tweet.flowers[4][0] + 40, glideY, 12), 8);
-    await turn('birds', 3000);
-    const glided = (await song()).sung.slice(0, 5);
+    await page.waitForTimeout(300);
+    const glided = (await handOver()).sung.slice(0, 5);
     check(
         'a finger run along the flowers comes back as a glide',
         glided.map((n) => n.index).join(' ') === '0 1 2 3 4' &&
@@ -2891,11 +2906,9 @@ async function suite(mode) {
     await turn();
     await touch.tap(tweet.flowers[3][0], tweet.flowers[3][1]);
     await page.waitForTimeout(150);
-    await touch.tap(tweet.birds[0][0], tweet.birds[0][1]);
-    await page.waitForTimeout(100);
-    tweet = await song();
+    tweet = await handOver();
     check(
-        'a tap on the bird, once he has played, hands it the turn at once; and after three answers its tunes have grown',
+        'after three answers in a row, the tunes have grown by a note',
         tweet.mode === 'birds' && tweet.sung[0].index === 3 && tweet.length === 4 && tweet.tune.length === 4,
         JSON.stringify({ mode: tweet.mode, length: tweet.length })
     );
@@ -2929,6 +2942,27 @@ async function suite(mode) {
             tweet.length === 4,
         JSON.stringify({ reminded, restedNow, frames: restB - restA, mode: tweet.mode })
     );
+
+    // Played, but not handed over: it chirps to ask, twice, and rests, keeping what he played.
+    const asked = [];
+    for (let k = 0; k < 2; k++) {
+        await quieten();
+        await page.waitForTimeout(150);
+        asked.push(await scene(() => window.playroom.stage.scene.mode === 'turn'));
+    }
+    await quieten();
+    const keptRest = await turn('rest', 2000);
+    const kept = (await song()).heard.join(' ');
+    const woken = await handOver();
+    check(
+        'played but not handed over, it asks twice with a chirp, then rests keeping his notes; a tap on it still sings them back',
+        asked.every(Boolean) &&
+            keptRest &&
+            kept === '2' &&
+            woken.mode === 'birds' &&
+            woken.sung[0].index === 2,
+        JSON.stringify({ asked, keptRest, kept, sung: woken.sung.map((n) => n.index) })
+    );
     check('home from bird song', (await home()) === 'ShelfScene');
 
     // At Bloom a second bird answers the first before both listen, and both sing his notes back.
@@ -2938,8 +2972,8 @@ async function suite(mode) {
     const duet = tweet.sung.map((n) => n.birds).join(' ');
     await turn();
     await touch.tap(tweet.flowers[4][0], tweet.flowers[4][1]);
-    await turn('birds', 3000);
-    const together = (await song()).sung;
+    await page.waitForTimeout(150);
+    const together = (await handOver()).sung;
     check(
         'at Bloom two birds: the second answers the first before they listen, and both sing his notes back',
         tweet.birds.length === 2 &&
@@ -3053,8 +3087,7 @@ async function suite(mode) {
         `${movedOrder} | ${JSON.stringify(ends)}`
     );
 
-    // The new things: each has a switch, on to begin with and remembered; goodnight in five minutes
-    // can be set and called off.
+    // The new things: each has a switch, on to begin with and remembered.
     const extras = () =>
         page.evaluate(() =>
             [...document.querySelectorAll('[data-extra]')]
@@ -3070,26 +3103,122 @@ async function suite(mode) {
     await page.click('[data-extra="hello"]');
     await page.click('[data-extra="shyFish"]');
     const extrasStored = (await stored()).extras;
-    await page.click('[data-bedtime]');
-    const bedtimeIn = await scene(() => window.playroom.bedtime - Date.now());
-    const bedtimeSays = await page.evaluate(() => document.querySelector('[data-bedtime]').textContent);
-    await page.click('[data-bedtime]');
-    const bedtimeOff = await scene(() => window.playroom.bedtime === 0);
-    await page.click('[data-extra="goodnight"]');
-    const goodnightOff = await page.evaluate(() => document.querySelector('[data-bedtime]').hidden);
-    await page.click('[data-extra="goodnight"]');
     check(
-        'each new thing has a switch, on to begin with and remembered; goodnight in five minutes can be set and called off',
+        'each new thing has a switch, on to begin with and remembered',
         extrasAtFirst === 'hello true, goodnight true, shyFish true' &&
             helloOff &&
             extrasStored.hello === true &&
-            extrasStored.shyFish === false &&
-            bedtimeIn > 290000 &&
-            bedtimeIn <= 300000 &&
-            /call it off/.test(bedtimeSays) &&
-            bedtimeOff &&
-            goodnightOff,
-        `${extrasAtFirst}; ${JSON.stringify(extrasStored)}; ${bedtimeSays}`
+            extrasStored.shyFish === false,
+        `${extrasAtFirst}; ${JSON.stringify(extrasStored)}`
+    );
+
+    // Goodnight: the toys sleep by themselves, or wait for the child; and the timer, which a
+    // passcode locks: chosen twice the first time, asked for to stop it, and clearable if forgotten
+    // by typing the numbers the keypad shows.
+    const tuckShown = () =>
+        page.evaluate(() =>
+            [...document.querySelectorAll('[data-tuck] button')]
+                .map((b) => `${b.getAttribute('data-tuck')} ${b.getAttribute('aria-pressed')}`)
+                .join(', ')
+        );
+    const tuckAtFirst = await tuckShown();
+    await page.click('[data-tuck] [data-tuck="child"]');
+    const tuckStored = (await stored()).tuck;
+    await page.click('[data-tuck] [data-tuck="themselves"]');
+    check(
+        'the toys fall asleep by themselves to begin with, or can wait for the child to tuck them in',
+        tuckAtFirst === 'themselves true, child false' &&
+            tuckStored === 'child' &&
+            (await stored()).tuck === 'themselves',
+        tuckAtFirst
+    );
+    const pad = () =>
+        page.evaluate(() => ({
+            shown: !document.querySelector('[data-keypad]').hidden,
+            title: document.querySelector('[data-pad-title]').textContent,
+            hint: document.querySelector('[data-pad-hint]').textContent,
+        }));
+    const key = async (digits) => {
+        for (const d of digits) await page.click(`[data-key="${d}"]`);
+        await page.waitForTimeout(300);
+    };
+    const band = () =>
+        page.evaluate(() => {
+            const el = document.getElementById('band');
+            const left = el.querySelector('.left');
+            return {
+                shown: !el.hidden,
+                night: el.classList.contains('night'),
+                part:
+                    parseFloat(left.style.strokeDasharray) /
+                    (parseFloat(left.style.strokeDasharray.split(/[ ,]+/)[1]) - 8),
+                colour: left.style.stroke,
+            };
+        });
+    await page.click('[data-timer] [data-minutes="10"]');
+    const choosing = await pad();
+    await key('1234');
+    const confirming = await pad();
+    await key('1234');
+    const running = await scene(() => ({
+        minutes: (window.playroom.bedtime - window.playroom.bedtimeFrom) / 60000,
+        left: window.playroom.bedtime - Date.now(),
+    }));
+    const runningBand = await band();
+    const runningSays = await page.evaluate(() => document.querySelector('[data-timer-state]').textContent);
+    const timerStored = (await stored()).timer;
+    await shot('parent-timer');
+    check(
+        'a ten-minute timer starts once a passcode is chosen, twice; it is remembered, and a full band in leaf green goes round the screen',
+        choosing.shown &&
+            choosing.title === 'Choose a passcode' &&
+            confirming.title === 'Once more' &&
+            running.minutes === 10 &&
+            running.left > 590000 &&
+            !!timerStored &&
+            timerStored.ends - timerStored.from === 600000 &&
+            runningBand.shown &&
+            runningBand.part > 0.99 &&
+            runningBand.colour === 'rgb(152, 185, 133)' &&
+            /Goodnight in 10 minutes/.test(runningSays),
+        JSON.stringify({ choosing, confirming, running, runningBand, runningSays })
+    );
+    await page.click('[data-timer-stop]');
+    await key('9999');
+    const wrong = await pad();
+    const stillRunning = await scene(() => !!window.playroom.bedtime);
+    await key('1234');
+    const stoppedNow = await scene(() => window.playroom.bedtime === 0);
+    check(
+        'stopping it asks for the passcode: a wrong one does not, the right one does, and the band goes',
+        wrong.shown &&
+            wrong.title === 'Passcode' &&
+            /Not that one/.test(wrong.hint) &&
+            stillRunning &&
+            stoppedNow &&
+            !(await band()).shown &&
+            (await stored()).timer === null,
+        JSON.stringify(wrong)
+    );
+    await page.click('[data-timer] [data-minutes="15"]');
+    await page.click('[data-pad-forgot]');
+    const forgotten = await pad();
+    const shownDigits = (forgotten.hint.match(/\d( \d){3}/) || [''])[0].replace(/ /g, '');
+    await key(shownDigits);
+    const fresh = await pad();
+    await key('5678');
+    await key('5678');
+    const fifteen = await scene(() => (window.playroom.bedtime - window.playroom.bedtimeFrom) / 60000);
+    await page.click('[data-timer-stop]');
+    await key('5678');
+    check(
+        'a forgotten passcode is cleared by typing the numbers shown, and a new one chosen',
+        forgotten.title === 'Forgotten?' &&
+            shownDigits.length === 4 &&
+            fresh.title === 'Choose a passcode' &&
+            fifteen === 15 &&
+            (await scene(() => window.playroom.bedtime === 0)),
+        JSON.stringify({ forgotten, fresh, fifteen })
     );
     await shot('parent-toys');
     await page.click('[data-close]');
@@ -3315,10 +3444,11 @@ async function suite(mode) {
     await touch.tap(first.x + first.w / 2, first.y + first.h / 2);
     const tuckedIn = await scene(() => window.playroom.shelf.items[0].asleep);
     await tuckAll();
+    const closed = await bud();
     check(
         'a tap on the moon brings the night, a tap tucks a toy in, and the playroom closes to its bud',
-        nightFell && tuckedIn && (await bud()),
-        JSON.stringify({ nightFell, tuckedIn })
+        nightFell && tuckedIn && closed,
+        JSON.stringify({ nightFell, tuckedIn, closed })
     );
     await touch.tap(512, 330);
     await page.waitForTimeout(1800);
@@ -3328,21 +3458,101 @@ async function suite(mode) {
     );
     await page.waitForFunction(() => !window.playroom.shelf.greeting, null, { timeout: 6000 });
 
+    // The grown-up's timer: half gone, the band is half round the screen and butter yellow, and the
+    // sun in the window half way down. Run out in a game, the house button shows the moon and the band
+    // turns to the night; after a grace the game puts itself away, and the night comes.
+    await scene(() => {
+        const now = Date.now();
+        window.playroom.timeBedtime({ from: now - 300000, ends: now + 300000 });
+    });
+    const halfway = await band();
+    const sunset = await scene(() => window.playroom.shelf.dusk());
     await open('bars');
-    await scene(() => window.playroom.setBedtime(0.02));
-    await page.waitForTimeout(1600);
-    const moonOnHome = await page.evaluate(() =>
-        document.getElementById('home').classList.contains('bedtime')
-    );
-    await home();
-    await page.waitForTimeout(600);
-    const nightCame = await scene(() => !!window.playroom.shelf.night);
+    await scene(() => {
+        window.playroom.grace = 1;
+        const now = Date.now();
+        window.playroom.timeBedtime({ from: now - 599000, ends: now + 1000 });
+    });
+    await page.waitForTimeout(1700);
+    const dueInToy = await page.evaluate(() => ({
+        moon: document.getElementById('home').classList.contains('bedtime'),
+        scene: window.playroom.stage.scene.constructor.name,
+    }));
+    const nightBand = await band();
+    await shot('timer-up');
+    const putAway = await page
+        .waitForFunction(
+            () => window.playroom.stage.scene === window.playroom.shelf && !!window.playroom.shelf.night,
+            null,
+            { timeout: 6000 }
+        )
+        .then(
+            () => true,
+            () => false
+        );
     await tuckAll();
+    const timedOut = await bud();
+    const timerDone = await scene(() => window.playroom.bedtime === 0);
+    const bandGone = !(await band()).shown;
     check(
-        'set for later, the moon shows on the way home, and the night comes once the shelf is out',
-        moonOnHome && nightCame && (await bud()) && (await scene(() => window.playroom.bedtime === 0)),
-        JSON.stringify({ moonOnHome, nightCame })
+        "the timer's band shows the time going; run out in a game, the moon shows and the band turns to night, then the game puts itself away, the night comes, and the timer is done",
+        halfway.shown &&
+            Math.abs(halfway.part - 0.5) < 0.02 &&
+            halfway.colour === 'rgb(229, 199, 102)' &&
+            Math.abs(sunset - 0.3) < 0.02 &&
+            dueInToy.moon &&
+            dueInToy.scene === 'BarsScene' &&
+            nightBand.night &&
+            putAway &&
+            timedOut &&
+            timerDone &&
+            bandGone,
+        JSON.stringify({ halfway, sunset, dueInToy, nightBand, putAway, timedOut, timerDone, bandGone })
     );
+    await scene(() => (window.playroom.grace = 60));
+    await touch.tap(512, 330);
+    await page.waitForTimeout(1800);
+    await page.waitForFunction(() => !window.playroom.shelf.greeting, null, { timeout: 6000 });
+
+    // Tucked in by the child: the night waits, mostly still, until every toy has been tapped.
+    await page.evaluate(async () => (await import('./js/settings.js')).setTuck('child'));
+    await page.waitForTimeout(400);
+    await touch.tap(moon[0], moon[1]);
+    await page.waitForTimeout(3800);
+    const waitingNight = await scene(() => ({
+        night: !!window.playroom.shelf.night,
+        asleep: window.playroom.shelf.items.filter((item) => item.asleep).length,
+    }));
+    const waitA = await scene(() => window.playroom.stage.frames);
+    await page.waitForTimeout(3000);
+    const waitB = await scene(() => window.playroom.stage.frames);
+    await tuckAll();
+    const tuckedAll = await bud();
+    check(
+        'when the child is to tuck them in, the night waits, drawing little, until each toy is tapped',
+        waitingNight.night && waitingNight.asleep === 0 && waitB - waitA < 90 && tuckedAll,
+        JSON.stringify({ waitingNight, frames: waitB - waitA, tuckedAll })
+    );
+    await page.evaluate(async () => (await import('./js/settings.js')).setTuck('themselves'));
+
+    // A timer survives the page being opened again.
+    await scene(() => window.playroom.setBedtime(30));
+    await page.reload();
+    await page.waitForFunction(() => window.__playroomBooted === true, null, { timeout: 15000 });
+    const survived = await scene(() => ({
+        minutes: Math.round((window.playroom.bedtime - window.playroom.bedtimeFrom) / 60000),
+        left: window.playroom.bedtime - Date.now(),
+    }));
+    const survivedBand = await band();
+    check(
+        'a running timer, and its band, survive the playroom being opened again',
+        survived.minutes === 30 &&
+            survived.left > 29 * 60000 &&
+            survivedBand.shown &&
+            survivedBand.part > 0.95,
+        JSON.stringify({ survived, survivedBand })
+    );
+    await scene(() => window.playroom.setBedtime(0));
     await touch.tap(512, 330);
     await page.waitForTimeout(1800);
     await page.waitForFunction(() => !window.playroom.shelf.greeting, null, { timeout: 6000 });

@@ -19,11 +19,11 @@ export const OPENERS = [
     ['green', 'yellow', 'blue'],
 ];
 
-// Seconds of quiet after his last note before the bird takes its turn: long enough for a small
-// child's pauses between taps, short enough that the answer still follows the question.
+// Seconds of quiet after his last note before the bird asks for its turn, with a ring and a hop:
+// long enough for a small child's pauses between taps. It takes its turn only when he taps it.
 export const FINISHED = 1.2;
-// Seconds of quiet, when he has not played, before the bird sings its tune again; and how many
-// times it does, before it rests.
+// Seconds of quiet before the bird sings its tune again, if he has not played, or chirps to ask for
+// its turn, if he has; and how many times it does, before it rests.
 export const REMIND = 9;
 export const REMINDERS = 2;
 // Answered turns in a row before the tunes grow by a note.

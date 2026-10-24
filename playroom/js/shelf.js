@@ -12,9 +12,10 @@
 // from the bud, the trays wake one by one, each with a note, climbing the scale. Goodnight: the
 // picture on the wall is a window, and a tap on its moon brings the night. The sun sets, the room
 // dims, and the toys fall asleep one by one, the last tray first, each to the next note of a
-// lullaby; a tap on a tray tucks it in at once. When the last is asleep the lullaby ends and the
-// playroom closes to its bud. A grown-up can also set the moon to rise over five minutes, a gentle
-// warning, after which the night comes the next time the shelf is out.
+// lullaby; a tap on a tray tucks it in at once. Or, if a grown-up has chosen so, each toy stays
+// awake until the child tucks it in, and the night waits for him. When the last is asleep the
+// lullaby ends and the playroom closes to its bud. A grown-up's goodnight timer (see main.js) sets
+// the sun in the window as it runs, and brings the night when it ends.
 
 import { Scene } from './stage.js';
 import {
@@ -412,7 +413,7 @@ export class ShelfScene extends Scene {
         if (this.night) return;
         this.greeting = null;
         this.duskFrom = this.dusk();
-        this.night = { t: 0, tucked: 0, next: SLEEP_GAP + DUSK, ending: -1 };
+        this.night = { t: 0, tucked: 0, next: SLEEP_GAP + DUSK, lastTuck: -SLEEP_GAP, ending: -1 };
         for (const item of this.items) item.wake.value = item.wake.target = 1;
         audio.play('hoot', { f: noteHz(2, 60) }, { gain: 0.55, wet: 0.45, delay: 0.7 });
     }
@@ -422,6 +423,7 @@ export class ShelfScene extends Scene {
         const night = this.night;
         item.asleep = true;
         item.asleepAt = night.t;
+        night.lastTuck = night.t;
         const degree = LULLABY[night.tucked % LULLABY.length];
         night.tucked++;
         audio.play(
@@ -431,11 +433,23 @@ export class ShelfScene extends Scene {
         );
     }
 
-    // How far the day has gone: the night's own dusk, or the moon a grown-up set rising.
+    // A toy still awake at night, when the child is to tuck them in, stirs now and then: this one
+    // still wants tucking in.
+    stir() {
+        const night = this.night;
+        if (!night || night.ending >= 0) return;
+        const awake = this.items.filter((item) => !item.asleep);
+        if (!awake.length) return;
+        // A quick hop on the press spring, which settles in half a second.
+        awake[Math.floor(Math.random() * awake.length)].press.kick(-5);
+        this.app.stage.wake();
+    }
+
+    // How far the day has gone: the night's own dusk, or the sun setting as a grown-up's timer runs.
     dusk() {
         if (this.night) return clamp(this.duskFrom + (this.night.t / DUSK) * (1 - this.duskFrom), 0, 1);
         const app = this.app;
-        if (!app.bedtime || !app.settings.extras.goodnight) return 0;
+        if (!app.bedtime) return 0;
         const span = Math.max(1, app.bedtime - app.bedtimeFrom);
         return clamp((Date.now() - app.bedtimeFrom) / span, 0, 1) * 0.6;
     }
@@ -471,13 +485,12 @@ export class ShelfScene extends Scene {
             if (greeting.woken >= this.items.length) this.greeting = null;
         }
 
-        // The moon a grown-up set is up: the night comes, once the shelf is out and still, and the
+        // A grown-up's timer has run out: the night comes, once the shelf is out and still, and the
         // grown-ups' corner is closed.
         const app = this.app;
         if (
             !this.night &&
             app.bedtime &&
-            app.settings.extras.goodnight &&
             Date.now() >= app.bedtime &&
             app.stage.scene === this &&
             !app.stage.busy &&
@@ -489,30 +502,43 @@ export class ShelfScene extends Scene {
         const night = this.night;
         if (night) {
             night.t += dt;
-            busy = true;
-            // The toys fall asleep by themselves, the last tray first, unless tucked in sooner.
-            if (night.ending < 0 && night.t >= night.next) {
-                const awake = this.items.filter((item) => !item.asleep);
-                if (awake.length) {
+            const themselves = app.settings.tuck !== 'child';
+            const awake = this.items.filter((item) => !item.asleep);
+            if (night.ending < 0) {
+                if (!awake.length) {
+                    // A beat after the last is tucked in, the lullaby ends.
+                    if (night.t >= night.lastTuck + SLEEP_GAP) {
+                        night.ending = night.t;
+                        LULLABY_END.forEach((degree, i) =>
+                            audio.play(
+                                'musicBox',
+                                { f: noteHz(degree, 72) },
+                                { gain: 0.8, wet: 0.45, delay: 0.6 + i * 0.6 }
+                            )
+                        );
+                    }
+                } else if (themselves && night.t >= night.next) {
+                    // The toys fall asleep by themselves, the last tray first, unless tucked in sooner.
                     this.tuck(awake[awake.length - 1]);
                     night.next = night.t + SLEEP_GAP;
-                } else {
-                    night.ending = night.t + 0.6;
-                    LULLABY_END.forEach((degree, i) =>
-                        audio.play(
-                            'musicBox',
-                            { f: noteHz(degree, 72) },
-                            { gain: 0.8, wet: 0.45, delay: 0.6 + i * 0.6 }
-                        )
-                    );
                 }
             }
-            if (night.ending >= 0 && night.t >= night.ending + LULLABY_END.length * 0.6 + 1.2) {
+            // Waiting for the child to tuck the rest in, the shelf is still and draws nothing, but
+            // now and then a toy still awake stirs.
+            const waiting = !themselves && night.ending < 0 && awake.length > 0 && night.t > DUSK + 0.6;
+            if (!waiting) busy = true;
+            else if (!this.ticker) {
+                this.ticker = setTimeout(() => {
+                    this.ticker = 0;
+                    this.stir();
+                }, 3000);
+            }
+            if (night.ending >= 0 && night.t >= night.ending + 0.6 + LULLABY_END.length * 0.6 + 1.2) {
                 this.night = null;
                 for (const item of this.items) item.asleep = false;
                 app.sleep();
             }
-        } else if (app.bedtime && app.settings.extras.goodnight && app.stage.scene === this && !this.ticker) {
+        } else if (app.bedtime && app.stage.scene === this && !this.ticker) {
             // While the moon a grown-up set is rising, the shelf looks again every second or so.
             this.ticker = setTimeout(() => {
                 this.ticker = 0;
@@ -526,7 +552,8 @@ export class ShelfScene extends Scene {
         const u = this.u;
         ctx.drawImage(this.bg.canvas, 0, 0, this.w, this.h);
         const dusk = this.dusk();
-        const goodnight = this.app.settings.extras.goodnight;
+        // The moon is in the window while the child can tap it, or while a timer brings it.
+        const goodnight = this.app.settings.extras.goodnight || !!this.app.bedtime;
         const night = this.night;
         const dim = night ? clamp(night.t / DUSK, 0, 1) : 0;
         for (const item of this.items) {

@@ -3,16 +3,24 @@
 
 import { Stage } from './stage.js';
 import * as audio from './audio.js';
-import { settings, level as levelOf, ordered } from './settings.js';
+import { settings, level as levelOf, ordered, setTimer } from './settings.js';
 import { StartScene, startSounds } from './start.js';
 import { ShelfScene, shelfSounds } from './shelf.js';
 import { TOYS } from './toys/index.js';
 import { setupParent } from './parent.js';
+import { setupBand } from './band.js';
 import { VERSION } from './version.js';
 
 const stage = new Stage(document.getElementById('stage'));
 const home = document.getElementById('home');
 const gate = document.getElementById('gate');
+
+// After the goodnight timer runs out in a game, how long the game has to finish, with the moon on
+// the house button, before it puts itself away for the night.
+const GRACE = 60;
+// A timer that ran out this long ago, while the playroom was away, is forgotten rather than
+// bringing the night the next time the playroom opens.
+const STALE = 2 * 3600 * 1000;
 
 const app = {
     stage,
@@ -58,27 +66,69 @@ const app = {
         stage.show(new StartScene(this), { kind: 'fade', duration: 1.4 });
     },
 
-    // Goodnight in a few minutes: over that time the sun in the shelf's window sets and the moon
-    // rises, and then the toys fall asleep the next time the shelf is out. In a toy, the way home
-    // shows the moon once it is up. 0 calls it off.
+    // The goodnight timer, set and locked by a grown-up in the corner. While it runs, a band round
+    // the edge of every screen shows the time going, and the sun in the shelf's window sets. When it
+    // has gone, goodnight begins: on the shelf at once; in a toy, the house button shows the moon,
+    // and after GRACE seconds the toy puts itself away and the night comes. It is kept with the
+    // settings, so a reload does not lose it. 0 stops it.
     bedtime: 0,
+    bedtimeFrom: 0,
+    due: false,
+    grace: GRACE,
+    band: null,
     setBedtime(minutes) {
+        const now = Date.now();
+        this.timeBedtime(minutes ? { from: now, ends: now + minutes * 60000 } : null);
+    },
+
+    timeBedtime(timer) {
+        clearTimeout(this.gracer);
         clearTimeout(this.bedtimer);
         home.classList.remove('bedtime');
-        this.bedtime = minutes ? Date.now() + minutes * 60000 : 0;
-        this.bedtimeFrom = Date.now();
-        if (minutes) {
-            this.bedtimer = setTimeout(() => {
-                if (this.current) home.classList.add('bedtime');
-                stage.wake();
-            }, minutes * 60000);
+        this.bedtime = timer ? timer.ends : 0;
+        this.bedtimeFrom = timer ? timer.from : 0;
+        this.due = false;
+        setTimer(timer);
+        this.band.update();
+        this.checkBedtime();
+        // On the moment the time is up; the band's once-a-second look is the backstop, for an iPad
+        // that slept through it.
+        if (timer && !this.due) {
+            this.bedtimer = setTimeout(
+                () => {
+                    this.band.update();
+                    this.checkBedtime();
+                },
+                timer.ends - Date.now() + 20
+            );
         }
         this.refreshShelf();
     },
 
+    // Called every second while the timer runs, and whenever it changes.
+    checkBedtime() {
+        if (!this.bedtime || this.due || Date.now() < this.bedtime) return;
+        this.due = true;
+        if (this.current) {
+            home.classList.add('bedtime');
+            this.gracer = setTimeout(() => this.putAwayForNight(), this.grace * 1000);
+        }
+        stage.wake();
+    },
+
+    putAwayForNight() {
+        if (!this.due || !this.current) return;
+        if (stage.busy || this.cornerOpen) {
+            this.gracer = setTimeout(() => this.putAwayForNight(), 500);
+            return;
+        }
+        this.goHome();
+    },
+
     openToy(id) {
         const toy = TOYS.find((t) => t.id === id);
-        if (!toy || stage.busy || this.current) return;
+        // Once the time is up, no toy opens: the night is coming to the shelf.
+        if (!toy || stage.busy || this.current || this.due) return;
         this.current = id;
         audio.play('whoosh', { variant: 'up' }, { gain: 1, wet: 0.25 });
         toy.signature();
@@ -179,8 +229,13 @@ pressable(home, () => app.goHome());
 
 audio.setVolume(settings.volume);
 audio.setThroughSilent(settings.throughSilent);
+app.band = setupBand(app);
 setupParent(app, gate);
 stage.show(new StartScene(app));
+
+// A timer survives a reload, and one that ran out while the playroom was away still brings the
+// night, unless that was hours ago.
+if (settings.timer) app.timeBedtime(settings.timer.ends > Date.now() - STALE ? settings.timer : null);
 
 // The bloom's chord renders while the bud waits to be touched.
 setTimeout(() => audio.prepare(startSounds()), 60);

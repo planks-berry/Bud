@@ -29,6 +29,11 @@
 
 <canvas id="stage"></canvas>
 
+<!-- The goodnight timer's band, round the edge of every screen while a grown-up's timer runs. -->
+<div id="band" class="band" hidden>
+    <svg aria-hidden="true"><path class="track"/><path class="left"/></svg>
+</div>
+
 <button id="home" class="corner home" aria-label="Back to the shelf" hidden>
     <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
         <path d="M5 16.5 L17 6 L29 16.5" fill="none" stroke="#6B5A4C" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -80,12 +85,24 @@
                 <span class="label"><strong>Goodnight moon</strong><span>A moon in the window on the shelf's wall. Tap it and the toys fall asleep one by one to a lullaby, each tray tucked in with a tap, until the playroom closes to its bud.</span></span>
                 <span class="switch"></span>
             </button>
-            <button class="plain" data-bedtime>Goodnight in five minutes</button>
-            <p class="hint note" data-bedtime-note>Over five minutes the sun in the window sets and the moon rises; then the toys go to sleep, the next time the shelf is out. In a game, the house button shows the moon once it is up.</p>
             <button class="toggle" data-extra="shyFish" aria-pressed="true">
                 <span class="label"><strong>The shy fish</strong><span>In the pond, one fish hides under a lily pad, and comes a little closer each time a finger stays still a little longer.</span></span>
                 <span class="switch"></span>
             </button>
+        </section>
+
+        <section>
+            <h2>Goodnight</h2>
+            <p class="hint">How the toys go to sleep, whether goodnight comes from the moon in the shelf's window or from the timer below.</p>
+            <div class="segments" data-tuck>
+                <button data-tuck="themselves"><strong>By themselves</strong><span>One by one from the last tray, to a lullaby. A tap tucks one in sooner.</span></button>
+                <button data-tuck="child"><strong>Your child tucks them in</strong><span>Each toy stays awake until it is tapped. The night waits for them all.</span></button>
+            </div>
+            <h3>Goodnight timer</h3>
+            <p class="hint">A thin band round the edge of every screen shortens as the time goes, from green through yellow to rose. When it has gone, goodnight begins: on the shelf at once; in a game, the house button shows the moon, and a minute later the game puts itself away. A passcode locks the timer, so only a grown-up can stop or change it.</p>
+            <div class="choices" data-timer></div>
+            <p class="hint note" data-timer-state></p>
+            <button class="plain" data-timer-stop hidden>Stop the timer</button>
         </section>
 
         <section>
@@ -108,6 +125,23 @@
         </section>
 
         <button class="done" data-close>Done</button>
+    </div>
+
+    <!-- Four numbers that lock the goodnight timer. A keypad of its own rather than the iPad's
+         keyboard, which would push the page about. -->
+    <div class="keypad" data-keypad hidden>
+        <div class="pad" data-pad>
+            <p class="title" data-pad-title></p>
+            <p class="hint" data-pad-hint></p>
+            <div class="dots"><i></i><i></i><i></i><i></i></div>
+            <div class="keys">
+                <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
+                <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
+                <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
+                <button class="small" data-pad-forgot>Forgotten?</button><button data-key="0">0</button><button data-key="back" aria-label="Delete">&larr;</button>
+            </div>
+            <button class="plain" data-pad-cancel>Cancel</button>
+        </div>
     </div>
 </div>
 

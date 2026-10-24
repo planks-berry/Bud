@@ -35,6 +35,8 @@ const FILES = [
     'js/settings.js',
     'js/version.js',
     'js/parent.js',
+    'js/keypad.js',
+    'js/band.js',
     'js/start.js',
     'js/shelf.js',
     'js/toys/index.js',

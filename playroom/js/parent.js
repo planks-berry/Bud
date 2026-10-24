@@ -15,11 +15,14 @@ import {
     move,
     resetOrder,
     setExtra,
+    setTuck,
 } from './settings.js';
 import * as audio from './audio.js';
+import { setupKeypad } from './keypad.js';
 import { VERSION, PUBLISHED, STAMPED } from './version.js';
 
 const HOLD_MS = 3000;
+const TIMER_MINUTES = [10, 15, 30, 60];
 
 const STAGE_TEXT = {
     seed: ['Seed', 'Fewer, larger pieces. Mostly cause and effect.'],
@@ -29,7 +32,9 @@ const STAGE_TEXT = {
 
 export function setupParent(app, gate) {
     const panel = document.getElementById('parent');
+    const keypad = setupKeypad(panel);
     let timer = 0;
+    let clock = 0;
 
     const begin = (event) => {
         if (event) event.preventDefault();
@@ -61,11 +66,14 @@ export function setupParent(app, gate) {
         gate.hidden = true;
         // A goodnight that comes due waits until the grown-up has finished here.
         app.cornerOpen = true;
+        // The time left, kept current while the panel is open.
+        clock = setInterval(renderTimer, 5000);
     }
 
     function close() {
         panel.hidden = true;
         app.cornerOpen = false;
+        clearInterval(clock);
         // The leaf belongs to the shelf: not in a toy, and not on the bud after a goodnight.
         gate.hidden = app.stage.scene !== app.shelf;
         // A toy moved on needs its new sounds ready before it is opened.
@@ -162,17 +170,65 @@ export function setupParent(app, gate) {
                 .querySelector(`[data-extra="${name}"]`)
                 .setAttribute('aria-pressed', String(settings.extras[name]));
         }
-        const bedtime = panel.querySelector('[data-bedtime]');
-        bedtime.hidden = !settings.extras.goodnight;
-        bedtime.setAttribute('aria-pressed', String(!!app.bedtime));
-        bedtime.textContent = app.bedtime ? 'Goodnight is coming: call it off' : 'Goodnight in five minutes';
-        panel.querySelector('[data-bedtime-note]').hidden = !settings.extras.goodnight;
+
+        for (const button of panel.querySelectorAll('[data-tuck] button'))
+            button.setAttribute('aria-pressed', String(button.getAttribute('data-tuck') === settings.tuck));
+        renderTimer();
 
         const silent = panel.querySelector('[data-silent]');
         silent.setAttribute('aria-pressed', String(settings.throughSilent));
 
         const volume = panel.querySelector('[data-volume]');
         volume.value = String(settings.volume);
+    }
+
+    // The goodnight timer: four lengths, and the one running pressed. Starting, changing and stopping
+    // it all ask for the passcode.
+    function renderTimer() {
+        const running = app.bedtime ? Math.round((app.bedtime - app.bedtimeFrom) / 60000) : 0;
+        const choices = panel.querySelector('[data-timer]');
+        choices.innerHTML = '';
+        for (const minutes of TIMER_MINUTES) {
+            const button = document.createElement('button');
+            button.className = 'choice';
+            button.setAttribute('data-minutes', String(minutes));
+            button.setAttribute('aria-pressed', String(running === minutes));
+            button.innerHTML = `<strong>${minutes}</strong><span>minutes</span>`;
+            button.addEventListener('click', () => chooseTimer(minutes, running));
+            choices.appendChild(button);
+        }
+        const left = Math.ceil((app.bedtime - Date.now()) / 60000);
+        panel.querySelector('[data-timer-state]').textContent = !app.bedtime
+            ? 'No timer is running. Choose a length to start one, locked.'
+            : left > 0
+              ? `Goodnight in ${left} minute${left === 1 ? '' : 's'}. Locked.`
+              : 'The time is up: goodnight has begun.';
+        panel.querySelector('[data-timer-stop]').hidden = !app.bedtime;
+    }
+
+    async function chooseTimer(minutes, running) {
+        if (minutes === running) return;
+        const ok = await keypad.ask(
+            running
+                ? `To change the timer to ${minutes} minutes`
+                : `To start and lock a ${minutes} minute timer`
+        );
+        if (!ok) return;
+        app.setBedtime(minutes);
+        render();
+    }
+
+    panel.querySelector('[data-timer-stop]').addEventListener('click', async () => {
+        if (!(await keypad.ask('To stop the timer'))) return;
+        app.setBedtime(0);
+        render();
+    });
+
+    for (const button of panel.querySelectorAll('[data-tuck] button')) {
+        button.addEventListener('click', () => {
+            setTuck(button.getAttribute('data-tuck'));
+            render();
+        });
     }
 
     panel.querySelector('[data-reset-order]').addEventListener('click', () => {
@@ -184,16 +240,10 @@ export function setupParent(app, gate) {
     for (const name of EXTRAS) {
         panel.querySelector(`[data-extra="${name}"]`).addEventListener('click', () => {
             setExtra(name, !settings.extras[name]);
-            if (name === 'goodnight' && !settings.extras.goodnight) app.setBedtime(0);
             app.refreshShelf();
             render();
         });
     }
-
-    panel.querySelector('[data-bedtime]').addEventListener('click', () => {
-        app.setBedtime(app.bedtime ? 0 : 5);
-        render();
-    });
 
     panel.querySelector('[data-silent]').addEventListener('click', () => {
         settings.throughSilent = !settings.throughSilent;

@@ -20,6 +20,13 @@ const DEFAULTS = {
     // Empty: the playroom's own order. A toy that is not in it (one added since) goes at the end.
     order: [],
     extras: { hello: true, goodnight: true, shyFish: true },
+    // At goodnight: 'themselves', the toys fall asleep one by one on their own; 'child', each stays
+    // awake until it is tapped.
+    tuck: 'themselves',
+    // The goodnight timer while it runs, as times in ms: when it was set, and when it ends.
+    timer: null,
+    // The passcode that locks the timer, kept only as a hash; '' until one is chosen.
+    passcode: '',
     throughSilent: true,
     volume: 0.85,
 };
@@ -44,6 +51,16 @@ function load() {
                     if (typeof stored.extras[name] === 'boolean') settings.extras[name] = stored.extras[name];
                 }
             }
+            if (stored.tuck === 'themselves' || stored.tuck === 'child') settings.tuck = stored.tuck;
+            const timer = stored.timer;
+            if (
+                timer &&
+                typeof timer.from === 'number' &&
+                typeof timer.ends === 'number' &&
+                timer.ends > timer.from
+            )
+                settings.timer = { from: timer.from, ends: timer.ends };
+            if (typeof stored.passcode === 'string') settings.passcode = stored.passcode;
             if (typeof stored.throughSilent === 'boolean') settings.throughSilent = stored.throughSilent;
             if (typeof stored.volume === 'number' && stored.volume >= 0 && stored.volume <= 1)
                 settings.volume = stored.volume;
@@ -115,6 +132,42 @@ export function resetOrder() {
 
 export function setExtra(name, on) {
     settings.extras[name] = on;
+    save();
+}
+
+export function setTuck(how) {
+    settings.tuck = how;
+    save();
+}
+
+export function setTimer(timer) {
+    settings.timer = timer;
+    save();
+}
+
+// The passcode is kept as a hash so that it is not lying in the iPad's storage to be read. It keeps
+// a curious child away from the timer; it is not a safe. FNV-1a, 32 bits.
+function hashCode(code) {
+    const text = `playroom:${code}`;
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < text.length; i++) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash.toString(16);
+}
+
+export function hasPasscode() {
+    return !!settings.passcode;
+}
+
+export function checkPasscode(code) {
+    return !!settings.passcode && settings.passcode === hashCode(code);
+}
+
+// A new passcode, or '' to remove it.
+export function setPasscode(code) {
+    settings.passcode = code ? hashCode(code) : '';
     save();
 }
 

@@ -9,7 +9,10 @@ revised. The technical side (the old iPad, the audio engine, the tests) is in
 - **Built:** thirteen games, tested in two simulated iPad browsers (one with everything Safari 12
   lacks removed). The newest are phase 1 of the proposal for new games: Bird Song, a new game; the
   shy fish, in the pond; and hello and goodnight, the playroom's way in and out. Each has a switch
-  in the grown-ups' corner, which can now also set the order of the shelf.
+  in the grown-ups' corner, which can now also set the order of the shelf. Since then: a goodnight
+  timer a grown-up locks with a passcode, shown as a band round the edge of every screen; a choice
+  between toys that fall asleep by themselves and toys he tucks in; and in Bird Song, the turn
+  passes to the bird when he taps it.
 - **Where:** live at https://planks-berry.github.io/Bud/playroom/, published from `main`. Work
   continues on branch `claude/montessori-playroom`.
 - **Not yet checked on a real iPad:** the speaker mix and the iPad Air's frame rate can only be
@@ -58,7 +61,9 @@ What was asked, and the answers that have shaped everything since.
     two), and where: arrows move a game earlier or later, and one press brings back the
     playroom's own order. A new game is marked new;
   - new things: a switch for each new part of the playroom (the hello song, the goodnight moon,
-    the shy fish), all on to begin with, and goodnight in five minutes;
+    the shy fish), all on to begin with;
+  - goodnight: whether the toys fall asleep by themselves or wait for him to tuck each one in,
+    and the goodnight timer, 10, 15, 30 or 60 minutes, locked with a passcode;
   - sound through the silent switch, and volume;
   - how to set up the iPad: Add to Home Screen, Guided Access, gestures off.
 
@@ -85,10 +90,19 @@ programme. Each has a switch in the grown-ups' corner, on to begin with.
   goodnight is on. Tap the moon and dusk falls, an owl hoots, and the toys fall asleep one by one
   from the last tray, each to the next note of a lullaby; a tap on a tray tucks it in at once. When
   the last is asleep the lullaby ends, and the playroom closes to its bud, as it opened.
-- **Goodnight in five minutes**, from the corner: over five minutes the sun in the window sets and
-  the moon rises, with no clock and no numbers. Then the night comes, the next time the shelf is
-  out (and not while the corner is open). In a game, the house button shows the moon once it is
-  up: time to come back to the shelf.
+- **Tucked in, or by themselves.** A grown-up chooses in the corner. By themselves, the toys fall
+  asleep one by one as above. Tucked in, each toy stays awake until he taps it, and the night
+  waits for him: the shelf is still, and now and then a toy still awake hops, to show where to
+  tap.
+- **The goodnight timer.** A grown-up chooses 10, 15, 30 or 60 minutes in the corner and locks it
+  with a four-number passcode (chosen twice the first time; forgotten, it is cleared by typing four
+  numbers the keypad shows, which a three-year-old cannot read). While it runs, a thin band round
+  the edge of every screen, the bud, the shelf and every game, empties clockwise from the top like
+  a clock's hand, from leaf green through butter yellow to rose, and the sun in the shelf's window
+  sets. When it has gone, the whole band turns night blue and goodnight begins: on the shelf at
+  once; in a game, the house button shows the moon, and a minute later the game puts itself away
+  and the night comes. The timer survives the playroom being reopened, and stopping or changing it
+  takes the passcode. It works whether or not the goodnight moon is switched on.
 
 ---
 
@@ -827,8 +841,8 @@ tune for the child to play back; Montessori's bells. And taking turns, which is 
 three: here the bird always waits for him, and he can learn to wait for the bird.
 
 **Layers**
-- Touch: tap a flower for its note; the colours keep their notes from every game. Tap the bird and
-  it sings its tune again; once he has played, a tap on the bird hands it the turn at once.
+- Touch: tap a flower for its note; the colours keep their notes from every game. Tap the bird:
+  once he has played, that hands it the turn; before, it sings its tune again.
 - Move: run a finger along the flowers for a glide, and the bird glides it back.
 - Make: a song of turns, his and the bird's.
 
@@ -848,9 +862,12 @@ glide comes back as short notes, each sliding in from the one before.
 - The turn is shown, not told. While the bird sings, the flowers close a little and ring only
   softly, and the bird finishes its tune before it listens. When it is his turn they open with a
   ripple and the bird cups its ear.
-- He has finished when 1.2 seconds pass with no new note and no finger on the flowers.
-- Quiet is fine: after 9 seconds the bird sings its tune again, twice, and then tucks its head in
-  and rests until a flower or the bird is touched.
+- He hands the turn over by tapping the bird: a clear trade of turns, your call after the first
+  version took 1.2 seconds of quiet as the end of his turn. When he pauses, rings spread from the
+  bird and it hops, looking out at him, to ask for the tap; it waits as long as he plays.
+- Quiet is fine: after 9 seconds the bird sings its tune again, or, if he has played, chirps to ask
+  for its turn; twice, and then it tucks its head in and rests until a flower or the bird is
+  touched. Woken by a tap, it still sings back what he played.
 - The proposal's second bird was a part for a grown-up to play. Since you talk with him about what
   happens rather than taking a turn yourself, the second bird shows two birds taking turns instead.
 - It joins the shelf at the end, so the trays he knows keep their order.

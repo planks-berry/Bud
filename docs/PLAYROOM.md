@@ -43,8 +43,15 @@ an adult can hold still. The panel has words in it, because it is for someone wh
   runs in the shelf's order, and arrows move a toy earlier or later on the shelf; one press brings
   back the playroom's own order. A new toy is marked New, and has its own switch like the rest.
 - **New things.** A switch for each new part of the playroom, all on to begin with: the hello song,
-  the goodnight moon and the shy fish. And **goodnight in five minutes**: the sun in the shelf's
-  window sets and the moon rises over five minutes, and then the toys go to sleep.
+  the goodnight moon and the shy fish.
+- **Goodnight.** Whether the toys fall asleep by themselves or each waits for the child to tuck it
+  in, and the **goodnight timer**: 10, 15, 30 or 60 minutes, locked with a four-number passcode.
+  The passcode is chosen (twice) the first time, and asked for to start, change or stop the timer;
+  it is kept only as a hash, and a forgotten one is cleared by typing four numbers the keypad
+  shows. While the timer runs, a thin band round the edge of every screen empties clockwise, green
+  to yellow to rose; when it has gone, the band turns night blue and goodnight begins: on the shelf
+  at once, and in a toy after a minute's grace with the moon on the house button, when the toy puts
+  itself away. The timer is kept with the settings, so reopening the playroom does not lose it.
 - **Sound.** Whether to play through the silent switch, and an overall volume.
 
 Settings live in the iPad's local storage for this site and survive restarts. Nothing records what
@@ -65,9 +72,12 @@ a child knows keep their order, until a grown-up moves it.
 the trays wake one by one, each with a note, climbing the scale. The picture on the shelf's wall
 is a window, with the sun in it and a moon: tap the moon and dusk falls, and the toys fall asleep
 one by one, from the last tray, each to the next note of a lullaby; a tap tucks one in at once.
-When the last is asleep, the playroom closes to its bud. Set for later from the corner, the sun
-sets and the moon rises over five minutes, with no clock and no numbers, and in a toy the house
-button shows the moon once it is up.
+When the last is asleep, the playroom closes to its bud. A grown-up can choose instead that each toy
+waits to be tucked in. And a grown-up's goodnight timer brings the night: a band round every
+screen shows the time going, with no clock and no numbers, the sun in the window sets as it does,
+and when it has gone the night comes, after a minute's grace if a toy is out. The band is an SVG
+over the canvas (`js/band.js`): the canvas draws only while something moves, and the band has to
+keep time when nothing does.
 
 Each toy also has its own section, written to be revised, in [PLAYROOM-GAMES.md](PLAYROOM-GAMES.md).
 
@@ -92,7 +102,7 @@ Every toy has three layers, which are found by playing, never unlocked:
 | **Crane** | Sensorial (building with shapes), and the work of the hand at a distance | Tap a part for its colour's note, the cab for the horn, the hook to set it swinging | Drag the hook: the trolley and cable follow, it takes the part it is lowered onto, and drops it where it is let go, onto a grid so a stack stands. A part can also be carried by hand, the crane following | A building of any shape, which moves in by itself: a cat in a window, plants on the ledges, a bird nesting on top; a tap at its foot plays it bottom to top, each part lit. And trucks to load: one in a part's colour waits for the parts marked out on its deck, takes only its own colour, and drives off loaded, and a second crane restocks the pile | 4 big blocks / blocks, beams and windows / and arches, a roof and a wrecking ball |
 | **Farm** | None: after Pok Pok's builder | Tap anything: every piece answers, and tapped grass grows a flower | An island of tiles, seen from a corner like a model on a table, on a table that starts empty: a tile put down on the table makes it bigger, a path, field, pond or stream put down on a tile changes it, and pieces stand on tiles, move, swap and go back to the tray; what is hidden behind a building shows through it; a broom, held, sweeps the table empty again | A farm that joins up: paths for the tractor to drive, streams that carry a pond's water along to the fields, fields by water that grow on their own, a pond big enough for ducks; the sun turns it to night, when the lights come on and other things wake | 7 / 11 / 14 kinds of piece and a grass tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
 | **Building site** | None: the farm's builder | Tap anything: every piece answers | As the farm, with earth, roads and plots for tiles, from an empty table, and the broom to sweep it | Machines that work in chains: the digger digs a plot and loads the truck, the truck tips onto the pile, the mixer fills the hole with concrete, the crane lifts a building onto the foundation a floor at a time, each floor a note higher, and tops it out with a tree; the foreman's whistle sets them all going | 6 / 9 / 12 kinds of piece and an earth tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
-| **Bird song** | Music, auditory sense; and taking turns | Tap a bell flower for its colour's note; tap the bird and it sings its tune again | Run a finger along the flowers: a glide, and the bird glides it back | The bird sings a tune and waits, wing to its ear; whatever is played it sings back in the same rhythm, then a new tune from the last note played. Tunes grow by a note after three answered turns, and never shrink | 3 flowers, tunes of 2 / 5 flowers, tunes of 3 / and a second bird, tunes growing to 5 |
+| **Bird song** | Music, auditory sense; and taking turns | Tap a bell flower for its colour's note; tap the bird to hand it the turn, or, before playing, to hear its tune again | Run a finger along the flowers: a glide, and the bird glides it back | The bird sings a tune and waits, wing to its ear, as long as he plays, asking with rings and a hop when he pauses; handed the turn, it sings his notes back in the same rhythm, then a new tune from the last note played. Tunes grow by a note after three answered turns, and never shrink | 3 flowers, tunes of 2 / 5 flowers, tunes of 3 / and a second bird, tunes growing to 5 |
 
 ### How Montessori and Pok Pok were reconciled
 
@@ -330,23 +340,31 @@ It also checks:
   night; at Bloom, a roller that leaves the road fresh and a lamp that lights; that the broom sweeps
   the site empty too; and that the site comes off the shelf as an empty table;
 - in bird song: that the bird sings first and then waits, wing to its ear, with the flowers open;
-  that it waits for him to finish, sings his notes back, and begins its next tune on his last
-  note; that a flower tapped while it sings is not taken as an answer; that a run along the
-  flowers comes back as a glide; that a tap on the bird hands it the turn; that its tunes grow
-  after three answers; that with nothing played it sings again, twice, then rests, with no
-  frames drawn, until a flower wakes it; and at Bloom, that the second bird answers the first and
-  both sing his notes back;
+  that when he stops it asks for its turn and keeps waiting, and his tap on it hands the turn over,
+  when it sings his notes back and begins its next tune on his last note; that a flower tapped
+  while it sings is not taken as an answer; that a run along the flowers comes back as a glide;
+  that its tunes grow after three answers; that with nothing played it sings again, twice, then
+  rests, with no frames drawn, until a flower wakes it; that played but not handed over, it asks
+  twice with a chirp, then rests keeping his notes, which a tap on it still sings back; and at
+  Bloom, that the second bird answers the first and both sing his notes back;
 - that leaving a toy stops its sounds;
 - that the grown-ups' gate needs a three-second hold;
 - that one toy's stage can be moved on by itself, and the shared stage clears it again;
 - that the arrows move a toy along the shelf, the list following and the order remembered, and
   one press brings back the playroom's own order; that only the new game is marked new;
-- that each new thing has a switch, on to begin with and remembered; that goodnight in five
-  minutes can be set and called off; and that with the shy fish off, the pond has only its own
-  fish;
+- that each new thing has a switch, on to begin with and remembered, and that with the shy fish
+  off, the pond has only its own fish;
+- that the toys fall asleep by themselves to begin with, or can wait to be tucked in; that a
+  timer starts once a passcode is chosen, twice, is remembered, and puts a full green band round
+  the screen; that stopping it needs the right passcode; and that a forgotten passcode is cleared
+  by typing the numbers shown;
 - goodnight: that a tap on the moon brings the night, a tap tucks a toy in, and the playroom closes
-  to its bud, which opens it again with its hello; and that, set for later, the moon shows on the
-  house button in a toy, and the night comes once the shelf is out;
+  to its bud, which opens it again with its hello; that the timer's band is half round the screen
+  and yellow half way through, with the sun half set; that run out in a toy, the house button
+  shows the moon and the band turns night blue, and after the grace the toy puts itself away, the
+  night comes and the timer is done; that when the child is to tuck them in, the night waits,
+  drawing little, until each toy is tapped; and that a running timer and its band survive the
+  playroom being opened again;
 - that a rotation is followed;
 - that the page opens with no connection;
 - that a newly published copy is taken up by itself: at once while the bud waits, and mid-play
@@ -381,7 +399,8 @@ playroom/
     synth.js                every sound, as a recipe; the tuning; the mix
     draw.js, util.js        palette, shapes, layers, springs, colour, paint mixing
     start.js, shelf.js      the bud, and the shelf with its hello and goodnight
-    settings.js, parent.js  the grown-ups' corner
+    settings.js, parent.js  the grown-ups' corner; keypad.js its passcode, band.js the
+                            goodnight timer's band
     toys/                   one file per toy; glyphs.js holds the letters and numerals, cubes.js
                             the colour beats' cubes and the beats' marks, records.js the
                             turntable's records, scratch.js how its record follows a hand,
