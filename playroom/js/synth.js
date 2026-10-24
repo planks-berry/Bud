@@ -845,6 +845,24 @@ export const recipes = {
         return finish(out, sr, 0.6);
     },
 
+    // A small bird's wings: `beats` soft beats of air, `gap` seconds apart, each a puff of noise
+    // through feathers that lasts half a beat, the downstroke.
+    flutter(sr, p) {
+        const next = rng(p.seed || 62);
+        const beats = p.beats || 3;
+        const gap = p.gap || 0.2;
+        const out = makeBuffer(sr, gap * (beats - 0.5) + 0.05);
+        const band = new BandPass(sr, 900, 1.1);
+        for (let n = 0; n < out.length; n++) {
+            const t = n / sr;
+            const k = Math.floor(t / gap);
+            const x = (t - k * gap) / (gap * 0.5);
+            const env = k < beats && x < 1 ? Math.pow(hump(x), 1.5) * (1 - 0.1 * k) : 0;
+            out[n] = band.process(next() * 2 - 1) * env;
+        }
+        return finish(out, sr, 0.5);
+    },
+
     // One beat of a small tractor's engine: a low thump and a puff.
     putt(sr, p) {
         const next = rng(p.seed || 50);
@@ -1217,6 +1235,7 @@ export const MIX = {
     hoot: 0.24,
     chirp: 0.44,
     warble: 0.32,
+    flutter: 0.92,
     putt: 0.37,
     toot: 0.4,
     crow: 0.4,

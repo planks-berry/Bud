@@ -13,11 +13,14 @@
 // Never wrong: whatever he plays is sung back, and nothing is ever marked. A tune grows by a note
 // after three answered turns in a row, and never shrinks. While the bird sings, the flowers close
 // a little and ring only softly, and the bird finishes its tune before it listens; when it is his
-// turn they open again with a ripple. When he pauses, a slow ring round the bird, the one the bud
-// asks for a first touch with, and a hop ask him for the bird's turn. Quiet is fine too: after a
-// while the bird sings its tune again, or, if he has played, chirps to ask for its turn, twice, and
-// then tucks its head in and rests until a flower or the bird is touched; woken by a tap, it still
-// sings back what he played.
+// turn they open again with a ripple. When he pauses, rings round the bird, like the one the bud
+// asks for a first touch with, and a hop ask him for the bird's turn. While he plays on, it does not
+// wait for ever: after five seconds of his playing, at the next gap between his notes, it bids for
+// its turn without a word, standing up tall and flapping, its wings loud enough to be heard by a
+// child looking at the flowers; and again after five more, a wingbeat longer each time. It asks; it
+// never takes: the tap is his to give. Quiet is fine too: after a while the bird sings its tune
+// again, or, if he has played, chirps to ask for its turn, twice, and then tucks its head in and
+// rests until a flower or the bird is touched; woken by a tap, it still sings back what he played.
 //
 // At Bloom a second bird joins: it answers the first bird's tune before both listen to him, and
 // the two take turns to lead. Taking turns, shown rather than told.
@@ -28,7 +31,7 @@ import { Spring, clamp, dist, shade, hexToRgb, mixRgb, rgbString, TAU } from '..
 import { noteHz } from '../synth.js';
 import * as audio from '../audio.js';
 import { COLOURS } from './cubes.js';
-import { STAGES, OPENERS, FINISHED, REMIND, REMINDERS, compose, echo, grown } from './tunes.js';
+import { STAGES, OPENERS, FINISHED, REMIND, REMINDERS, bidding, compose, echo, grown } from './tunes.js';
 
 // The pause between the parts of the birds' turn, how far the flowers close while the birds sing,
 // how far a listening head is cocked, and how often the bird asks for its turn with a ring and a
@@ -37,6 +40,9 @@ const PAUSE = 0.5;
 const CLOSED = 0.3;
 const LISTEN = 0.45;
 const ASK_EVERY = 2.6;
+// How fast the bird's wings beat when it bids for its turn, and how many beats: one more each bid.
+const FLAP_HZ = 5;
+const FLAPS = [2, 3, 4];
 
 // The birds: a robin who leads, an octave above the flowers, and at Bloom a blue friend at the
 // flowers' own pitch.
@@ -45,6 +51,10 @@ const BIRDS = [
     { body: '#9DB6D8', belly: '#E8EFF7', wing: '#7D9BC6', base: 72 },
 ];
 const BEAK = '#E8B04E';
+// Where the wings go when the bird raises them, up and back over its back: the near one, and the
+// far one behind the body, further back, so that both show.
+const RAISED = { x: -0.4, y: -0.7, angle: 0.85, rx: 0.62, ry: 0.3 };
+const RAISED_FAR = { x: -0.56, y: -0.54, angle: 0.45, rx: 0.58, ry: 0.27 };
 
 class BirdScene extends Scene {
     constructor(app) {
@@ -75,6 +85,11 @@ class BirdScene extends Scene {
             sleep: new Spring(0, 40, 12),
             // A wing to the ear while it waits for him, the way Ms Rachel waits for an answer.
             cup: new Spring(0, 120, 16),
+            // Standing up tall, and flapping, to bid for its turn.
+            tall: new Spring(0, 170, 13),
+            flapping: 0,
+            flapFor: 0,
+            tallUntil: 0,
             beak: 0,
             eye: { x: 0.4, y: 0.6 },
             blinkAt: 1.5 + Math.random() * 3,
@@ -87,6 +102,9 @@ class BirdScene extends Scene {
         this.lastNote = -10;
         this.reminders = 0;
         this.asked = -1;
+        // Seconds of his playing since his turn began or the bird last bid, and its bids this turn.
+        this.held = 0;
+        this.bids = 0;
         this.streak = 0;
         this.holds = new Set();
         this.notes = [];
@@ -320,6 +338,8 @@ class BirdScene extends Scene {
             bird.tilt.target = 0;
             bird.sleep.target = 0;
             bird.cup.target = 0;
+            bird.tall.target = 0;
+            bird.flapping = 0;
         }
     }
 
@@ -351,6 +371,8 @@ class BirdScene extends Scene {
         this.timeline = null;
         this.heard = [];
         this.quiet = 0;
+        this.held = 0;
+        this.bids = 0;
         this.flowers.forEach((flower, i) => {
             flower.open.target = 1;
             flower.waveAt = this.time + 0.05 + i * 0.07;
@@ -415,6 +437,26 @@ class BirdScene extends Scene {
         audio.play('chirp', { f: noteHz(2, 96) }, { gain: 0.6, pan: (bird.x / this.w) * 2 - 1, wet: 0.3 });
     }
 
+    // He is holding the floor: the bird bids for its turn without a word, standing up tall and
+    // flapping, a wingbeat longer each time. It asks; it does not take: the tap is still his to give.
+    bid() {
+        const bird = this.birds[this.lead];
+        const beats = FLAPS[Math.min(this.bids, FLAPS.length - 1)];
+        bird.flapFor = beats / FLAP_HZ;
+        bird.flapping = bird.flapFor;
+        bird.tall.target = 1;
+        bird.tallUntil = this.time + bird.flapFor + 0.6;
+        bird.eye = { x: 0.1, y: 0.3 };
+        // A beat of air on each downstroke, from half a beat in, when the wings are at the top.
+        audio.play(
+            'flutter',
+            { beats, gap: 1 / FLAP_HZ },
+            { gain: 0.8, pan: (bird.x / this.w) * 2 - 1, wet: 0.2, delay: 0.5 / FLAP_HZ }
+        );
+        this.bids++;
+        this.held = 0;
+    }
+
     // He has played and paused: the bird asks for its turn.
     inviting() {
         return this.mode === 'turn' && this.heard.length > 0 && this.quiet >= FINISHED;
@@ -426,6 +468,8 @@ class BirdScene extends Scene {
             bird.sleep.target = 1;
             bird.tilt.target = 0;
             bird.cup.target = 0;
+            bird.tall.target = 0;
+            bird.flapping = 0;
         }
     }
 
@@ -546,7 +590,13 @@ class BirdScene extends Scene {
                 if (this.heard.length) this.nudge();
                 else this.remind();
             }
-            // Asking for its turn: each time round the ring, a hop, looking out at him.
+            // While he plays on, after five seconds of it, a bid for the bird's turn: in the next gap
+            // between his notes, so that it is the bird's own doing and not his tap's, or a little
+            // later anyway if he leaves none.
+            if (this.heard.length && this.quiet < FINISHED) this.held += dt;
+            if (this.mode === 'turn' && bidding(this.held, this.time - this.lastNote)) this.bid();
+            // Once he has paused, asking for its turn: each time round the ring, a hop, looking out
+            // at him.
             if (this.inviting()) {
                 const round = Math.floor((this.quiet - FINISHED) / ASK_EVERY);
                 if (round !== this.asked) {
@@ -571,8 +621,16 @@ class BirdScene extends Scene {
             } else flower.lit = 0;
         }
         for (const bird of this.birds) {
-            for (const spring of [bird.tilt, bird.bob, bird.ruffle, bird.sleep, bird.cup])
+            for (const spring of [bird.tilt, bird.bob, bird.ruffle, bird.sleep, bird.cup, bird.tall])
                 if (spring.update(dt)) busy = true;
+            if (bird.flapping > 0) {
+                bird.flapping = Math.max(0, bird.flapping - dt);
+                busy = true;
+            }
+            if (bird.tallUntil && this.time >= bird.tallUntil) {
+                bird.tallUntil = 0;
+                bird.tall.target = 0;
+            }
             if (bird.beak > 0.003) {
                 bird.beak *= Math.exp(-dt * 7);
                 busy = true;
@@ -634,7 +692,12 @@ class BirdScene extends Scene {
                 blink: bird.blinkAt - this.time < 0.12,
                 eye: bird.eye,
                 flap: clamp(-bird.bob.velocity * 0.15, -0.4, 0.6),
+                raise:
+                    bird.flapping > 0
+                        ? (1 - Math.cos((bird.flapFor - bird.flapping) * TAU * FLAP_HZ)) / 2
+                        : 0,
                 cup: bird.cup.value,
+                tall: clamp(bird.tall.value, 0, 1.2),
             });
             ctx.restore();
         }
@@ -738,22 +801,28 @@ function bellPath(ctx, bw, bh, open) {
 }
 
 // A round little bird facing +x, its feet on y = r, body radius r. `pose`: tilt (head, radians),
-// beak (0 shut to 1 open), squash, sleep (0 to 1), blink, eye (where it looks, a unit vector) and
-// flap (the wing, -1 to 1). Shared with the shelf's icon.
+// beak (0 shut to 1 open), squash, sleep (0 to 1), blink, eye (where it looks, a unit vector),
+// flap (the wing, -1 to 1), cup (a wing to its ear), raise (both wings, 0 folded to 1 up over its
+// back) and tall (0 to 1, standing up on its toes, stretched, chin up). Shared with the shelf's icon.
 export function drawBird(ctx, look, r, pose = {}) {
     const sleep = pose.sleep || 0;
-    const squash = pose.squash || 0;
+    const tall = pose.tall || 0;
+    const squash = (pose.squash || 0) - tall * 0.07;
+    const lift = tall * r * 0.24;
+    const raise = clamp(pose.raise || 0, 0, 1.3);
     ctx.lineCap = 'round';
     ctx.strokeStyle = PALETTE.woodEdge;
     ctx.lineWidth = r * 0.07;
     for (const x of [-0.12, 0.2]) {
         ctx.beginPath();
-        ctx.moveTo(r * x, r * 0.62);
+        ctx.moveTo(r * x, r * 0.62 - lift);
         ctx.lineTo(r * x, r * 0.98);
         ctx.moveTo(r * (x - 0.1), r * 0.98);
         ctx.lineTo(r * (x + 0.12), r * 0.98);
         ctx.stroke();
     }
+    ctx.save();
+    ctx.translate(0, -lift);
     ctx.fillStyle = look.wing;
     for (const [a, l] of [
         [-0.3, 1],
@@ -767,6 +836,8 @@ export function drawBird(ctx, look, r, pose = {}) {
         ctx.fill();
         ctx.restore();
     }
+    // The far wing, out of sight behind the body until the wings are raised.
+    if (raise > 0.01) wing(ctx, shade(look.wing, -0.16), r, 0, 0, raise, RAISED_FAR);
     ctx.save();
     ctx.translate(0, r * 0.86);
     ctx.scale(1 + squash, 1 - squash);
@@ -778,12 +849,13 @@ export function drawBird(ctx, look, r, pose = {}) {
     ctx.fillStyle = look.belly;
     ctx.fill();
     const cup = clamp(pose.cup || 0, 0, 1);
-    if (cup < 0.5) wing(ctx, look, r, cup, pose.flap || 0);
+    if (cup < 0.5) wing(ctx, look.wing, r, cup, pose.flap || 0, raise, RAISED);
 
-    // The head turns about the neck: cocked to listen, lifted to sing, tucked to sleep.
+    // The head turns about the neck: cocked to listen, lifted to sing, tucked to sleep, chin up to
+    // stand tall.
     ctx.save();
     ctx.translate(r * 0.36, -r * 0.42);
-    ctx.rotate((pose.tilt || 0) * (1 - sleep) + sleep * 0.42);
+    ctx.rotate(((pose.tilt || 0) - tall * 0.25) * (1 - sleep) + sleep * 0.42);
     ctx.translate(-sleep * r * 0.12, sleep * r * 0.16);
     disc(ctx, r * 0.12, -r * 0.3, r * 0.56, look.body);
     disc(ctx, r * 0.34, -r * 0.12, r * 0.3, look.belly);
@@ -832,20 +904,23 @@ export function drawBird(ctx, look, r, pose = {}) {
     ctx.fillStyle = 'rgba(232, 140, 130, 0.35)';
     ctx.fill();
     ctx.restore();
-    if (cup >= 0.5) wing(ctx, look, r, cup, 0);
+    if (cup >= 0.5) wing(ctx, look.wing, r, cup, 0, 0, RAISED);
+    ctx.restore();
     ctx.restore();
 }
 
 // The wing, folded on the bird's side (`cup` 0) or raised with its tip at the side of the head
-// (`cup` 1), and anywhere between.
-function wing(ctx, look, r, cup, flap) {
+// (`cup` 1), and anywhere between. `flap` rocks it a little as the bird hops; `raise` lifts it from
+// the shoulder, up and back over the bird's back, as it beats its wings.
+function wing(ctx, colour, r, cup, flap, raise, raised) {
     const k = cup * cup * (3 - 2 * cup);
     const mix = (a, b) => a + (b - a) * k;
+    const up = (a, b) => a + (b - a) * raise;
     ctx.save();
-    ctx.translate(mix(-r * 0.2, r * 0.2), mix(r * 0.08, -r * 0.5));
-    ctx.rotate(mix(-0.28 - flap * 0.5, -1.0));
-    ellipse(ctx, 0, 0, mix(r * 0.6, r * 0.42), mix(r * 0.38, r * 0.2));
-    ctx.fillStyle = look.wing;
+    ctx.translate(r * up(mix(-0.2, 0.2), raised.x), r * up(mix(0.08, -0.5), raised.y));
+    ctx.rotate(up(mix(-0.28 - flap * 0.5, -1.0), raised.angle));
+    ellipse(ctx, 0, 0, r * up(mix(0.6, 0.42), raised.rx), r * up(mix(0.38, 0.2), raised.ry));
+    ctx.fillStyle = colour;
     ctx.fill();
     ctx.restore();
 }
@@ -890,6 +965,7 @@ export const toy = {
         const flowers = stage.flowers.map((name) => COLOURS.find((c) => c.name === name));
         const list = flowers.map((kind) => ['glock', { f: noteHz(kind.degree, 72) }]);
         list.push(['chirp', { f: noteHz(2, 96) }]);
+        for (const beats of FLAPS) list.push(['flutter', { beats, gap: 1 / FLAP_HZ }]);
         for (const look of BIRDS.slice(0, stage.birds)) {
             flowers.forEach((kind, i) => {
                 const f = noteHz(kind.degree, look.base);

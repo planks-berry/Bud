@@ -26,12 +26,24 @@ export const FINISHED = 1.2;
 // its turn, if he has; and how many times it does, before it rests.
 export const REMIND = 9;
 export const REMINDERS = 2;
+// Seconds of his playing before the bird bids for its turn, standing tall and flapping, and between
+// its bids for as long as he plays on: his pauses it asks for with its rings. It bids in a gap
+// between his notes at least BID_GAP long, or, if he leaves none, BID_WAIT seconds later anyway.
+export const BID = 5;
+export const BID_GAP = 0.3;
+export const BID_WAIT = 2;
 // Answered turns in a row before the tunes grow by a note.
 export const GROW_AFTER = 3;
 // The most of his notes the bird sings back: the last ones.
 export const ECHO_MOST = 12;
 // Notes closer together than this are a glide: sung short, each gliding in from the one before.
 export const GLIDE = 0.26;
+
+// Whether the bird bids for its turn now, after `held` seconds of his playing, `since` seconds after
+// his last note.
+export function bidding(held, since) {
+    return held >= BID && (since >= BID_GAP || held >= BID + BID_WAIT);
+}
 
 // A new tune of `length` notes on flowers 0..count-1, beginning on `start`: mostly steps to a
 // neighbour, sometimes a skip of one, now and then the same note again but never three in a row.

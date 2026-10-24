@@ -102,7 +102,7 @@ Every toy has three layers, which are found by playing, never unlocked:
 | **Crane** | Sensorial (building with shapes), and the work of the hand at a distance | Tap a part for its colour's note, the cab for the horn, the hook to set it swinging | Drag the hook: the trolley and cable follow, it takes the part it is lowered onto, and drops it where it is let go, onto a grid so a stack stands. A part can also be carried by hand, the crane following | A building of any shape, which moves in by itself: a cat in a window, plants on the ledges, a bird nesting on top; a tap at its foot plays it bottom to top, each part lit. And trucks to load: one in a part's colour waits for the parts marked out on its deck, takes only its own colour, and drives off loaded, and a second crane restocks the pile | 4 big blocks / blocks, beams and windows / and arches, a roof and a wrecking ball |
 | **Farm** | None: after Pok Pok's builder | Tap anything: every piece answers, and tapped grass grows a flower | An island of tiles, seen from a corner like a model on a table, on a table that starts empty: a tile put down on the table makes it bigger, a path, field, pond or stream put down on a tile changes it, and pieces stand on tiles, move, swap and go back to the tray; what is hidden behind a building shows through it; a broom, held, sweeps the table empty again | A farm that joins up: paths for the tractor to drive, streams that carry a pond's water along to the fields, fields by water that grow on their own, a pond big enough for ducks; the sun turns it to night, when the lights come on and other things wake | 7 / 11 / 14 kinds of piece and a grass tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
 | **Building site** | None: the farm's builder | Tap anything: every piece answers | As the farm, with earth, roads and plots for tiles, from an empty table, and the broom to sweep it | Machines that work in chains: the digger digs a plot and loads the truck, the truck tips onto the pile, the mixer fills the hole with concrete, the crane lifts a building onto the foundation a floor at a time, each floor a note higher, and tops it out with a tree; the foreman's whistle sets them all going | 6 / 9 / 12 kinds of piece and an earth tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
-| **Bird song** | Music, auditory sense; and taking turns | Tap a bell flower for its colour's note; tap the bird to hand it the turn, or, before playing, to hear its tune again | Run a finger along the flowers: a glide, and the bird glides it back | The bird sings a tune and waits, wing to its ear, as long as he plays, asking with rings and a hop when he pauses; handed the turn, it sings his notes back in the same rhythm, then a new tune from the last note played. Tunes grow by a note after three answered turns, and never shrink | 3 flowers, tunes of 2 / 5 flowers, tunes of 3 / and a second bird, tunes growing to 5 |
+| **Bird song** | Music, auditory sense; and taking turns | Tap a bell flower for its colour's note; tap the bird to hand it the turn, or, before playing, to hear its tune again | Run a finger along the flowers: a glide, and the bird glides it back | The bird sings a tune and waits, wing to its ear, asking with rings and a hop when he pauses, and, every five seconds he plays on, by standing tall and flapping; handed the turn, it sings his notes back in the same rhythm, then a new tune from the last note played. Tunes grow by a note after three answered turns, and never shrink | 3 flowers, tunes of 2 / 5 flowers, tunes of 3 / and a second bird, tunes growing to 5 |
 
 ### How Montessori and Pok Pok were reconciled
 
@@ -190,7 +190,7 @@ panel is the only text.
     Song's whistle just under them, since a held whistle sounds louder than a struck bell;
   - animal voices near −19;
   - foley (clicks, latches, pats, a reversing beep, a chain, a crunch, a whistle, a clap, a
-    shaker) near −21;
+    shaker, a bird's wingbeats) near −21;
   - air and paper (a load sliding out, wet concrete, a brake's hiss) near −24;
   - a single zip tooth or engine beat, which come in streams, near −27.
 
@@ -281,8 +281,9 @@ In Node:
 - every tune Bird Song's bird composes, 3000 a stage, begins on the last note played, has the
   stage's length, stays on its flowers, steps or skips one and never repeats a note three times;
   what it sings back keeps the child's rhythm, a long wait shortened and a run along the flowers a
-  glide, at most his last twelve notes; and its tunes grow by a note after three answered turns,
-  up to the stage's most.
+  glide, at most his last twelve notes; its tunes grow by a note after three answered turns, up to
+  the stage's most; and it bids for its turn after five seconds of his playing, in a gap of a
+  third of a second between his notes, or two seconds later if he leaves none.
 
 Then in Chromium, as an iPad (1024 × 768 at 2×, touch), the suite drives every toy with real touch
 events. It measures the audio that reaches the speaker through an analyser after the compressor.
@@ -343,10 +344,13 @@ It also checks:
   that when he stops it asks for its turn and keeps waiting, and his tap on it hands the turn over,
   when it sings his notes back and begins its next tune on his last note; that a flower tapped
   while it sings is not taken as an answer; that a run along the flowers comes back as a glide;
-  that its tunes grow after three answers; that with nothing played it sings again, twice, then
-  rests, with no frames drawn, until a flower wakes it; that played but not handed over, it asks
-  twice with a chirp, then rests keeping his notes, which a tap on it still sings back; and at
-  Bloom, that the second bird answers the first and both sing his notes back;
+  that its tunes grow after three answers; that while he plays on, it bids for its turn every five
+  seconds of it, in a gap between his notes, standing tall and flapping a beat longer each time,
+  asks with its rings when he pauses, and leaves the turn his until he taps it; that with nothing
+  played it sings again, twice, then rests, with no frames drawn, until a flower wakes it; that
+  played but not handed over, it asks twice with a chirp, then rests keeping his notes, which a tap
+  on it still sings back; and at Bloom, that the second bird answers the first and both sing his
+  notes back;
 - that leaving a toy stops its sounds;
 - that the grown-ups' gate needs a three-second hold;
 - that one toy's stage can be moved on by itself, and the shared stage clears it again;

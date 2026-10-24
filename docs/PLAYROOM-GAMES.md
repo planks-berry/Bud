@@ -12,7 +12,8 @@ revised. The technical side (the old iPad, the audio engine, the tests) is in
   in the grown-ups' corner, which can now also set the order of the shelf. Since then: a goodnight
   timer a grown-up locks with a passcode, shown as a band round the edge of every screen; a choice
   between toys that fall asleep by themselves and toys he tucks in; and in Bird Song, the turn
-  passes to the bird when he taps it.
+  passes to the bird when he taps it, and the bird bids for its turn, standing tall and flapping,
+  when he plays on.
 - **Where:** live at https://planks-berry.github.io/Bud/playroom/, published from `main`. Work
   continues on branch `claude/montessori-playroom`.
 - **Not yet checked on a real iPad:** the speaker mix and the iPad Air's frame rate can only be
@@ -854,7 +855,8 @@ three: here the bird always waits for him, and he can learn to wait for the bird
 
 **Sound:** the flowers ring as glockenspiel bells. The bird whistles a warbling note that scoops
 up into its pitch, an octave above the flowers; the second bird sings at the flowers' own pitch. A
-glide comes back as short notes, each sliding in from the one before.
+glide comes back as short notes, each sliding in from the one before. When the bird bids for its
+turn, its wings beat with soft puffs of air, one on each downstroke.
 
 **Decisions so far**
 - Never wrong: whatever he plays is sung back, and nothing is marked. A tune grows by a note after
@@ -864,7 +866,15 @@ glide comes back as short notes, each sliding in from the one before.
   ripple and the bird cups its ear.
 - He hands the turn over by tapping the bird: a clear trade of turns, your call after the first
   version took 1.2 seconds of quiet as the end of his turn. When he pauses, rings spread from the
-  bird and it hops, looking out at him, to ask for the tap; it waits as long as he plays.
+  bird and it hops, looking out at him, to ask for the tap.
+- It does not wait for ever while he plays on: your call, after the second version waited as long
+  as he played. After five seconds of his playing, it bids for its turn without a word: it stands
+  up tall, chin up, and raises both wings over its back, two beats, then three, then four, with a
+  soft flutter he can hear while he looks at the flowers. It bids again after every five more
+  seconds of his playing. Each bid waits for a gap between his notes of a third of a second, so
+  that the flap is the bird's own doing and not an answer to his tap; if he leaves none, it bids
+  two seconds later anyway. The bids are for his playing only: his pauses already have the rings
+  and the hop. It asks; it never takes: the turn passes only when he taps it.
 - Quiet is fine: after 9 seconds the bird sings its tune again, or, if he has played, chirps to ask
   for its turn; twice, and then it tucks its head in and rests until a flower or the bird is
   touched. Woken by a tap, it still sings back what he played.

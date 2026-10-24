@@ -183,6 +183,11 @@ const PARAMS = {
         { f: noteHz(5, 84), variant: 'short', from: noteHz(4, 84) },
         { f: noteHz(0, 72) },
     ],
+    flutter: [
+        { beats: 2, gap: 0.2 },
+        { beats: 3, gap: 0.2 },
+        { beats: 4, gap: 0.2 },
+    ],
     putt: [{}],
     toot: [{ f: noteHz(3, 60) }, { f: noteHz(5, 60) }],
     crow: [{}],
@@ -337,6 +342,7 @@ const BANDS = [
             'crunch',
             'clap',
             'shaker',
+            'flutter',
         ],
     ],
     ['air', [-27, -21.5], ['bubble', 'rustle', 'whoosh', 'rumble', 'hiss', 'slosh']],
@@ -637,6 +643,19 @@ check(
         "the tunes grow by a note after three answered turns, up to the stage's most",
         lengths.join(' ') === '3 3 4 4 4 5 5 5 5',
         lengths.join(' ')
+    );
+
+    const bids = [
+        [4.9, 1],
+        [5, 0.2],
+        [5, 0.3],
+        [6.9, 0.1],
+        [7, 0.1],
+    ].map(([held, since]) => tunes.bidding(held, since));
+    check(
+        'the bird bids for its turn after five seconds of his playing, in a gap of a third of a second between his notes, or two seconds later if he leaves none',
+        bids.join(' ') === 'false false true false true',
+        bids.join(' ')
     );
 }
 
@@ -2912,6 +2931,57 @@ async function suite(mode) {
         tweet.mode === 'birds' && tweet.sung[0].index === 3 && tweet.length === 4 && tweet.tune.length === 4,
         JSON.stringify({ mode: tweet.mode, length: tweet.length })
     );
+
+    // He plays on and on: five seconds into it, in a gap between his notes, the bird bids for its
+    // turn, standing tall and flapping, and five seconds later again, a wingbeat longer. When he
+    // pauses it asks with its rings instead. The turn stays his until he taps the bird.
+    await turn();
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        const bid = s.bid;
+        s.bidLog = [];
+        s.bid = function () {
+            const at = { held: this.held, since: this.time - this.lastNote, mode: this.mode };
+            bid.call(this);
+            const b = this.birds[this.lead];
+            this.bidLog.push(Object.assign(at, { tall: b.tall.target, flapFor: b.flapFor }));
+        };
+    });
+    const playing = Date.now();
+    for (let k = 0; Date.now() - playing < 12500; k++) {
+        await touch.tap(tweet.flowers[k % 5][0], tweet.flowers[k % 5][1]);
+        await page.waitForTimeout(350);
+    }
+    const playedOn = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { mode: s.mode, bids: s.bidLog.slice() };
+    });
+    await page.waitForTimeout(3000);
+    const pausedOn = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { bids: s.bidLog.length, inviting: s.inviting() };
+    });
+    tweet = await handOver();
+    const handed = await scene(() => {
+        const b = window.playroom.stage.scene.birds[0];
+        return { tall: b.tall.target, flapping: b.flapping };
+    });
+    check(
+        'while he plays on, the bird bids for its turn every five seconds of it, in a gap between his notes, standing tall and flapping a beat longer each time; it asks with its rings when he pauses, and the turn is his until he taps it',
+        playedOn.mode === 'turn' &&
+            playedOn.bids.length === 2 &&
+            playedOn.bids.every((b) => b.mode === 'turn' && b.held >= 5 && b.since >= 0.3 && b.tall === 1) &&
+            Math.abs(playedOn.bids[0].flapFor - 0.4) < 1e-9 &&
+            Math.abs(playedOn.bids[1].flapFor - 0.6) < 1e-9 &&
+            pausedOn.bids === 2 &&
+            pausedOn.inviting &&
+            tweet.mode === 'birds' &&
+            handed.tall === 0 &&
+            handed.flapping === 0,
+        JSON.stringify({ playedOn, pausedOn, mode: tweet.mode, handed })
+    );
+    // His long turn takes a while to sing back.
+    await turn('turn', 15000);
 
     // Quiet is fine: the tune again, twice, and then the bird rests until a flower is touched.
     await turn();
