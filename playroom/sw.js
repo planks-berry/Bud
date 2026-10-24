@@ -61,6 +61,7 @@ const FILES = [
     'js/toys/site.js',
     'js/toys/siteart.js',
     'js/toys/board.js',
+    'js/toys/routes.js',
     'js/toys/iso.js',
     'js/toys/birdsong.js',
     'js/toys/tunes.js',

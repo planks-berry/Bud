@@ -828,6 +828,57 @@ check(
     );
 }
 
+// ---- Building site: the ways its machines find across the island --------------------------------
+
+{
+    const { route, walk } = await import(pathToFileURL(join(here, 'js/toys/routes.js')).href);
+    // A board drawn in letters: '.' open ground, '#' something in the way, 'r' road, 'G' a goal.
+    const board = (rows) => ({
+        at: (c, r) => (rows[r] && rows[r][c]) || ' ',
+        open: (c, r) => ['.', 'r', 'G', 'S'].indexOf((rows[r] && rows[r][c]) || ' ') >= 0,
+    });
+    const b = board(['S..#.', '.#.#G', '.....']);
+    const way = route([0, 0], (c, r) => b.at(c, r) === 'G', b.open);
+    const roads = board(['S....', 'r###.', 'rrrrG']);
+    const byRoad = route(
+        [0, 0],
+        (c, r) => roads.at(c, r) === 'G',
+        roads.open,
+        (c, r) => (roads.at(c, r) === 'r' || roads.at(c, r) === 'G' ? 1 : 1.6)
+    );
+    const holes = board(['S.H..', '.....']);
+    const intoHole = route(
+        [0, 0],
+        (c, r) => holes.at(c, r) === 'H',
+        (c, r) => holes.at(c, r) !== ' '
+    );
+    check(
+        'a machine finds its way round what is in the way, the cheapest way, keeping to the road when it can, and stops at the first goal; with no way at all there is none',
+        way &&
+            way.map(([c, r]) => `${c}${r}`).join(' ') === '00 10 20 21 22 32 42 41' &&
+            byRoad.map(([c, r]) => `${c}${r}`).join(' ') === '00 01 02 12 22 32 42' &&
+            intoHole.length === 3 &&
+            route([0, 0], () => false, b.open) === null &&
+            route([4, 1], (c, r) => b.at(c, r) === 'G', b.open).length === 1,
+        way && way.map(([c, r]) => `${c}${r}`).join(' ')
+    );
+    // A road like a T: the walk goes out to every tile wanted and home, and only down branches that
+    // lead to something wanted.
+    const t = board(['rrrrr', '..r..', '..r..']);
+    const along = (c, r) => t.at(c, r) === 'r';
+    const tourOf = (wanted) =>
+        walk([4, 0], along, (c, r) => wanted.indexOf(`${c}${r}`) >= 0).map(([c, r]) => `${c}${r}`);
+    const both = tourOf(['00', '22']);
+    const end = tourOf(['00']);
+    check(
+        'the road machines walk out along the road to every tile they work and home again, turning only into branches with work down them',
+        both.join(' ') === '40 30 20 21 22 21 20 10 00 10 20 30 40' &&
+            end.join(' ') === '40 30 20 10 00 10 20 30 40' &&
+            tourOf([]).join(' ') === '40',
+        `${both.join(' ')} / ${end.join(' ')}`
+    );
+}
+
 //==============================================================================
 // The browser
 
@@ -1959,7 +2010,7 @@ async function suite(mode) {
                 });
                 if (s.plotBeside) {
                     for (const [c, r] of s.every('crane')) {
-                        const plot = s.plotBeside(c, r, (n) => n.step >= 3);
+                        const plot = s.plotBeside(c, r, (n) => n.step >= 4);
                         if (!plot) continue;
                         const crane = s.at(c, r);
                         crane.slew.value = crane.slew.target = Math.atan2(plot[1] - r, plot[0] - c);
@@ -2008,15 +2059,6 @@ async function suite(mode) {
         farmBlank.land === 0 && farmBlank.pieces === 0 && farmBlank.broom,
         JSON.stringify(farmBlank)
     );
-    const layout = () =>
-        scene(() => {
-            const s = window.playroom.stage.scene;
-            return s.cells
-                .map((row, r) =>
-                    row.map((p, c) => (p ? p.kind.slice(0, 2) : s.isLand(c, r) ? '..' : '  ')).join(' ')
-                )
-                .join(' / ');
-        });
     // The fields are already sprouting, so there is something to grow at the first tap.
     await lay(['  T.  ', ' BPPP ', ' .RCN ', ' FFSS ', '  WWH '], FARM_CODES, { F: { stage: 2 } });
     const frog = await page
@@ -2345,54 +2387,51 @@ async function suite(mode) {
 
     await shot('farm');
 
-    // The broom: a tap only rustles it; held, it sweeps the table empty, every piece back to the
-    // tray, and the farm begins again as it comes off the shelf.
+    // The broom: a tap sweeps every piece back to the tray and leaves the island plain, and the
+    // board begins again as it comes off the shelf, on that land; a second tap sweeps the land
+    // away, and the table is empty.
     const sweepTable = async () => {
         const broom = await scene(() => window.playroom.stage.scene.broomButton);
-        const before = await layout();
+        const before = await blankTable();
+        const swept = (land) =>
+            page
+                .waitForFunction(
+                    (land) => {
+                        const s = window.playroom.stage.scene;
+                        const pieces = s.cells.reduce((n, row) => n + row.filter(Boolean).length, 0);
+                        return !s.sweep && pieces === 0 && (land ? s.landCount() > 0 : s.landCount() === 0);
+                    },
+                    land,
+                    { timeout: 5000 }
+                )
+                .then(
+                    () => true,
+                    () => false
+                );
         await touch.tap(broom.x, broom.y);
-        await page.waitForTimeout(600);
-        const tapped = await layout();
-        await touch.down(broom.x, broom.y);
-        const holding = await page
-            .waitForFunction(() => window.playroom.stage.scene.broomHold > 0.3, null, { timeout: 2000 })
-            .then(
-                () => true,
-                () => false
-            );
-        await page.waitForTimeout(800);
-        await touch.up();
-        const swept = await page
-            .waitForFunction(
-                () => {
-                    const s = window.playroom.stage.scene;
-                    return !s.sweep && s.landCount() === 0;
-                },
-                null,
-                { timeout: 5000 }
-            )
-            .then(
-                () => true,
-                () => false
-            );
-        return {
-            kept: tapped === before && before.indexOf('..') >= 0,
-            holding,
-            swept,
-            after: await blankTable(),
-        };
+        const first = await swept(true);
+        const plain = await blankTable();
+        await touch.tap(broom.x, broom.y);
+        const second = await swept(false);
+        return { before, first, plain, second, after: await blankTable() };
     };
     const farmSweep = await sweepTable();
-    check('a tap on the broom leaves the farm as it is', farmSweep.kept);
     check(
-        'and held, its ring filling, it sweeps the table empty, and the farm begins again',
-        farmSweep.holding &&
-            farmSweep.swept &&
+        'a tap on the broom sweeps every piece back to the tray and leaves the island plain grass, and the farm begins again',
+        farmSweep.first &&
+            farmSweep.before.pieces > 0 &&
+            farmSweep.plain.land === farmSweep.before.land &&
+            farmSweep.plain.pieces === 0 &&
+            farmSweep.plain.found === 0,
+        JSON.stringify(farmSweep)
+    );
+    check(
+        'and a second tap sweeps the land away: an empty table',
+        farmSweep.second &&
             farmSweep.after.land === 0 &&
             farmSweep.after.pieces === 0 &&
-            farmSweep.after.found === 0 &&
             (await sceneName()) === 'FarmScene',
-        JSON.stringify(farmSweep)
+        JSON.stringify(farmSweep.after)
     );
     await carryTo(await trayCentre('cow'), await cellCentre(2, 2));
     check(
@@ -2951,15 +2990,18 @@ async function suite(mode) {
 
     // ---- building site ---------------------------------------------------------------------------
     //
-    // The site comes out as an empty table too. The tests lay out, at Sprout:
+    // The site comes out as an empty table too. Its pieces stand on the ground rather than taking
+    // its place, and only on flat ground, earth or road. The tests lay out, at Sprout:
     //
     //                              L . P D T .      a pile, a plot, the digger, the truck
-    //                              R R R R R .      a road
-    //                              M H H . C B      the mixer, a dug hole, the crane, a building
-    //                              K K . O . .      cones, the hut
+    //                              . . P P . .      the plot goes on round: three tiles joined
+    //                              R R R R R        a road
+    //                              M F H C B        the mixer, the forms in a hole, a dug hole,
+    //                              K K . O .        the crane, a building; cones, the hut
     //                                               (and the rest of the table, still to build on)
     //
-    // where P is a plot marked out, H one dug, F one set, and B one with its first floor on.
+    // where P is a plot marked out, H one dug, F one with its forms in, and B a building as tall as
+    // the crane builds.
     const SITE_CODES = {
         R: 'road',
         P: 'plot',
@@ -2975,9 +3017,27 @@ async function suite(mode) {
         O: 'hut',
         Y: 'roller',
         Z: 'dozer',
+        V: 'paver',
         J: 'lamp',
     };
-    const PLOTS = { P: { step: 0 }, H: { step: 1 }, F: { step: 3 }, B: { step: 4 } };
+    const PLOTS = { P: { step: 0 }, H: { step: 1 }, F: { step: 2 }, B: { step: 8 } };
+    // Each tile of the table as letters: what stands, over what it stands on.
+    const siteAt = (c, r) =>
+        scene(
+            ([c, r]) => {
+                const s = window.playroom.stage.scene;
+                const p = s.at(c, r);
+                if (!p) return s.isLand(c, r) ? 'earth' : 'table';
+                const of = (q) =>
+                    q.kind +
+                    (q.kind === 'plot' ? q.step : '') +
+                    (q.kind === 'road' ? `:${q.state}` : '') +
+                    (q.load ? '*' : '');
+                return p.under ? `${of(p)}/${of(p.under)}` : of(p);
+            },
+            [c, r]
+        );
+    const count = (kind) => scene((kind) => window.playroom.stage.scene.every(kind).length, kind);
 
     await open('site');
     const siteKinds = await scene(() => window.playroom.stage.scene.kinds);
@@ -2991,7 +3051,7 @@ async function suite(mode) {
         siteBlank.land === 0 && siteBlank.pieces === 0 && siteBlank.broom,
         JSON.stringify(siteBlank)
     );
-    await lay(['L.PDT ', 'RRRRR ', 'MHH.CB', 'KK.O  '], SITE_CODES, PLOTS);
+    await lay(['L.PDT.', '..PP..', 'RRRRR ', 'MFHCB ', 'KK.O. '], SITE_CODES, PLOTS);
     const plotAt = (c, r) => scene(([c, r]) => window.playroom.stage.scene.at(c, r).step, [c, r]);
     await scene(() => {
         const s = window.playroom.stage.scene;
@@ -3004,104 +3064,159 @@ async function suite(mode) {
         };
     });
     const flocks = () => scene(() => window.playroom.stage.scene.flocks);
-    await tapCell(1, 1);
+    await tapCell(1, 2);
     const firstFlock = await flocks();
-    await tapCell(2, 1);
+    await tapCell(2, 2);
     const nextFlock = await flocks();
     await scene(() => {
         window.playroom.stage.scene.rand = () => 0;
     });
-    await tapCell(4, 1);
+    await tapCell(4, 2);
     check(
         'pigeons come to the road the first time whatever chance says, and by chance after that',
         firstFlock === 1 && nextFlock === 1 && (await flocks()) === 2,
         `flocks ${firstFlock}, ${nextFlock}, ${await flocks()}`
     );
 
-    await carryTo(await trayCentre('earth'), await cellCentre(5, 1));
-    check('a tile of earth put down on the table makes the site bigger', await landAt(5, 1));
-    await carryTo(await trayCentre('road'), await cellCentre(3, 2));
+    await carryTo(await trayCentre('earth'), await cellCentre(5, 2));
+    check('a tile of earth put down on the table makes the site bigger', await landAt(5, 2));
+    await carryTo(await trayCentre('road'), await cellCentre(5, 2));
     const siteRoad = await scene(() => {
         const s = window.playroom.stage.scene;
-        return { kind: s.at(3, 2) && s.at(3, 2).kind, mask: s.mask(3, 2) };
+        return { kind: s.at(5, 2) && s.at(5, 2).kind, state: s.at(5, 2).state, mask: s.mask(5, 2) };
     });
     check(
-        'a road dragged from the tray joins the road beside it',
-        siteRoad.kind === 'road' && (siteRoad.mask & 1) === 1,
+        'a road dragged from the tray joins the road beside it, paved, at Sprout',
+        siteRoad.kind === 'road' && siteRoad.state === 'paved' && (siteRoad.mask & 8) === 8,
         JSON.stringify(siteRoad)
     );
 
-    await tapCell(3, 0, -0.05);
-    await page.waitForTimeout(2500);
-    const dug = await scene(() => {
-        const s = window.playroom.stage.scene;
-        return { plot: s.at(2, 0).step, truck: s.at(4, 0).load };
-    });
+    // Where a machine may stand: on flat ground, and on it, not in its place.
+    await carryTo(await trayCentre('truck'), await cellCentre(2, 1));
+    const onPlot = { tile: await siteAt(2, 1), trucks: await count('truck') };
+    await carryTo(await trayCentre('truck'), await cellCentre(5, 2));
+    const onRoad = await siteAt(5, 2);
+    const roadJoined = await scene(() => window.playroom.stage.scene.mask(4, 2, 'road') & 2);
     check(
-        'the digger digs out the marked plot beside it, and loads the earth into the truck',
-        dug.plot === 1 && dug.truck === 1,
-        JSON.stringify(dug)
+        'a truck put down on a plot goes back to the tray, and the plot stays as it was',
+        onPlot.tile === 'plot0' && onPlot.trucks === 1,
+        JSON.stringify(onPlot)
+    );
+    check(
+        'put down on a road, it stands on the road, and the road is still there under it, joined to the next',
+        onRoad === 'truck/road:paved' && roadJoined === 2,
+        onRoad
+    );
+    await carryTo(await trayCentre('plot'), await cellCentre(5, 2));
+    const plotUnder = await siteAt(5, 2);
+    await carryTo(await trayCentre('earth'), await cellCentre(5, 2));
+    const earthUnder = await siteAt(5, 2);
+    await carryTo(await cellCentre(5, 2), Object.assign(await trayCentre('truck'), { s: 0 }));
+    check(
+        'a plot cannot go in under a truck, but earth can: the road goes, and the truck stays where it is',
+        plotUnder === 'truck/road:paved' && earthUnder === 'truck' && (await siteAt(5, 2)) === 'earth',
+        `${plotUnder}, ${earthUnder}`
     );
 
-    const pileBefore = await scene(() => window.playroom.stage.scene.at(0, 0).size);
+    // The digger: one tile at a time, however many it is joined to.
+    await tapCell(3, 0, -0.05);
+    await page.waitForTimeout(2500);
+    const firstDig = {
+        tiles: [await plotAt(3, 1), await plotAt(2, 0), await plotAt(2, 1)],
+        truck: await siteAt(4, 0),
+    };
+    check(
+        'the digger digs out one tile of the plot beside it, however many it is joined to, and loads the earth into the truck beside it',
+        firstDig.tiles.join('') === '100' && firstDig.truck === 'truck*',
+        JSON.stringify(firstDig)
+    );
     await tapCell(4, 0, -0.05);
+    const truckTurn = await scene(() => {
+        const s = window.playroom.stage.scene;
+        const t = s.at(4, 0).trip;
+        if (!t) return null;
+        const [c, r] = t.points[(t.points.length - 1) / 2];
+        return { c, r, edge: s.openSides(c, r).length > 0 };
+    });
     const truckHome = await page
         .waitForFunction(() => !window.playroom.stage.scene.at(4, 0).trip, null, { timeout: 25000 })
         .then(
             () => true,
             () => false
         );
-    const tipped = await scene(() => {
-        const s = window.playroom.stage.scene;
-        return { pile: s.at(0, 0).size, load: s.at(4, 0).load };
-    });
     check(
-        'the truck drives the road and tips its load onto the pile beside it',
-        truckHome && tipped.load === 0 && tipped.pile === pileBefore + 1,
-        `${pileBefore} -> ${JSON.stringify(tipped)}`
+        'the truck takes the earth to the edge of the site, tips it over, and comes home empty',
+        !!truckTurn && truckTurn.edge && truckHome && (await siteAt(4, 0)) === 'truck',
+        JSON.stringify(truckTurn)
+    );
+    await tapCell(3, 0, -0.05);
+    await page.waitForTimeout(2500);
+    const secondDig = [await plotAt(3, 1), await plotAt(2, 0), await plotAt(2, 1)];
+    await tapCell(3, 0, -0.05);
+    await page.waitForTimeout(300);
+    const scoop = await scene(() => {
+        const w = window.playroom.stage.scene.at(3, 0).work;
+        return w && w.type;
+    });
+    await page.waitForTimeout(1700);
+    check(
+        'the next tap, the next tile beside it; with no marked tile in its reach it scoops at the air, and the tile it cannot reach waits',
+        secondDig.join('') === '110' && scoop === 'scoop' && (await plotAt(2, 1)) === 0,
+        `${secondDig.join('')} ${scoop}`
     );
 
-    await tapCell(0, 2, -0.05);
+    // A building's work, a step at a time.
+    const craneLift = async () => {
+        await tapCell(3, 3, -0.05);
+        await page.waitForFunction(() => !window.playroom.stage.scene.at(3, 3).work, null, { timeout: 8000 });
+    };
+    await craneLift();
+    check(
+        'the crane lowers the forms into the hole beside it',
+        (await plotAt(2, 3)) === 2 && (await plotAt(1, 3)) === 2
+    );
+    await tapCell(0, 3, -0.05);
     await page.waitForTimeout(1300);
     check(
-        'the mixer pours the hole beside it full of concrete',
-        (await plotAt(1, 2)) === 2 && (await plotAt(2, 2)) === 2
+        'the mixer pours the concrete into the forms beside it, and the forms joined to them',
+        (await plotAt(1, 3)) === 3 && (await plotAt(2, 3)) === 3
     );
     await scene(() => {
         const s = window.playroom.stage.scene;
-        for (const c of [1, 2]) s.at(c, 2).setting = 6.9;
+        for (const c of [1, 2]) s.at(c, 3).setting = 6.9;
     });
     await page.waitForTimeout(400);
     check(
         'and it sets by itself into a foundation',
-        (await plotAt(1, 2)) === 3 && (await plotAt(2, 2)) === 3
+        (await plotAt(1, 3)) === 4 && (await plotAt(2, 3)) === 4
     );
-
-    // The crane beside the building: a floor, then up to as tall as it builds, then the tree.
-    const craneLift = async () => {
-        await tapCell(4, 2, -0.05);
-        await page.waitForFunction(() => !window.playroom.stage.scene.at(4, 2).work, null, { timeout: 8000 });
-    };
     await craneLift();
-    check('the crane lifts a floor onto the building beside it', (await plotAt(5, 2)) === 5);
+    check(
+        'the crane lifts a floor onto the foundation it has been working on',
+        (await plotAt(1, 3)) === 5 && (await plotAt(2, 3)) === 5
+    );
     await scene(() => {
         const s = window.playroom.stage.scene;
-        s.at(5, 2).step = 3 + s.maxFloors - 1;
+        for (const c of [1, 2]) s.at(c, 3).step = 4 + s.maxFloors - 1;
     });
     await craneLift();
-    const topped = async () => scene(() => window.playroom.stage.scene.at(5, 2).tree);
-    const tall = await plotAt(5, 2);
-    check('up to as tall as it builds', tall === 7 && !(await topped()), `step ${tall}`);
+    const topped = async () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            return s.at(1, 3).tree || s.at(2, 3).tree;
+        });
+    const tall = await plotAt(2, 3);
+    check('up to as tall as it builds', tall === 8 && !(await topped()), `step ${tall}`);
     await craneLift();
-    check('and then tops it out with a tree', (await plotAt(5, 2)) === 7 && (await topped()));
+    check('and then tops it out with a tree', (await plotAt(2, 3)) === 8 && (await topped()));
 
-    await tapCell(5, 2);
+    await tapCell(4, 3);
     const played = await page.evaluate(async () => {
         const seen = [];
         const s = window.playroom.stage.scene;
         const end = Date.now() + 1800;
         while (Date.now() < end) {
-            const g = s.at(5, 2).glow;
+            const g = s.at(4, 3).glow;
             if (g >= 0 && seen[seen.length - 1] !== g) seen.push(g);
             await new Promise((r) => setTimeout(r, 40));
         }
@@ -3114,7 +3229,7 @@ async function suite(mode) {
     );
 
     const worked = await (async () => {
-        await tapCell(3, 3, -0.05);
+        await tapCell(3, 4, -0.05);
         return page.evaluate(async () => {
             const kinds = new Set();
             const s = window.playroom.stage.scene;
@@ -3134,22 +3249,22 @@ async function suite(mode) {
     );
     await page.waitForFunction(() => !window.playroom.stage.scene.at(4, 0).trip, null, { timeout: 25000 });
 
-    // Cones put down on the road behind the four floors: they show through the building, and a touch
-    // where they are takes them, not the building.
+    // Cones put down on the road behind the building: they stand on the road, show through the
+    // building, and a touch where they are takes them, not the building.
     await scene(() => {
         const s = window.playroom.stage.scene;
-        s.put(4, 1, s.make('cones'), true);
+        s.put(3, 2, s.make('cones'), true);
     });
     await page.waitForTimeout(300);
     const siteGhost = await scene(() => {
         const s = window.playroom.stage.scene;
-        const q = s.cellRect(4, 1);
+        const q = s.cellRect(3, 2);
         const hit = s.pieceAt(q.x + q.s / 2, q.y + q.s * 0.62);
-        return { shown: !!s.ghosts[401], hit: hit && hit.join(',') };
+        return { shown: !!s.ghosts[302], hit: hit && hit.join(','), under: s.floorAt(3, 2).kind };
     });
     check(
         'a piece hidden behind a building shows through it, and a touch there takes it',
-        siteGhost.shown && siteGhost.hit === '4,1',
+        siteGhost.shown && siteGhost.hit === '3,2' && siteGhost.under === 'road',
         JSON.stringify(siteGhost)
     );
 
@@ -3164,11 +3279,12 @@ async function suite(mode) {
     await shot('site');
     const siteSweep = await sweepTable();
     check(
-        'the broom sweeps the site empty too, and a tap alone does not',
-        siteSweep.kept &&
-            siteSweep.swept &&
+        'the broom sweeps every piece off the site and leaves it plain earth, and then the earth away',
+        siteSweep.first &&
+            siteSweep.plain.land === siteSweep.before.land &&
+            siteSweep.plain.pieces === 0 &&
+            siteSweep.second &&
             siteSweep.after.land === 0 &&
-            siteSweep.after.pieces === 0 &&
             (await sceneName()) === 'SiteScene',
         JSON.stringify(siteSweep)
     );
@@ -4107,22 +4223,118 @@ async function suite(mode) {
     );
     await home();
 
-    // The building site at Bloom: all twelve kinds of piece, and the earth tile; the roller leaves
-    // the road it rolls shining, and the lamp lights.
+    // The building site at Bloom: thirteen kinds of piece and the earth tile, and roads to build.
+    // A road is put down marked out; the bulldozer scrapes it to dirt, the roller rolls it flat and
+    // the paver paves it, each only at its own step. The earth goes somewhere: a pile beside the
+    // bulldozer into the hole the digger dug, and the roller presses the filled hole flat; with no
+    // hole, over the edge.
+    //
+    //                              . L Z . . . .      a pile, the bulldozer
+    //                              Y H . . . . .      the roller, a dug hole
+    //                              R R R R R . .      a road, marked out; the mixer stands on it
+    //                              . . . . V . .      the paver
+    //                              . . . . J . .      a lamp
     await page.evaluate(async () => (await import('./js/settings.js')).setStage('site', 'bloom'));
     await open('site');
-    await lay(['LZPPDTY', 'RRRRRRR', 'MHH.CBB', 'KK.O.J '], SITE_CODES, PLOTS);
+    await lay(['.LZ....', 'YH.....', 'RRRRR..', '....V..', '....J..'], SITE_CODES, PLOTS);
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        s.put(1, 2, s.make('mixer'), true);
+    });
     const bloomKinds = await scene(() => window.playroom.stage.scene.kinds.length);
-    await tapCell(6, 0, -0.05);
-    await page.waitForTimeout(2500);
-    const rolled = await scene(() => window.playroom.stage.scene.cells[1].filter((p) => p.fresh > 0).length);
-    await tapCell(5, 3, -0.2);
+    const roads = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            return [0, 1, 2, 3, 4].map((c) => s.floorAt(c, 2).state[0]).join('');
+        });
+    // A machine's work: tapped, and quick about it, and done.
+    const machine = async (c, r) => {
+        await tapCell(c, r, -0.05);
+        const went = await scene(
+            ([c, r]) => {
+                const p = window.playroom.stage.scene.at(c, r);
+                if (p.trip) p.trip.speed *= 3;
+                return !!p.trip;
+            },
+            [c, r]
+        );
+        if (went)
+            await page.waitForFunction(([c, r]) => !window.playroom.stage.scene.at(c, r).trip, [c, r], {
+                timeout: 20000,
+            });
+        return went;
+    };
+    check(
+        'the building site at Bloom: thirteen kinds of piece and the earth tile, and its roads put down marked out',
+        bloomKinds === 14 && (await roads()) === 'mmmmm',
+        `${bloomKinds} kinds, roads ${await roads()}`
+    );
+
+    await tapCell(1, 2, -0.05);
+    await page.waitForTimeout(1300);
+    check('a mixer beside a bare hole waits for the forms', (await siteAt(1, 1)) === 'plot1');
+
+    const pushed = await machine(2, 0);
     await page.waitForTimeout(300);
     check(
-        'the building site at Bloom: twelve kinds, a roller that leaves the road fresh, a lamp that lights',
-        bloomKinds === 13 && rolled >= 2 && (await scene(() => window.playroom.stage.scene.at(5, 3).on)),
-        `${bloomKinds} kinds, ${rolled} tiles rolled`
+        'the bulldozer pushes the pile beside it into the hole the digger dug, and backs up home',
+        pushed &&
+            (await siteAt(1, 1)) === 'fill' &&
+            (await count('pile')) === 0 &&
+            (await siteAt(2, 0)) === 'dozer',
+        `${await siteAt(1, 0)} ${await siteAt(1, 1)} ${await siteAt(2, 0)}`
     );
+    const rolledFill = await machine(0, 1);
+    await page.waitForTimeout(700);
+    check(
+        'the roller rolls the filled hole flat, back to bare earth',
+        rolledFill && (await siteAt(1, 1)) === 'earth'
+    );
+    check('and has nothing to roll on a road only marked out', !(await machine(0, 1)));
+
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        const dozer = s.at(2, 0);
+        s.cells[0][2] = null;
+        s.put(2, 1, dozer, true);
+    });
+    const graded = await machine(2, 1);
+    check(
+        'with no pile beside it, the bulldozer scrapes the marked road into dirt, under the mixer too',
+        graded && (await roads()) === 'ddddd' && (await siteAt(1, 2)) === 'mixer/road:dirt',
+        await roads()
+    );
+    check('the paver waits for the dirt to be rolled', !(await machine(4, 3)) && (await roads()) === 'ddddd');
+    await machine(0, 1);
+    check('the roller rolls the dirt road flat', (await roads()) === 'rrrrr', await roads());
+    const paved = await machine(4, 3);
+    await page.waitForTimeout(200);
+    const roadDucks = await scene(
+        () => window.playroom.stage.scene.fx.filter((f) => f.kind === 'ducks').length
+    );
+    check(
+        'the paver paves the rolled road, and the first time, ducks cross the new road',
+        paved && (await roads()) === 'ppppp' && roadDucks === 3,
+        `${await roads()}, ${roadDucks} ducks`
+    );
+    await shot('site-bloom');
+    check('and the roller has nothing to roll on a paved road', !(await machine(0, 1)));
+
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        const dozer = s.at(2, 1);
+        s.cells[1][2] = null;
+        s.put(6, 0, dozer, true);
+        s.put(5, 0, s.make('pile'), true);
+    });
+    const overEdge = await machine(6, 0);
+    check(
+        'with no hole to push it into, the bulldozer pushes the pile over the edge of the site',
+        overEdge && (await count('pile')) === 0 && (await siteAt(6, 0)) === 'dozer'
+    );
+    await tapCell(4, 4, -0.2);
+    await page.waitForTimeout(300);
+    check('the work lamp lights', await scene(() => window.playroom.stage.scene.at(4, 4).lit));
     await home();
 
     // ---- turning the iPad ----------------------------------------------------------------------

@@ -35,6 +35,23 @@ export const GROUND = {
     slab: '#DCD7CF',
     slabEdge: '#C1BAB0',
     rebar: '#B99068',
+    // The forms that line a hole for its concrete: wooden boards.
+    wood: '#E2C392',
+    woodDeep: '#C9A574',
+    woodLight: '#F0DBB4',
+    // A road at Bloom, from marked out to paved: the dirt the bulldozer scrapes, its ruts and clods,
+    // then the same rolled smooth.
+    dirt: '#CFB08A',
+    dirtEdge: '#BC9A73',
+    rut: '#B48F69',
+    clod: '#BD9A75',
+    rolled: '#DACDB5',
+    rolledEdge: '#C5B699',
+    rolledLight: '#E7DDC9',
+    // A hole filled back in: loose earth, heaped.
+    fill: '#C8A37D',
+    fillLight: '#D9BA96',
+    fillDeep: '#AE8963',
 };
 
 // The colour-and-note pairs, paler, for walls: one a floor, from the ground up.
@@ -123,10 +140,14 @@ export function plotHole(ctx, x, y, s, m) {
     }
 }
 
-// Wet concrete, freshly poured: grey, with a sheen, and whatever has been pressed into it.
+// Wet concrete, freshly poured into its forms, whose top edges show round it: grey, with a sheen,
+// and whatever has been pressed into it.
 export function plotWet(ctx, x, y, s, m) {
     joinedRect(ctx, x, y, s, m, s * 0.06, s * 0.16);
-    ctx.fillStyle = GROUND.holeEdge;
+    ctx.fillStyle = GROUND.woodDeep;
+    ctx.fill();
+    joinedRect(ctx, x, y, s, m, s * 0.075, s * 0.145);
+    ctx.fillStyle = GROUND.wood;
     ctx.fill();
     joinedRect(ctx, x, y, s, m, s * 0.1, s * 0.13);
     ctx.fillStyle = GROUND.wet;
@@ -147,6 +168,27 @@ export function plotSlab(ctx, x, y, s, m, bars = true) {
     if (!bars) return;
     for (const bx of [0.25, 0.5, 0.75]) {
         line(ctx, x + s * bx, y + s * 0.62, x + s * bx, y + s * 0.5, Math.max(1, s * 0.016), GROUND.rebar);
+    }
+}
+
+// A hole filled back in, as it lies flat: loose earth to the edges of the tile, clods on it. Its
+// lumps stand up out of it, drawn with what stands.
+export function fillPatch(ctx, x, y, s) {
+    joinedRect(ctx, x, y, s, 0, s * 0.05, s * 0.14);
+    ctx.fillStyle = GROUND.fillDeep;
+    ctx.fill();
+    joinedRect(ctx, x, y, s, 0, s * 0.08, s * 0.12);
+    ctx.fillStyle = GROUND.fill;
+    ctx.fill();
+    for (let i = 0; i < 7; i++) {
+        const n = (i * 29 + 7) % 23;
+        disc(
+            ctx,
+            x + s * (0.18 + ((n * 0.31) % 0.64)),
+            y + s * (0.18 + ((n * 0.47) % 0.64)),
+            s * (0.015 + (i % 3) * 0.006),
+            i % 2 ? GROUND.fillDeep : GROUND.fillLight
+        );
     }
 }
 
@@ -293,7 +335,10 @@ export function toppingTree(ctx, x, y, k) {
 //==============================================================================
 // Standing pieces. (x, y) is the tile's corner and s its side.
 
-// A heap of sand: `size` 1 to 3.
+// The colours of a heap: the site's earth, dug out of its holes.
+const HEAP = { deep: SITE.earthDeep, body: SITE.earth, light: '#D3B593' };
+
+// A heap of earth: `size` 1 to 3.
 export function pile(ctx, x, y, s, size = 2, o = {}) {
     const cx = x + s / 2;
     const base = y + s * 0.82;
@@ -309,10 +354,10 @@ export function pile(ctx, x, y, s, size = 2, o = {}) {
         ctx.fillStyle = colour;
         ctx.fill();
     };
-    mound(s * 0.01, 0, SITE.sandDeep);
-    mound(-s * 0.02, -s * 0.02, SITE.sand);
+    mound(s * 0.01, 0, HEAP.deep);
+    mound(-s * 0.02, -s * 0.02, HEAP.body);
     ellipse(ctx, cx - w * 0.25, base - h * 0.62, w * 0.18, h * 0.08, -0.5);
-    ctx.fillStyle = SITE.sandLight;
+    ctx.fillStyle = HEAP.light;
     ctx.fill();
     for (let i = 0; i < 5; i++) {
         const n = (i * 37 + size * 11) % 17;
@@ -320,8 +365,8 @@ export function pile(ctx, x, y, s, size = 2, o = {}) {
             ctx,
             cx - w * 0.6 + (n / 17) * w * 1.2,
             base - h * (0.15 + ((i * 7) % 5) * 0.1),
-            s * 0.008,
-            SITE.sandDeep
+            s * 0.01,
+            HEAP.deep
         );
     }
     if (o.worm) worm(ctx, cx + w * 0.3, base - h * 0.3, s * 2.2, o.worm);
@@ -476,6 +521,114 @@ export function roller(ctx, cx, by, k, o = {}) {
         }
         disc(ctx, dx, dy, r * 0.25, SITE.body);
     });
+}
+
+// An asphalt paver: a hopper of warm asphalt at the front, the driver under a sunshade, and the
+// screed at the back, a long low iron that lays the road smooth behind it. `o`: facing, screed (0
+// down and laying, 1 lifted), roll (the wheels' turn), glow (beacon), steam (0..1, asphalt
+// steaming in the hopper).
+export function paver(ctx, cx, by, k, o = {}) {
+    shadow(ctx, cx, by, k * 0.44);
+    mirrored(ctx, cx, o.facing || 1, () => {
+        const lift = (o.screed === undefined ? 1 : o.screed) * k * 0.035;
+        const turn = o.roll || 0;
+        // The screed, behind, on its arms.
+        line(
+            ctx,
+            cx - k * 0.22,
+            by - k * 0.15,
+            cx - k * 0.36,
+            by - k * 0.08 - lift,
+            k * 0.03,
+            SITE.steelDeep
+        );
+        fillRound(ctx, cx - k * 0.47, by - k * 0.1 - lift, k * 0.19, k * 0.075, k * 0.02, SITE.bodyDeep);
+        fillRound(ctx, cx - k * 0.47, by - k * 0.045 - lift, k * 0.19, k * 0.035, k * 0.012, SITE.steelDeep);
+        // The tracks.
+        fillRound(ctx, cx - k * 0.27, by - k * 0.11, k * 0.47, k * 0.11, k * 0.05, SITE.tyre);
+        for (const wx of [-0.19, -0.03, 0.13]) wheel(ctx, cx + k * wx, by - k * 0.055, k * 0.04, turn);
+        // The body, and the hopper at the front with its asphalt heaped in it.
+        fillRound(ctx, cx - k * 0.3, by - k * 0.27, k * 0.46, k * 0.17, k * 0.04, SITE.body);
+        fillRound(ctx, cx - k * 0.3, by - k * 0.15, k * 0.46, k * 0.04, k * 0.015, SITE.bodyDeep);
+        ellipse(ctx, cx + k * 0.3, by - k * 0.29, k * 0.11, k * 0.05);
+        ctx.fillStyle = GROUND.fresh;
+        ctx.fill();
+        poly(
+            ctx,
+            [
+                [cx + k * 0.14, by - k * 0.3],
+                [cx + k * 0.44, by - k * 0.32],
+                [cx + k * 0.36, by - k * 0.12],
+                [cx + k * 0.16, by - k * 0.12],
+            ],
+            SITE.bodyDeep
+        );
+        poly(
+            ctx,
+            [
+                [cx + k * 0.19, by - k * 0.27],
+                [cx + k * 0.39, by - k * 0.29],
+                [cx + k * 0.34, by - k * 0.16],
+                [cx + k * 0.2, by - k * 0.16],
+            ],
+            SITE.body
+        );
+        if (o.steam) {
+            for (let i = 0; i < 2; i++) {
+                const t = ((o.steamAt || 0) * 0.6 + i * 0.5) % 1;
+                disc(
+                    ctx,
+                    cx + k * (0.27 + i * 0.06),
+                    by - k * (0.36 + t * 0.2),
+                    k * (0.03 + t * 0.025),
+                    `rgba(255, 252, 245, ${0.55 * o.steam * (1 - t)})`
+                );
+            }
+        }
+        // The driver, under a sunshade on two poles.
+        worker(ctx, cx - k * 0.1, by - k * 0.3, k * 0.75, { seated: true });
+        line(ctx, cx - k * 0.25, by - k * 0.26, cx - k * 0.25, by - k * 0.6, k * 0.018, SITE.steelDeep);
+        line(ctx, cx + k * 0.05, by - k * 0.26, cx + k * 0.05, by - k * 0.6, k * 0.018, SITE.steelDeep);
+        fillRound(ctx, cx - k * 0.32, by - k * 0.64, k * 0.44, k * 0.05, k * 0.025, SITE.accent);
+        fillRound(ctx, cx - k * 0.32, by - k * 0.605, k * 0.44, k * 0.015, k * 0.007, SITE.accentDeep);
+        beacon(ctx, cx - k * 0.1, by - k * 0.67, k * 0.03, o.glow || 0);
+        line(ctx, cx + k * 0.1, by - k * 0.26, cx + k * 0.1, by - k * 0.37, k * 0.025, SITE.steelDeep);
+    });
+}
+
+// The forms for a hole's concrete, hanging from the crane: a square frame of boards, and the steel
+// laid in it. In the frame `f`, round (u, v), from z0 up to z1.
+export function formsFrame(ctx, f, u, v, half, z0, z1) {
+    const t = 0.035;
+    const board = (u0, v0, u1, v1) =>
+        iso.box(ctx, f, u + u0, v + v0, u + u1, v + v1, z0, z1, GROUND.wood, {
+            left: GROUND.woodDeep,
+            top: GROUND.woodLight,
+        });
+    // The far boards, the steel, then the near boards over it.
+    board(-half, -half, half, -half + t);
+    board(-half, -half + t, -half + t, half);
+    const w = Math.max(1, f.tw * 0.008);
+    for (const a of [-0.5, 0, 0.5]) {
+        iso.edge(
+            ctx,
+            f,
+            [u - half + t, v + a * half, z0 + 0.02],
+            [u + half - t, v + a * half, z0 + 0.02],
+            w,
+            GROUND.rebar
+        );
+        iso.edge(
+            ctx,
+            f,
+            [u + a * half, v - half + t, z0 + 0.02],
+            [u + a * half, v + half - t, z0 + 0.02],
+            w,
+            GROUND.rebar
+        );
+    }
+    board(-half + t, half - t, half, half);
+    board(half - t, -half + t, half, half - t);
 }
 
 // A traffic cone, soft orange with white bands, and the striped tape to any cone joined beside it.
@@ -968,7 +1121,8 @@ export function isoCraneMast(ctx, f, mast) {
 // The crane's top: the jib and its counterweight turned to `o.slew` (radians: 0 towards the next
 // tile down the column, a quarter turn towards the next down the row), the cab, the trolley `o.reach`
 // tiles out, and the hook `o.drop` tile widths below the jib with what it carries: `o.load`, a floor
-// of a building, or `o.tree`, the topping-out tree. Over everything, as the tallest thing there.
+// of a building, `o.forms`, the forms for a hole, or `o.tree`, the topping-out tree. Over everything,
+// as the tallest thing there.
 export function isoCraneTop(ctx, f, o) {
     const H = o.mast;
     const du = Math.cos(o.slew);
@@ -1047,8 +1201,20 @@ export function isoCraneTop(ctx, f, o) {
             top: shade(o.load.wall, 0.06),
         });
     }
+    if (o.forms) {
+        const hu = du * r;
+        const hv = dv * r;
+        const top = hz - 0.03;
+        const half = 0.34;
+        seg(hook, iso.pt(f, hu - half, hv + half, top), Math.max(1, w * 0.006), INK);
+        seg(hook, iso.pt(f, hu + half, hv - half, top), Math.max(1, w * 0.006), INK);
+        formsFrame(ctx, f, hu, hv, half, top - FORMS_H, top);
+    }
     if (o.tree) toppingTree(ctx, hook[0], hook[1] + w * 0.25, w * 0.85);
 }
+
+// How tall the forms are, in tile widths: a board's width.
+export const FORMS_H = 0.08;
 
 // Where the crane's beacon shines, and where a bird sits at the end of its jib.
 export function craneSpots(f, o) {

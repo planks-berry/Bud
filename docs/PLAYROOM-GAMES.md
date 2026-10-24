@@ -562,15 +562,16 @@ touched, and keep a few secrets.
   goes back. Grass put down on a tile makes it bare grass again.
 - Make: a farm that joins up, as big as the table: paths for the tractor, streams carrying a pond's
   water to the fields, a pond big enough for ducks. The sun in the corner turns day to night and
-  back. The broom beside it, held a moment, sweeps the table empty again: every piece flies back to
-  the tray, a line at a time, and the land goes with it.
+  back. The broom beside it, tapped, sweeps the island: every piece flies back to the tray, a line
+  at a time, and the land is left, plain grass. Tapped again, it sweeps the land away too, and the
+  table is empty.
 
 **Stages**
 - Seed: a table of 5 × 4 tiles, 7 kinds of piece: path, field, pond, stream, tree, cow, tractor.
 - Sprout: 6 × 5, 11 kinds: adds the fence, barn, hen house and sheep.
 - Bloom: 7 × 5, all 14 kinds: adds the farmhouse, windmill and pig.
 
-Each stage starts as an empty table, and the broom brings it back to that whenever it is wanted.
+Each stage starts as an empty table; the broom brings it back to plain grass, and then to that.
 
 **Every piece: how it connects, what a tap does, what it hides**
 
@@ -627,9 +628,13 @@ morning, with a rooster if there is a hen house.
 - A blank start, and a way back to one: "For both the farm and site games, they should start blank.
   And also add a 'reset' button that wipes the slate clean to a blank starting point." The table
   comes out empty, and anything put down on it brings its own land, so the first piece is where
-  the island begins. The reset is a broom beside the sun. It sweeps only when held a moment, its
-  ring filling, so a brush of the hand cannot clear the table by accident; a tap just rustles it.
-  After the sweep the farm begins again exactly as it comes off the shelf, its surprises new.
+  the island begins. The reset is a broom beside the sun. At first it swept only when held a
+  moment, so a brush of the hand could not clear the table by accident; but a hold nobody knows
+  about is a broom that does nothing ("The broom currently doesn't do anything. Make that reset the
+  site back to plain tiles."), so now a tap sweeps, in two steps: the first takes every piece back
+  to the tray and leaves the land, plain; the second, with only plain land left, takes the land. On
+  the farm as on the site, since they share the broom. After a sweep the board begins again as it
+  comes off the shelf, on the land the sweep left, its surprises new.
 - No Montessori parallel, by choice.
 
 **Questions**
@@ -787,33 +792,57 @@ knocking down never leaves a mess.
 ### 12. Building site
 
 **What it is:** the farm's board, as a building site: an island of earth tiles seen from a corner,
-and a tray of earth, roads, plots and machines to build with, where the machines work in chains.
+and a tray of earth, roads, plots and machines to build with, where each machine does one step of
+the work and leaves the next step to the next machine.
 
 **Roots:** Pok Pok's builder, like the farm, which it shares its board with: tiles that make up the
 world, pieces that snap to them, join their neighbours, come alive when touched, and keep a few
-secrets.
+secrets. And a real site's order of work, which a child who loves diggers already half knows.
 
 **Layers**
-- Touch: tap anything. Every piece answers, whatever stands beside it.
-- Move: as on the farm. A tile of earth put down on the table adds land; a road or a plot put down
-  on a tile changes it; a piece put down on a tile stands there. Drag a piece to move it; dropped
-  on another piece it swaps places, and dropped on the tray it goes back. The broom, held a moment,
-  sweeps the table empty again.
-- Make: a site that works. A digger beside a marked-out plot digs it out and loads the earth into a
-  truck beside it; the truck drives the road and tips the earth onto a pile; a mixer beside the
-  hole fills it with concrete, which sets by itself; a crane beside the foundation lifts a building
-  onto it, a floor at a time, each floor a note higher and the next of the playroom's colours,
-  until it is topped out with a little tree. None of it has to happen in order, and none of it is a
-  goal.
+- Touch: tap anything. Every piece answers; a machine with nothing to do answers with its engine
+  and a little of its work, a scoop at the air or a swing of the jib.
+- Move: as on the farm, but the site's pieces stand on the ground rather than taking its place. A
+  tile of earth put down on the table adds land; a road or a plot put down on a tile changes it; a
+  machine, a pile, cones, the hut or a lamp put down on bare earth or a road stands on it, and the
+  road is still there when it moves off. They stand only on flat ground: put down on a plot, a
+  piece goes back where it came from, and a plot cannot go in under a machine; earth put down
+  under one clears the road from under it. Drag a piece to move it; dropped on another piece the
+  two swap places, each standing on the ground it finds; dropped on the tray it goes back. The
+  broom, tapped, sweeps everything back to the tray and leaves the island plain earth; tapped again,
+  it sweeps the island away.
+- Make: a site that works, a step at a time.
+  - A building: a plot is marked out with pegs and string. The digger digs it out, one tile a tap,
+    however many tiles are joined, and it reaches only the tiles beside it. The crane lowers the
+    forms into the hole, boards round its walls and steel across its floor. The mixer pours the
+    concrete into the forms, all the joined forms at once, and it sets by itself. The crane lifts
+    the building onto the foundation a floor at a time, each floor a note higher and the next of
+    the playroom's colours, and tops it out with a little tree. A crane finishes one building
+    before it starts on another.
+  - A road, at Bloom: put down marked out, a string down its middle on pegs. The bulldozer scrapes
+    it into a dirt road, rutted and lumpy; the roller rolls the bumps flat; the paver lays the
+    asphalt, steaming. Each works the road it stands on or one beside it, and only at its own step,
+    driving out along the road to every tile there is to do and home, past machines parked on it;
+    cones close a road to them.
+  - The earth, which always has somewhere to go. What the digger digs goes into an empty truck
+    beside it, onto a pile beside it, or onto bare earth beside it as a new pile; with nowhere at
+    all, it holds it in its bucket until there is. A loaded truck drives to the edge of the site
+    over the flat ground, keeping to the roads, turns its back to the edge, tips the earth over,
+    and comes home. With no plot to dig, the digger loads a truck from a pile beside them both. At
+    Bloom, the bulldozer pushes a pile beside it across the flat ground to the nearest hole the
+    digger has dug and into it, and backs home; with no hole it can reach, to the nearest edge and
+    over. The roller rolls the filled hole flat, back to bare earth.
 
 **Stages**
-- Seed: a table of 5 × 4 tiles, 6 kinds of piece: road, plot, digger, truck, mixer, crane.
-  Buildings go up to 3 floors.
-- Sprout: 6 × 5, 9 kinds: adds the pile, the cones and the foreman's hut. Up to 4 floors.
-- Bloom: 7 × 5, all 12 kinds: adds the roller, the bulldozer and the work lamp. Up to 4 floors, as
-  at Sprout.
+- Seed: a table of 5 × 4 tiles, 6 kinds of piece: road, plot, digger, truck, crane, mixer. Roads
+  go down paved. Buildings go up to 3 floors.
+- Sprout: 6 × 5, 9 kinds: adds the pile, the cones and the foreman's hut. Roads go down paved. Up
+  to 4 floors.
+- Bloom: 7 × 5, all 13 kinds: adds the bulldozer, the roller, the paver and the work lamp, and
+  roads go down marked out, to be built. Up to 4 floors, as at Sprout.
 
-Each stage starts as an empty table, as the farm does, and the broom brings it back to that.
+Each stage starts as an empty table, as the farm does; the broom brings it back to plain earth,
+and then to that.
 
 **Every piece: how it connects, what a tap does, what it hides**
 
@@ -822,17 +851,18 @@ comes out, and half the time or more after that.
 
 | Piece | Connects | A tap | Hidden |
 |---|---|---|---|
-| Road | Joins the roads beside it; the trucks and the roller drive along them | A crunch of grit | Pigeons come down to peck, and fly off |
-| Plot | Joins the plots beside it at the same step, so two buildings of a height side by side are one wide building | Marked out: the string between the pegs is plucked. Dug: a crunch. Wet: a hand pressed in leaves its print. Set: a clank. A building: it plays its floors from the ground up, each lit as it sounds | A bone at the bottom of a hole; the first time a building plays, it turns out to be lived in, with plants at the windows and a meow |
-| Digger | Digs out the marked plot beside it (with none, it scoops from a pile), and loads the earth into a truck or onto a pile beside it | It digs | A bird perches on it, by day |
-| Truck | Drives the road beside it and tips its load onto a pile beside the road | Two beeps, and off it goes, beeping as it reverses; with nowhere to go, it tips where it stands | The site dog runs behind it |
-| Mixer | Fills the dug hole beside it with concrete, which sets by itself into a foundation | The drum turns and sloshes | A cat walks across the wet concrete, leaving paw prints |
-| Crane | Lifts a floor onto the foundation or building beside it; the mast climbs when the building needs it; at the top floor, a little tree | It lifts; with nothing to build on, it swings round and back | A bird lands on the end of the jib, by day |
-| Pile | Takes what the trucks and the digger tip on it, and grows | It slides, with a rumble | A worm pokes out |
-| Cones | Join the cones beside them | A line of them wobbles, one after another, climbing the scale | A hedgehog behind them |
-| Foreman's hut | – | The door creaks, the foreman steps out and blows the whistle, and every machine on the site has a go, one after another, in the order a building's work goes | A radio playing a tune |
-| Roller | Rolls the whole road beside it, leaving it fresh | A toot, and off it goes, its drum playing the scale; with no road, it putters on the spot | A cat rides on the roof |
-| Bulldozer | Pushes the pile beside it down, or fills a hole back in | Blade down, and a push | A lost ball under the sand |
+| Road | Joins the roads beside it, whatever their step. At Seed and Sprout it is put down paved; at Bloom marked out, and built in three steps, each a machine's: dirt, rolled, paved | Marked out: the string is plucked. Dirt and asphalt: a crunch. Rolled: a pat | Pigeons come down to peck, and fly off |
+| Plot | Joins the plots beside it at the same step, so two buildings of a height side by side are one wide building. Its steps: marked out, dug, the forms in, poured, set, and a floor at a time | Marked out: the string between the pegs is plucked. Dug: a crunch. The forms: a knock on the boards. Wet: a hand pressed in leaves its print. Set: a clank. A building: it plays its floors from the ground up, each lit as it sounds | A bone at the bottom of a hole; the first time a building plays, it turns out to be lived in, with plants at the windows and a meow |
+| Digger | Digs one tile of a marked plot beside it a tap, and puts the earth into an empty truck beside it, onto a pile beside it, or onto bare earth beside it as a new pile; with no plot, loads a truck from a pile beside them both | It digs; with nothing to dig, it scoops at the air | A bird perches on it, by day |
+| Truck | Stands on a road or bare earth; loaded by the digger, it takes the earth to the edge of the site and tips it over | Two beeps; loaded, off it goes, keeping to the roads, beeping as it backs up; empty, it lifts its bed to show there is nothing in it | The site dog runs behind it |
+| Crane | Lowers the forms into a hole beside it; lifts a floor onto the foundation or building beside it, its mast climbing when the building needs it; at the top floor, a little tree. One building at a time | It lifts; with nothing to do, it swings round and back | A bird lands on the end of the jib, by day |
+| Mixer | Pours the concrete into the forms beside it, and the forms joined to them; it sets by itself into a foundation. A bare hole it leaves for the forms | The drum turns and sloshes | A cat walks across the wet concrete, leaving paw prints |
+| Pile | Earth from the digger; the digger loads trucks from it, and at Bloom the bulldozer pushes it into a hole or over the edge | It slides, with a rumble | A worm pokes out |
+| Cones | Join the cones beside them; close a road to the road machines | A line of them wobbles, one after another, climbing the scale | A hedgehog behind them |
+| Foreman's hut | – | The door creaks, the foreman steps out and blows the whistle, and every machine on the site has a go, one after another, in the order the work goes | A radio playing a tune |
+| Bulldozer | Pushes a pile beside it over the flat ground to the nearest hole the digger dug and into it, and backs home; with no hole to reach, over the edge. With no pile, scrapes a marked road into dirt | Blade down, and a push; with nothing to push, a shove | A lost ball under the pile |
+| Roller | Rolls a filled hole flat, back to bare earth; rolls a dirt road smooth. Never what is already smooth | A toot, and off it goes, its drum playing the scale; with nothing bumpy, it putters on the spot | A cat rides on the roof |
+| Paver | Paves a rolled road, a note a tile, the new asphalt steaming. It waits for the roller | Its screed down and up, with a hiss, when there is nothing rolled to pave | A duck and two ducklings cross the new road |
 | Work lamp | – | On and off | At night it lights the ground around it, and moths come |
 | Bare ground | – | A little dust | – |
 
@@ -843,28 +873,59 @@ his whistle.
 **Sound:**
 - the machines' engines, beeps, rumbles and clanks, the mixer's slosh, and the foreman's whistle;
 - each floor of a building is its colour's note, so a building plays a rising tune;
-- the radio's tune, the roller's scale, the cones' climbing knocks.
+- the radio's tune, the road machines' notes climbing as they work, the cones' climbing knocks;
+- earth tipped over the edge rumbles, and lands, far below, with a soft thud.
 
 **Decisions so far**
-- The farm's board is shared, so the two builders' games play the same way: one piece to a tile,
-  moved, swapped and put back alike, and an island that grows a tile at a time.
+- The farm's board is shared, so the two builders' games are moved, swapped and put back alike,
+  on an island that grows a tile at a time.
+- The site's pieces stand on the ground, not in its place: "The trucks replace tiles they are
+  placed on. That should not happen, instead only allowing them placed onto tiles that are
+  relatively flat." Flat is bare earth and road, at any step; not a plot at any step, which is for
+  building, nor a filled hole, which is lumpy until it is rolled. The farm keeps one piece to a
+  tile.
+- One step, one machine, in a building's order: "The interactions of trucks and building order
+  needs focus. There is a lot of disparate actions." So each machine has one job and does only
+  that; the ones that did two unrelated things lost one (the truck no longer tours the road, the
+  bulldozer no longer fills holes from nothing, the roller no longer rolls finished roads).
+- Slower and in between: "Make the excavator dig one plot at a time, even if there are multiple
+  connected. It is slower and more gratifying." And "add a few more 'in between' steps: from hole
+  to forms to concrete poured, from ground to dirt road from bulldozer to paved roads from road
+  paver." The forms are the crane's, which is already in every stage's tray; the paver is new.
+- The earth goes somewhere: "Have a bulldozer push the dirt pile into a hole that the excavator
+  has dug. The dirt needs a place to go. If not available, then it pushes off screen." The truck
+  takes its load to the edge the same way, and the pile is earth now rather than sand.
+- The roller rolls what is bumpy: "Change the road roller to only roll bumpy ground and not only
+  the paved roads. That doesn't make sense." The bumpy ground is a filled hole and a dirt road, so
+  the roller comes between the bulldozer and the paver, as on a real road: scrape, roll, pave. The
+  paver waits for it.
+- Machines parked on a road do not stop the road machines, which squeeze past; cones do, as road
+  works close a road.
 - In three dimensions: a building is stacked floors with windows on its walls, a dug plot is a
-  real hole in the island, and the crane's jib swings round to face whichever building it works
-  on, its mast climbing as the building rises.
+  real hole in the island, and the crane's jib swings round to face whichever plot it works on,
+  its mast climbing as the building rises.
 - Buildings stop at four floors, at Bloom as at Sprout. ("Limit the building height to 4, so not
   blocking anything. Minimal navigation interactions are best for his stage.") Four floors still
   cover most of a small piece on the tile diagonally behind, so what a building or the hut hides
   shows through it as a pale silhouette, always, and a touch on the silhouette takes the hidden
   piece; the view does not turn, and there is nothing to do to see. ("He looks around for it.")
-- An empty table every time it comes off the shelf, a broom to clear it again, and hidden things
-  certain, as on the farm. ("For both the farm and site games, they should start blank.")
+- An empty table every time it comes off the shelf, and hidden things certain, as on the farm.
+  ("For both the farm and site games, they should start blank.") The broom, tapped, brings it back
+  to plain earth, and tapped again to the empty table: see the farm's decisions.
 - The whistle lets one tap show the whole chain of work.
 
 **Questions**
--
+- Should a stray tap on the broom be harder to make, now that one tap clears the pieces?
+- Should the paver pave a dirt road without waiting for the roller?
 
 **Ideas**
--
+- Forms struck: when the concrete has set, the crane lifts the forms back out, a step before the
+  first floor.
+- Deliveries: the truck brings each floor, and the crane lifts it off the truck, so the truck has a
+  part in the building as well as the earth.
+- Backfill: earth pushed back round a set foundation by the bulldozer, so a pile has a use beside
+  a building as well as a hole.
+- Road lines: a small line-painting machine after the paver, for the dashes down the middle.
 
 ### 13. Bird song
 

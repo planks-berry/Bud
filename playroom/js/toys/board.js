@@ -6,8 +6,11 @@
 // a front and a side. The table is marked out in tiles, and starts empty. The island grows wherever
 // a tile or a piece from the tray is put down on the table, and any tile can be changed: a ground
 // dropped on it (a pond, a path, a road) takes the place of what was there, and a piece dropped on
-// it stands there. Dragged again, pieces move, swap places, or go back to the tray. One piece to a
-// tile. The broom in the corner, held a moment, sweeps the table empty again.
+// it stands there. Dragged again, pieces move, swap places, or go back to the tray. On the farm,
+// one piece to a tile; a layered board (the building site) has its pieces stand on the ground
+// instead, as a truck stands on a road, and says what they may stand on. The broom in the corner,
+// tapped, sweeps everything off the island back to the tray and leaves it plain; tapped again, it
+// sweeps the island away and the table is empty.
 //
 // What lies flat is drawn as if from straight above, into the plan of the island, and the plan is
 // laid at the island's angle by one transform, so a pond is drawn as a pond and comes out lying on
@@ -64,9 +67,6 @@ const HEADROOM = 0.45;
 const SPRITES = 48;
 // The largest piece a silhouette is made of, in a piece's frame widths: a building of four floors.
 const GHOST = [1.8, 2.6];
-// How long the broom is held before it sweeps, in seconds: long enough that a brush of the hand
-// does not clear the table, short enough for a small hand to mean it.
-const BROOM = 0.8;
 
 export function key(c, r) {
     return c * 100 + r;
@@ -93,11 +93,8 @@ export class BoardScene extends Scene {
         this.sprites = {};
         this.press = this.kinds.map(() => new Spring(0, 420, 18));
         this.sunPress = new Spring(0, 420, 18);
-        // The broom: how far through being held it is, the finger holding it, and the sweep once
-        // it has begun.
+        // The broom, and its sweep once it has begun.
         this.broomPress = new Spring(0, 420, 18);
-        this.broomHold = 0;
-        this.broomHand = null;
         this.sweep = null;
         this.night = 0;
         this.nightTarget = 0;
@@ -109,8 +106,9 @@ export class BoardScene extends Scene {
         this.by = 0;
     }
 
-    // An empty table, as the board begins every time it comes off the shelf and as the broom leaves
-    // it: the building is the game, so nothing is kept, not even while the playroom is open.
+    // An empty table, as the board begins every time it comes off the shelf and as the broom's
+    // second sweep leaves it: the building is the game, so nothing is kept, not even while the
+    // playroom is open.
     begin() {
         this.cells = [];
         this.land = [];
@@ -148,9 +146,17 @@ export class BoardScene extends Scene {
         return this.cells[r][c];
     }
 
+    // Whether (c, r) is of a kind: its piece, or on a layered board the ground under it.
     is(c, r, kind) {
         const p = this.at(c, r);
-        return !!p && p.kind === kind;
+        return !!p && (p.kind === kind || (!!p.under && p.under.kind === kind));
+    }
+
+    // The ground piece of a tile, under whatever stands on it, or null for bare land.
+    floorAt(c, r) {
+        const p = this.at(c, r);
+        if (!p) return null;
+        return this.isGround(p.kind) ? p : p.under || null;
     }
 
     // Bare land with nothing on it.
@@ -158,12 +164,14 @@ export class BoardScene extends Scene {
         return this.isLand(c, r) && !this.cells[r][c];
     }
 
-    // The sides on which a tile joins a neighbour of its own kind.
-    mask(c, r) {
+    // The sides on which a tile joins a neighbour of its own kind, or of `kind`: a road under a
+    // truck still joins the road beside it.
+    mask(c, r, kind) {
         const p = this.at(c, r);
         if (!p) return 0;
+        const k = kind || p.kind;
         let m = 0;
-        for (const [dc, dr, bit] of SIDES) if (this.is(c + dc, r + dr, p.kind)) m |= bit;
+        for (const [dc, dr, bit] of SIDES) if (this.is(c + dc, r + dr, k)) m |= bit;
         return m;
     }
 
@@ -704,7 +712,7 @@ export class BoardScene extends Scene {
                 const x = (c + 0.5) * s;
                 const y = (r + 0.5) * s;
                 disc(ctx, x, y, width / 2, colour);
-                const m = this.mask(c, r);
+                const m = this.mask(c, r, kind);
                 ctx.beginPath();
                 if (m & E) {
                     ctx.moveTo(x, y);
@@ -754,12 +762,6 @@ export class BoardScene extends Scene {
     update(dt) {
         this.time += dt;
         if (this.sweep) return this.sweeping(dt);
-        if (this.broomHand) {
-            this.broomHold = Math.min(1, this.broomHold + dt / BROOM);
-            if (this.broomHold >= 1) this.startSweep();
-        } else if (this.broomHold > 0) {
-            this.broomHold = Math.max(0, this.broomHold - dt / 0.25);
-        }
         this.broomPress.update(dt);
         const due = this.queue.filter((q) => q.at <= this.time);
         if (due.length) {
@@ -873,9 +875,7 @@ export class BoardScene extends Scene {
         const b = this.broomButton;
         if (dist(p.x, p.y, b.x, b.y) < b.r + 10 * u) {
             p.owner = { type: 'broom' };
-            if (!this.broomHand) this.broomHand = p;
             this.broomPress.kick(-6);
-            audio.play('rustle', {}, { gain: 0.35, pan: this.pan(b.x) });
             return;
         }
         if (dist(p.x, p.y, this.sunButton.x, this.sunButton.y) < this.sunButton.r + 10 * u) {
@@ -912,19 +912,15 @@ export class BoardScene extends Scene {
         }
         const o = p.owner;
         if (!o) return;
-        if (o.type === 'broom') {
-            // Slid off the broom, the hold is let go.
-            const b = this.broomButton;
-            if (this.broomHand === p && dist(p.x, p.y, b.x, b.y) > b.r + 30 * this.u) this.broomHand = null;
-            return;
-        }
         if (o.type === 'tray' && p.travel > 6 * this.u) {
             this.drag = { pointer: p, piece: this.make(o.kind), from: null, x: p.x, y: p.y };
             audio.play('tick', { f: noteHz(5, 72) }, { gain: 0.4, pan: this.pan(p.x) });
         } else if (o.type === 'piece' && p.travel > 8 * this.u) {
             const piece = this.at(o.c, o.r);
             if (!piece) return;
-            this.cells[o.r][o.c] = null;
+            // Whatever it stood on stays.
+            this.cells[o.r][o.c] = piece.under || null;
+            piece.under = null;
             this.drag = { pointer: p, piece, from: [o.c, o.r], x: p.x, y: p.y };
             audio.play('tick', { f: noteHz(3, 72) }, { gain: 0.4, pan: this.pan(p.x) });
             this.lifted(o.c, o.r, piece);
@@ -941,7 +937,8 @@ export class BoardScene extends Scene {
         }
         if (!o) return;
         if (o.type === 'broom') {
-            if (this.broomHand === p) this.broomHand = null;
+            const b = this.broomButton;
+            if (dist(p.x, p.y, b.x, b.y) < b.r + 20 * this.u) this.startSweep();
         } else if (o.type === 'sun') {
             if (dist(p.x, p.y, this.sunButton.x, this.sunButton.y) < this.sunButton.r + 20 * this.u)
                 this.toggleNight();
@@ -963,12 +960,19 @@ export class BoardScene extends Scene {
     }
 
     cancel(p) {
-        if (this.broomHand === p) this.broomHand = null;
         if (this.drag && this.drag.pointer === p) {
             const d = this.drag;
             this.drag = null;
-            if (d.from && !this.at(d.from[0], d.from[1])) this.put(d.from[0], d.from[1], d.piece, true);
+            if (d.from && this.room(d.from[0], d.from[1], d.piece))
+                this.put(d.from[0], d.from[1], d.piece, true);
         }
+    }
+
+    // Whether a piece lifted from (c, r) can go straight back: nothing has taken its place.
+    room(c, r, piece) {
+        const there = this.at(c, r);
+        if (!there) return true;
+        return this.layered() && this.isGround(there.kind) && !this.isGround(piece.kind);
     }
 
     // Where a dragged piece would land: the tile under the piece, which is drawn a little above the
@@ -993,17 +997,26 @@ export class BoardScene extends Scene {
             return;
         }
         const [c, r] = cell;
+        if (!this.allows(d.piece, c, r)) {
+            this.refuse(d, c, r);
+            return;
+        }
         // Put down on the table, a tile is new land; so is whatever is put down there, which brings
         // its patch of land with it.
         const grew = !this.isLand(c, r);
         if (grew) this.addLand(c, r);
+        const there = this.at(c, r);
+        // On a layered board, what stands on the tile and the ground under it are two things.
+        const top = this.layered() && there && !this.isGround(there.kind) ? there : null;
+        const ground = this.layered() ? this.floorAt(c, r) : there;
         if (d.piece.kind === this.plain) {
-            // The bare land tile: on land, it clears the tile back to bare.
-            const there = this.at(c, r);
-            if (there) {
-                this.cells[r][c] = null;
+            // The bare land tile: on land, it clears the tile back to bare, or on a layered board
+            // the ground under whatever stands there.
+            if (ground) {
+                if (top) top.under = null;
+                else this.cells[r][c] = null;
                 const at = this.center(c, r);
-                this.poof(there, at.x, at.y);
+                this.poof(ground, at.x, at.y);
                 this.clearTile(c, r);
                 this.drawGround();
                 this.normalise();
@@ -1011,18 +1024,57 @@ export class BoardScene extends Scene {
             if (!grew) this.thump(c, r);
             return;
         }
-        const there = this.at(c, r);
-        if (there && there !== d.piece) {
+        if (this.layered() && this.isGround(d.piece.kind)) {
+            // A ground goes in under whatever stands there, in place of the ground that was.
+            if (ground && ground !== d.piece) {
+                if (top) top.under = null;
+                else this.cells[r][c] = null;
+                const at = this.center(c, r);
+                this.poof(ground, at.x, at.y);
+            }
+            this.put(c, r, d.piece);
+            return;
+        }
+        const other = top || (this.layered() ? null : there);
+        if (other && other !== d.piece) {
             // Dropped on another piece: from the tray it takes the tile, and the other goes back to the
-            // tray; from the board, the two swap places.
-            this.cells[r][c] = null;
-            if (d.from) this.put(d.from[0], d.from[1], there, true);
+            // tray; from the board, the two swap places. The ground stays where it is.
+            this.cells[r][c] = top ? ground : null;
+            other.under = null;
+            if (d.from) this.put(d.from[0], d.from[1], other, true);
             else {
                 const at = this.center(c, r);
-                this.poof(there, at.x, at.y);
+                this.poof(other, at.x, at.y);
             }
         }
         this.put(c, r, d.piece);
+    }
+
+    // Whether a piece may be put down on (c, r): anywhere, on a board that is not layered, and on
+    // the table, where it brings new land; on a layered board's land, only where what stands there
+    // can stand on the ground there, and not where a machine out on a trip will come home to.
+    allows(piece, c, r) {
+        if (!this.layered() || !this.isLand(c, r)) return true;
+        const there = this.at(c, r);
+        if (!there || there === piece) return true;
+        const top = this.isGround(there.kind) ? null : there;
+        if (top && top.away) return false;
+        if (piece.kind === this.plain) return true;
+        if (this.isGround(piece.kind)) return !top || this.standsOn(top.kind, piece);
+        return this.standsOn(piece.kind, top ? top.under || null : there);
+    }
+
+    // A piece put down where it cannot stand goes back where it came from, with a bump: to its
+    // tile, or to the tray.
+    refuse(d, c, r) {
+        const at = this.center(c, r);
+        audio.play('thud', { f: 80 }, { gain: 0.45, pan: this.pan(at.x) });
+        if (d.from && this.room(d.from[0], d.from[1], d.piece)) {
+            this.put(d.from[0], d.from[1], d.piece, true);
+            d.piece.bounce.kick(-9);
+        } else this.poof(d.piece, d.x, d.y);
+        if (this.isGround(d.piece.kind)) this.drawGround();
+        this.normalise();
     }
 
     // New land, rising out of the table with a note: each tile the island grows by a step higher,
@@ -1056,10 +1108,17 @@ export class BoardScene extends Scene {
         this.puff(at.x, at.y, 0.8, this.look.dust);
     }
 
-    // Place a piece and let it, and anything it joins, say so.
+    // Place a piece and let it, and anything it joins, say so. On a layered board a standing piece
+    // stands on the ground there, and a ground goes in under whatever stands there.
     put(c, r, piece, quiet = false) {
         if (!this.isLand(c, r)) this.land[r][c] = true;
-        this.cells[r][c] = piece;
+        const there = this.cells[r][c];
+        const layer = this.layered() && there && there !== piece;
+        if (layer && this.isGround(piece.kind) && !this.isGround(there.kind)) there.under = piece;
+        else {
+            if (layer && !this.isGround(piece.kind) && this.isGround(there.kind)) piece.under = there;
+            this.cells[r][c] = piece;
+        }
         piece.away = null;
         if (piece.trip) piece.trip = null;
         piece.bounce.kick(quiet ? 4 : 10);
@@ -1166,14 +1225,20 @@ export class BoardScene extends Scene {
     //--------------------------------------------------------------------------
     // The broom
 
-    // Held long enough, the broom sweeps the table: a line of tiles at a time, from the broom's
-    // side across, every piece flies back to the tray and the land sinks into the table, and day
-    // comes back. Then the board starts again as it comes off the shelf, so nothing of the old one
-    // is left to wake up later: no animal on its way somewhere, no machine halfway through its
-    // work.
+    // A tap on the broom sweeps the table: a line of tiles at a time, from the broom's side across.
+    // The first sweep takes everything on the island back to the tray, and leaves the land, plain;
+    // with only plain land left, the next sweeps the land into the table too. Day comes back, and
+    // then the board starts again as it comes off the shelf, with the land the sweep left, so
+    // nothing of the old one is left to wake up later: no animal on its way somewhere, no machine
+    // halfway through its work.
     startSweep() {
-        this.broomHand = null;
-        this.broomHold = 0;
+        const pieces = this.cells.some((row) => row.some(Boolean));
+        if (!pieces && !this.landCount()) {
+            // Nothing to sweep: a brush of the broom.
+            this.broomPress.kick(10);
+            audio.play('rustle', {}, { gain: 0.4, pan: this.pan(this.broomButton.x) });
+            return;
+        }
         this.queue = [];
         if (this.drag) {
             const d = this.drag;
@@ -1196,7 +1261,14 @@ export class BoardScene extends Scene {
             else lines.push({ x: t.x, tiles: [t] });
         }
         lines.forEach((line, i) => (line.at = 0.06 + i * 0.07));
-        this.sweep = { t: 0, lines, end: (lines.length ? lines[lines.length - 1].at : 0) + 0.6, stroke: 0 };
+        this.sweep = {
+            t: 0,
+            lines,
+            keep: pieces,
+            end: (lines.length ? lines[lines.length - 1].at : 0) + 0.6,
+            stroke: 0,
+        };
+        this.broomPress.kick(10);
         audio.play('whoosh', { variant: 'down' }, { gain: 0.5, pan: this.pan(this.broomButton.x) });
     }
 
@@ -1214,15 +1286,20 @@ export class BoardScene extends Scene {
             return f.t < f.life;
         });
         if (!sw.lines.length && sw.t >= sw.end) {
-            // A new board of the same kind, as if just taken off the shelf.
+            // A new board of the same kind, as if just taken off the shelf, on the land that is left.
             audio.note('chime', 4, 60, { gain: 0.35, wet: 0.4 });
-            this.app.stage.show(new this.constructor(this.app));
+            const next = new this.constructor(this.app);
+            if (sw.keep) {
+                next.land = this.land.map((row) => row.slice());
+                next.normalise(true);
+            }
+            this.app.stage.show(next);
         }
         return true;
     }
 
-    // One line of the table swept: its pieces back to the tray, its land into the table, with the
-    // broom's brush every other line.
+    // One line of the table swept: its pieces back to the tray, and on the second sweep its land
+    // into the table, with the broom's brush every other line.
     sweepLine(line) {
         for (const { c, r } of line.tiles) {
             const at = this.center(c, r);
@@ -1230,9 +1307,27 @@ export class BoardScene extends Scene {
             if (piece) {
                 this.cells[r][c] = null;
                 this.poof(piece, at.x, at.y - this.th * 0.3, 0);
+                if (piece.under) this.poof(piece.under, at.x, at.y, 0);
+                piece.under = null;
             }
             this.clearTile(c, r);
             if (!this.land[r][c]) continue;
+            if (this.sweep.keep) {
+                // The land stays, brushed clean.
+                if (piece) this.puff(at.x, at.y + this.th * 0.1, 0.7, this.look.dust);
+                this.fx.push({
+                    t: 0,
+                    life: 0.35,
+                    draw: (ctx, f) => {
+                        const k = f.t / f.life;
+                        ctx.beginPath();
+                        this.diamond(ctx, c, r, 0.08 + k * 0.1);
+                        ctx.fillStyle = `rgba(255, 252, 240, ${0.4 * (1 - k)})`;
+                        ctx.fill();
+                    },
+                });
+                continue;
+            }
             this.land[r][c] = false;
             this.puff(at.x, at.y + this.th * 0.3, 0.9, this.look.dust);
             const top = hexToRgb(this.look.base);
@@ -1266,17 +1361,8 @@ export class BoardScene extends Scene {
         ctx.scale(1 + press, 1 + press);
         fillRound(ctx, -32, -32 + 4, 64, 64, 20, 'rgba(112, 84, 58, 0.14)');
         fillRound(ctx, -32, -32, 64, 64, 20, back);
-        if (this.broomHold > 0) {
-            // How long it has been held, as a ring filling round it.
-            ctx.beginPath();
-            ctx.arc(0, 0, 25, -Math.PI / 2, -Math.PI / 2 + this.broomHold * TAU);
-            ctx.lineWidth = 5;
-            ctx.lineCap = 'round';
-            ctx.strokeStyle = 'rgba(205, 150, 88, 0.9)';
-            ctx.stroke();
-        }
-        // The broom, rocking as it sweeps while it is held.
-        ctx.rotate(0.55 + Math.sin(this.time * 16) * 0.16 * Math.min(1, this.broomHold * 3));
+        // The broom, rocking as it sweeps.
+        ctx.rotate(0.55 + (this.sweep ? Math.sin(this.sweep.t * 16) * 0.16 : 0));
         fillRound(ctx, -2, -19, 4, 24, 2, '#B98A5E');
         ctx.beginPath();
         ctx.moveTo(-6, 3);
@@ -1335,7 +1421,11 @@ export class BoardScene extends Scene {
 
         if (this.drag) {
             const cell = this.landing(this.drag);
-            if (cell && this.drag.y <= this.trayTop - 4 * this.u) {
+            if (
+                cell &&
+                this.drag.y <= this.trayTop - 4 * this.u &&
+                this.allows(this.drag.piece, cell[0], cell[1])
+            ) {
                 ctx.beginPath();
                 this.diamond(ctx, cell[0], cell[1], 0.04);
                 ctx.fillStyle = this.isLand(cell[0], cell[1])
@@ -1571,6 +1661,18 @@ export class BoardScene extends Scene {
     // Kinds whose neighbours bounce in a climbing ripple when one is put beside them.
     joins(kind) {
         return this.isGround(kind);
+    }
+
+    // Whether pieces stand on the ground of a tile, as a truck stands on a road, rather than taking
+    // its place, as a cow put down on the farm's path does.
+    layered() {
+        return false;
+    }
+
+    // On a layered board, whether a piece of a kind can stand on a ground piece, or on bare land
+    // (null).
+    standsOn(kind, ground) {
+        return !ground;
     }
 
     // After any change to the board.

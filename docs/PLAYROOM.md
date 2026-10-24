@@ -100,8 +100,8 @@ Every toy has three layers, which are found by playing, never unlocked:
 | **Sandpaper numerals** | Mathematics | As the letters | As the letters | A bowl lays out that many counters in pairs, Montessori's cards and counters, one rising note each | – |
 | **Dig** | Practical life: transferring, with a material that keeps its shape | Tap the sand and it sprays; tap the digger for its horn, the truck for two beeps | The bucket follows a finger: down into the sand it fills, lifted it carries, let go it pours; the digger crawls after a finger beyond its reach. Drag the truck, and tap its bed to tip it | The ground itself: heaps, holes and ramps, of sand that slumps to its natural slope and is never made or lost; things buried in it, the first always found at the first bite | a digger and a heap / and a dump truck, and things buried / and a bulldozer, and earth under the sand |
 | **Crane** | Sensorial (building with shapes), and the work of the hand at a distance | Tap a part for its colour's note, the cab for the horn, the hook to set it swinging | Drag the hook: the trolley and cable follow, it takes the part it is lowered onto, and drops it where it is let go, onto a grid so a stack stands. A part can also be carried by hand, the crane following | A building of any shape, which moves in by itself: a cat in a window, plants on the ledges, a bird nesting on top; a tap at its foot plays it bottom to top, each part lit. And trucks to load: one in a part's colour waits for the parts marked out on its deck, takes only its own colour, and drives off loaded, and a second crane restocks the pile | 4 big blocks / blocks, beams and windows / and arches, a roof and a wrecking ball |
-| **Farm** | None: after Pok Pok's builder | Tap anything: every piece answers, and tapped grass grows a flower | An island of tiles, seen from a corner like a model on a table, on a table that starts empty: a tile put down on the table makes it bigger, a path, field, pond or stream put down on a tile changes it, and pieces stand on tiles, move, swap and go back to the tray; what is hidden behind a building shows through it; a broom, held, sweeps the table empty again | A farm that joins up: paths for the tractor to drive, streams that carry a pond's water along to the fields, fields by water that grow on their own, a pond big enough for ducks; the sun turns it to night, when the lights come on and other things wake | 7 / 11 / 14 kinds of piece and a grass tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
-| **Building site** | None: the farm's builder | Tap anything: every piece answers | As the farm, with earth, roads and plots for tiles, from an empty table, and the broom to sweep it | Machines that work in chains: the digger digs a plot and loads the truck, the truck tips onto the pile, the mixer fills the hole with concrete, the crane lifts a building onto the foundation a floor at a time, each floor a note higher, and tops it out with a tree; the foreman's whistle sets them all going | 6 / 9 / 12 kinds of piece and an earth tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
+| **Farm** | None: after Pok Pok's builder | Tap anything: every piece answers, and tapped grass grows a flower | An island of tiles, seen from a corner like a model on a table, on a table that starts empty: a tile put down on the table makes it bigger, a path, field, pond or stream put down on a tile changes it, and pieces stand on tiles, move, swap and go back to the tray; what is hidden behind a building shows through it; the broom, tapped, sweeps everything back to the tray and leaves the island plain grass, and tapped again, sweeps the island away | A farm that joins up: paths for the tractor to drive, streams that carry a pond's water along to the fields, fields by water that grow on their own, a pond big enough for ducks; the sun turns it to night, when the lights come on and other things wake | 7 / 11 / 14 kinds of piece and a grass tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
+| **Building site** | None: the farm's builder | Tap anything: every piece answers, a machine with nothing to do with its engine and a little of its work | As the farm, with earth, roads and plots for tiles, from an empty table, and the broom to sweep it plain and then away; but its machines and pieces stand on the ground rather than taking its place, and only on flat ground, earth or road | Machines that work a step at a time, each step one machine's job: the digger digs a plot a tile a tap, the crane lowers the forms into the hole, the mixer pours the concrete, the crane lifts a building onto the foundation a floor at a time, each floor a note higher, and tops it out with a tree. The earth always goes somewhere: into a truck that tips it over the edge of the site, onto a pile, and at Bloom into a hole, pushed by the bulldozer, and rolled flat. At Bloom roads are built too: marked out, scraped to dirt by the bulldozer, rolled by the roller, paved by the paver. The foreman's whistle sets them all going | 6 / 9 / 13 kinds of piece and an earth tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
 | **Weather song** | Music; and feelings, after Mister Rogers | Tip the rain-stick, ring a bell, beat the big drum: each is a weather; tap the friend and it hops | Push the cloud along: wind, and the friend's scarf flies out | His music is the friend's weather and mood: a drizzle and a sleepy friend under a leaf, the sun and a dance, thunder and a cross friend who sighs and smiles when it passes; a whole day, morning to night, when the friend sleeps until a tap brings the morning | a rain-stick and 3 bells / and 5 bells and the big drum / and fog with a shy friend, a rainbow with a proud one, and the day painted as a strip of sky |
 | **Freeze parade** | Music: rhythm and movement; self-control | Each beat on the big drum is a step for the parade; tap an animal and it calls out | A steady beat marches them, quick beats hurry them; stopping freezes them mid-step | A parade round the pond, over the bridge and home past the barn, where the rooster crows; stopped, they freeze in silly poses, wobble, one sneezes, and at last they lie down to wait | a drum, a cow, a sheep and a pig / and two ducks with a tambourine / and a quick hare, a slow tortoise, and a band playing along |
 | **Bird song** | Music, auditory sense; and taking turns | Tap a bell flower for its colour's note; tap the bird to hand it the turn, or, before playing, to hear its tune again | Run a finger along the flowers: a glide, and the bird glides it back | The bird sings a tune and waits, wing to its ear, asking with rings and a hop when he pauses, and, every five seconds he plays on, by standing tall and flapping; handed the turn, it sings his notes back in the same rhythm, then a new tune from the last note played. Tunes grow by a note after three answered turns, and never shrink | 3 flowers, tunes of 2 / 5 flowers, tunes of 3 / and a second bird, tunes growing to 5 |
@@ -333,9 +333,9 @@ It also checks:
   carrots; that a field by water grows on its own; that a pond grown to three tiles brings ducks;
   that a sheep's neighbour answers it; that pieces move, swap, and go back to the tray; that the
   tractor drives the path, harvests the field beside it and comes home; that the sun brings the
-  night, when the cow jumps over the moon; that the broom, tapped, leaves the farm alone, and held,
-  sweeps it back to an empty table; and that the farm comes off the shelf as an empty table, on
-  which the tests lay out an island to work on;
+  night, when the cow jumps over the moon; that the broom, tapped, sweeps every piece back to the
+  tray and leaves the island plain grass, and tapped again, leaves an empty table; and that the
+  farm comes off the shelf as an empty table, on which the tests lay out an island to work on;
 - in the dig: that a finger in the sand fills the bucket and the ground gives up exactly what it
   takes; that the first proper bite always turns something up; that a load carried over the truck
   pours into its bed with not a grain lost; that the motor sings while the arm moves and is quiet
@@ -349,12 +349,21 @@ It also checks:
   Bloom, that the wrecking ball knocks a stack down and the parts go home; and that the crane
   starts fresh;
 - on the building site: that pigeons come to the road the first time whatever chance says; that a
-  road from the tray joins the road beside it; each link of the chain, from the digger digging a
-  plot and loading the truck, through the truck tipping onto the pile and the mixer pouring
-  concrete that sets, to the crane lifting floors and topping the building out; that a building
-  plays its floors from the ground up; that the foreman's whistle sets the machines going; the
-  night; at Bloom, a roller that leaves the road fresh and a lamp that lights; that the broom sweeps
-  the site empty too; and that the site comes off the shelf as an empty table;
+  road from the tray joins the road beside it, paved at Sprout; that a truck put down on a plot
+  goes back to the tray, put down on a road stands on it with the road still under it, cannot have
+  a plot put in under it, and can have earth; each step of a building, from the digger digging one
+  tile of a joined plot a tap and loading the truck, the truck taking the earth to the edge and
+  tipping it over, and the digger scooping at the air when it can reach no more, through the crane
+  lowering the forms and the mixer pouring all the joined forms, which set, to the crane lifting
+  floors onto the same building and topping it out; that a building plays its floors from the
+  ground up; that the foreman's whistle sets the machines going; a piece behind a building showing
+  through it; the night; at Bloom, a mixer waiting for forms, the bulldozer pushing a pile into the
+  hole the digger dug and backing home, the roller rolling it flat, each road machine working only
+  its own step of a road from marked out to paved, with ducks crossing the new road, a pile pushed
+  over the edge with no hole to go to, and a lamp that lights; that the broom sweeps the site to
+  plain earth and then away; and that the site comes off the shelf as an empty table; and in Node,
+  the ways the site's machines find across the island, round what is in the way and keeping to the
+  road, and the walks the road machines take out along a road and home;
 - in bird song: that the bird sings first and then waits, wing to its ear, with the flowers open;
   that when he stops it asks for its turn and keeps waiting, and his tap on it hands the turn over,
   when it sings his notes back and begins its next tune on his last note; that a flower tapped
@@ -447,7 +456,8 @@ playroom/
                             deckfriend.js the friend at the turntable,
                             farmart.js the farm's pictures, board.js the isometric board the
                             farm and the building site are built on, iso.js its boxes, roofs
-                            and walls, machines.js the site's palette and machines, and
+                            and walls, routes.js the ways the site's machines find across it,
+                            machines.js the site's palette and machines, and
                             digart.js, craneart.js and siteart.js the rest of the dig's, the
                             crane's and the site's pictures
   icons/                    generated by tools/icons.mjs

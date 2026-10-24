@@ -2528,7 +2528,7 @@ function icon(ctx, x, y, w, h) {
 export const toy = {
     id: 'farm',
     title: 'Farm',
-    about: 'Build a farm from tiles on an empty table: paths, fields, ponds, streams, animals, a tractor. Every piece joins up, answers a tap, and hides something; streams carry the water along. Hold the broom to sweep the table clean.',
+    about: 'Build a farm from tiles on an empty table: paths, fields, ponds, streams, animals, a tractor. Every piece joins up, answers a tap, and hides something; streams carry the water along. Tap the broom to sweep the island clean, and again to clear the table.',
     stages: ['a small farm, 7 kinds of piece', 'a bigger farm, 11 kinds', 'the biggest farm, all 14 kinds'],
     mat: '#DCEBC9',
     icon,
