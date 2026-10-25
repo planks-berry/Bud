@@ -3118,9 +3118,15 @@ async function suite(mode) {
         `${plotUnder}, ${earthUnder}`
     );
 
-    // The digger: one tile at a time, however many it is joined to.
-    await tapCell(3, 0, -0.05);
-    await page.waitForTimeout(2500);
+    // The digger: one tile at a time, however many it is joined to. Its work takes its own time,
+    // which on a slow machine is slower than the clock's, so the tests wait for it to be done.
+    const digged = async () => {
+        await tapCell(3, 0, -0.05);
+        await page.waitForFunction(() => !window.playroom.stage.scene.at(3, 0).work, null, {
+            timeout: 10000,
+        });
+    };
+    await digged();
     const firstDig = {
         tiles: [await plotAt(3, 1), await plotAt(2, 0), await plotAt(2, 1)],
         truck: await siteAt(4, 0),
@@ -3149,16 +3155,14 @@ async function suite(mode) {
         !!truckTurn && truckTurn.edge && truckHome && (await siteAt(4, 0)) === 'truck',
         JSON.stringify(truckTurn)
     );
-    await tapCell(3, 0, -0.05);
-    await page.waitForTimeout(2500);
+    await digged();
     const secondDig = [await plotAt(3, 1), await plotAt(2, 0), await plotAt(2, 1)];
     await tapCell(3, 0, -0.05);
-    await page.waitForTimeout(300);
     const scoop = await scene(() => {
         const w = window.playroom.stage.scene.at(3, 0).work;
         return w && w.type;
     });
-    await page.waitForTimeout(1700);
+    await page.waitForFunction(() => !window.playroom.stage.scene.at(3, 0).work, null, { timeout: 10000 });
     check(
         'the next tap, the next tile beside it; with no marked tile in its reach it scoops at the air, and the tile it cannot reach waits',
         secondDig.join('') === '110' && scoop === 'scoop' && (await plotAt(2, 1)) === 0,
@@ -3176,10 +3180,23 @@ async function suite(mode) {
         (await plotAt(2, 3)) === 2 && (await plotAt(1, 3)) === 2
     );
     await tapCell(0, 3, -0.05);
-    await page.waitForTimeout(1300);
+    const poured = await page
+        .waitForFunction(
+            () => {
+                const s = window.playroom.stage.scene;
+                return s.at(1, 3).step === 3 && s.at(2, 3).step === 3;
+            },
+            null,
+            { timeout: 8000 }
+        )
+        .then(
+            () => true,
+            () => false
+        );
     check(
         'the mixer pours the concrete into the forms beside it, and the forms joined to them',
-        (await plotAt(1, 3)) === 3 && (await plotAt(2, 3)) === 3
+        poured,
+        `${await plotAt(1, 3)} ${await plotAt(2, 3)}`
     );
     await scene(() => {
         const s = window.playroom.stage.scene;
@@ -3233,7 +3250,7 @@ async function suite(mode) {
         return page.evaluate(async () => {
             const kinds = new Set();
             const s = window.playroom.stage.scene;
-            const end = Date.now() + 6000;
+            const end = Date.now() + 8000;
             while (Date.now() < end) {
                 for (const row of s.cells)
                     for (const p of row) if (p && (p.work || p.trip)) kinds.add(p.kind);
@@ -4285,10 +4302,15 @@ async function suite(mode) {
         `${await siteAt(1, 0)} ${await siteAt(1, 1)} ${await siteAt(2, 0)}`
     );
     const rolledFill = await machine(0, 1);
-    await page.waitForTimeout(700);
+    const flattened = await page
+        .waitForFunction(() => !window.playroom.stage.scene.at(1, 1), null, { timeout: 5000 })
+        .then(
+            () => true,
+            () => false
+        );
     check(
         'the roller rolls the filled hole flat, back to bare earth',
-        rolledFill && (await siteAt(1, 1)) === 'earth'
+        rolledFill && flattened && (await siteAt(1, 1)) === 'earth'
     );
     check('and has nothing to roll on a road only marked out', !(await machine(0, 1)));
 
