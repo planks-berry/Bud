@@ -3830,9 +3830,11 @@ async function suite(mode) {
     await page.evaluate(async () => (await import('./js/settings.js')).setStage('parade', 'bloom'));
     await open('parade');
     march = await parade();
+    // A beat well inside quick: a tap takes some 0.1 s itself, and a slow machine more, so taps 0.3 s
+    // apart came out at QUICK (0.42 s) or over, and the hare only sometimes hopped.
     for (let i = 0; i < 7; i++) {
         await touch.tap(...march.drum);
-        await page.waitForTimeout(300);
+        await page.waitForTimeout(180);
     }
     const quick = await parade();
     await page.waitForTimeout(2600);
