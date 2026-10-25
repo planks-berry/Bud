@@ -4616,9 +4616,14 @@ async function suite(mode) {
     );
     await page.evaluate(async () => (await import('./js/settings.js')).setTuck('themselves'));
 
-    // The moon's own goodnight does not stop a grown-up's timer: it runs on, and the bud opens.
+    // The moon's own goodnight does not stop a grown-up's timer: it runs on, and the bud opens. The
+    // night before left the bud, so the shelf first.
+    await touch.tap(512, 330);
+    await page.waitForTimeout(1800);
+    await page.waitForFunction(() => !window.playroom.shelf.greeting, null, { timeout: 6000 });
     await scene(() => window.playroom.setBedtime(30));
     await page.waitForTimeout(400);
+    const onShelf = await scene(() => window.playroom.stage.scene === window.playroom.shelf);
     await touch.tap(moon[0], moon[1]);
     await page.waitForTimeout(1500);
     await tuckAll();
@@ -4629,7 +4634,8 @@ async function suite(mode) {
     await page.waitForTimeout(1800);
     check(
         "the moon's goodnight leaves a running timer running, its band going, and the bud opens again",
-        moonClosed &&
+        onShelf &&
+            moonClosed &&
             !afterMoon.asleep &&
             afterMoon.timer &&
             afterMoon.stored &&
@@ -4637,7 +4643,7 @@ async function suite(mode) {
             afterMoonBand.shown &&
             !afterMoonBand.night &&
             (await sceneName()) === 'ShelfScene',
-        JSON.stringify({ moonClosed, afterMoon, afterMoonBand })
+        JSON.stringify({ onShelf, moonClosed, afterMoon, afterMoonBand })
     );
     await page.waitForFunction(() => !window.playroom.shelf.greeting, null, { timeout: 6000 });
 
