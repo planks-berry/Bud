@@ -4382,7 +4382,8 @@ async function suite(mode) {
     //
     // The moon in the shelf's window brings the night: the toys fall asleep one by one to a lullaby,
     // a tap tucks one in at once, and when the last is asleep the playroom closes to its bud. Set
-    // for later from the corner, the moon shows on the way home, and the night comes on the shelf.
+    // for later from the corner, the moon shows on the way home, and the night comes on the shelf;
+    // then play is over, and the bud sleeps until a grown-up opens the playroom again.
 
     const tuckAll = async () => {
         const rects = await scene(() =>
@@ -4468,10 +4469,20 @@ async function suite(mode) {
         );
     await tuckAll();
     const timedOut = await bud();
-    const timerDone = await scene(() => window.playroom.bedtime === 0);
-    const bandGone = !(await band()).shown;
+    // Play time is over: the bud sleeps, the timer is kept, run out, and the leaf to the corner is
+    // beside it.
+    const sleeping = () =>
+        page.evaluate(() => ({
+            scene: window.playroom.stage.scene.constructor.name,
+            asleep: !!window.playroom.stage.scene.asleep,
+            timer: !!window.playroom.bedtime,
+            stored: !!JSON.parse(localStorage.getItem('playroom.settings.v1')).timer,
+            leaf: !document.getElementById('gate').hidden,
+        }));
+    const closedForNight = await sleeping();
+    const stillNight = (await band()).night;
     check(
-        "the timer's band shows the time going; run out in a game, the moon shows and the band turns to night, then the game puts itself away, the night comes, and the timer is done",
+        "the timer's band shows the time going; run out in a game, the moon shows and the band turns to night, then the game puts itself away, the night comes, and the playroom closes to a sleeping bud, with the leaf to the corner beside it",
         halfway.shown &&
             Math.abs(halfway.part - 0.5) < 0.02 &&
             halfway.colour === 'rgb(229, 199, 102)' &&
@@ -4481,13 +4492,107 @@ async function suite(mode) {
             nightBand.night &&
             putAway &&
             timedOut &&
-            timerDone &&
-            bandGone,
-        JSON.stringify({ halfway, sunset, dueInToy, nightBand, putAway, timedOut, timerDone, bandGone })
+            closedForNight.asleep &&
+            closedForNight.timer &&
+            closedForNight.stored &&
+            closedForNight.leaf &&
+            stillNight,
+        JSON.stringify({
+            halfway,
+            sunset,
+            dueInToy,
+            nightBand,
+            putAway,
+            timedOut,
+            closedForNight,
+            stillNight,
+        })
     );
-    await scene(() => (window.playroom.grace = 60));
+    for (let i = 0; i < 4; i++) await touch.tap(512, 330);
+    const stirred = await scene(() => window.playroom.stage.scene.stirs.length);
+    await shot('timer-closed');
+    await page.waitForTimeout(2200);
+    const afterTaps = await sleeping();
+    check(
+        'taps on the sleeping bud only stir it: it does not open',
+        stirred > 0 && afterTaps.scene === 'StartScene' && afterTaps.asleep && afterTaps.timer,
+        JSON.stringify({ stirred, afterTaps })
+    );
+
+    // Opened again, even a day after the time ran out, it is still asleep, and silent when tapped.
+    await page.evaluate(() => {
+        const stored = JSON.parse(localStorage.getItem('playroom.settings.v1'));
+        const ended = Date.now() - 24 * 3600 * 1000;
+        stored.timer = { from: ended - 600000, ends: ended };
+        localStorage.setItem('playroom.settings.v1', JSON.stringify(stored));
+    });
+    await page.reload();
+    await page.waitForFunction(() => window.__playroomBooted === true, null, { timeout: 15000 });
+    await bud();
+    for (let i = 0; i < 3; i++) await touch.tap(512, 330);
+    await page.waitForTimeout(1800);
+    const nextDay = await sleeping();
+    const nextDaySound = await scene(() => window.playroom.audio.stats());
+    check(
+        'opened again a day later, the playroom is still closed: the bud sleeps, the band is the night, and taps on it make no sound',
+        nextDay.scene === 'StartScene' &&
+            nextDay.asleep &&
+            nextDay.timer &&
+            nextDay.leaf &&
+            (await band()).night &&
+            nextDaySound.state !== 'none' &&
+            nextDaySound.voices === 0,
+        JSON.stringify({ nextDay, nextDaySound })
+    );
+
+    // A grown-up opens it again: the leaf beside the sleeping bud, held, then the passcode.
+    const leaf = await page.evaluate(() => {
+        const r = document.getElementById('gate').getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+    await touch.down(leaf.x, leaf.y);
+    await page.waitForTimeout(3300);
+    await touch.up();
+    const corner = await page.evaluate(() => ({
+        open: !document.getElementById('parent').hidden,
+        says: document.querySelector('[data-timer-state]').textContent,
+        button: document.querySelector('[data-timer-stop]').textContent,
+        pressed: document.querySelectorAll('[data-timer] [aria-pressed="true"]').length,
+    }));
+    await page.click('[data-timer-stop]');
+    await page.click('[data-pad-cancel]');
+    const cancelled = await sleeping();
+    await page.click('[data-timer-stop]');
+    const askedFor = await pad();
+    await key('5678');
+    const opened = await sleeping();
+    await page.click('[data-close]');
+    await bud();
+    const awake = await sleeping();
+    check(
+        'a grown-up opens it again in the corner: cancelled, it stays shut; with the passcode, the timer goes and the bud wakes, without the leaf',
+        corner.open &&
+            /stays closed/.test(corner.says) &&
+            corner.button === 'Open the playroom again' &&
+            corner.pressed === 0 &&
+            cancelled.asleep &&
+            cancelled.timer &&
+            askedFor.title === 'Passcode' &&
+            /To open the playroom again/.test(askedFor.hint) &&
+            !opened.timer &&
+            !opened.stored &&
+            awake.scene === 'StartScene' &&
+            !awake.asleep &&
+            !awake.leaf &&
+            !(await band()).shown,
+        JSON.stringify({ corner, cancelled, askedFor, opened, awake })
+    );
     await touch.tap(512, 330);
     await page.waitForTimeout(1800);
+    check(
+        'and the bud opens it, with its hello',
+        (await sceneName()) === 'ShelfScene' && (await scene(() => !!window.playroom.shelf.greeting))
+    );
     await page.waitForFunction(() => !window.playroom.shelf.greeting, null, { timeout: 6000 });
 
     // Tucked in by the child: the night waits, mostly still, until every toy has been tapped.
@@ -4511,8 +4616,32 @@ async function suite(mode) {
     );
     await page.evaluate(async () => (await import('./js/settings.js')).setTuck('themselves'));
 
-    // A timer survives the page being opened again.
+    // The moon's own goodnight does not stop a grown-up's timer: it runs on, and the bud opens.
     await scene(() => window.playroom.setBedtime(30));
+    await page.waitForTimeout(400);
+    await touch.tap(moon[0], moon[1]);
+    await page.waitForTimeout(1500);
+    await tuckAll();
+    const moonClosed = await bud();
+    const afterMoon = await sleeping();
+    const afterMoonBand = await band();
+    await touch.tap(512, 330);
+    await page.waitForTimeout(1800);
+    check(
+        "the moon's goodnight leaves a running timer running, its band going, and the bud opens again",
+        moonClosed &&
+            !afterMoon.asleep &&
+            afterMoon.timer &&
+            afterMoon.stored &&
+            !afterMoon.leaf &&
+            afterMoonBand.shown &&
+            !afterMoonBand.night &&
+            (await sceneName()) === 'ShelfScene',
+        JSON.stringify({ moonClosed, afterMoon, afterMoonBand })
+    );
+    await page.waitForFunction(() => !window.playroom.shelf.greeting, null, { timeout: 6000 });
+
+    // A timer survives the page being opened again.
     await page.reload();
     await page.waitForFunction(() => window.__playroomBooted === true, null, { timeout: 15000 });
     const survived = await scene(() => ({

@@ -18,9 +18,6 @@ const gate = document.getElementById('gate');
 // After the goodnight timer runs out in a game, how long the game has to finish, with the moon on
 // the house button, before it puts itself away for the night.
 const GRACE = 60;
-// A timer that ran out this long ago, while the playroom was away, is forgotten rather than
-// bringing the night the next time the playroom opens.
-const STALE = 2 * 3600 * 1000;
 
 const app = {
     stage,
@@ -58,19 +55,37 @@ const app = {
         gate.hidden = false;
     },
 
-    // Goodnight is over: every tray is asleep, and the playroom closes to its bud, as it opened.
+    // Goodnight is over: every tray is asleep, and the playroom closes to its bud, as it opened. A
+    // timer still running runs on: the moon in the window does not stop it.
     sleep() {
-        this.setBedtime(0);
-        gate.hidden = true;
+        this.showBud({ kind: 'fade', duration: 1.4 });
+    },
+
+    // The bud the playroom opens and closes on. Once the time is up, it is asleep and does not open,
+    // and the leaf to the grown-ups' corner stays beside it, for a grown-up to open the playroom
+    // again.
+    showBud(transition) {
         home.hidden = true;
-        stage.show(new StartScene(this), { kind: 'fade', duration: 1.4 });
+        stage.show(new StartScene(this), transition);
+        this.placeGate();
+    },
+
+    // The leaf belongs to the shelf, and to the bud while it sleeps: not in a toy, not on the bud
+    // otherwise, and not over the corner itself.
+    placeGate() {
+        const scene = stage.scene;
+        const asleep = scene instanceof StartScene && scene.asleep;
+        gate.hidden = this.cornerOpen || !(scene === this.shelf || asleep);
     },
 
     // The goodnight timer, set and locked by a grown-up in the corner. While it runs, a band round
     // the edge of every screen shows the time going, and the sun in the shelf's window sets. When it
     // has gone, goodnight begins: on the shelf at once; in a toy, the house button shows the moon,
-    // and after GRACE seconds the toy puts itself away and the night comes. It is kept with the
-    // settings, so a reload does not lose it. 0 stops it.
+    // and after GRACE seconds the toy puts itself away and the night comes. Then play is over. The
+    // timer, run out, is kept, and while it is kept the bud sleeps and nothing opens, however often
+    // it is tapped and however often the playroom is opened again, until a grown-up stops it or
+    // starts another, with the passcode. It is kept with the settings, so a reload does not lose
+    // it. 0 stops it.
     bedtime: 0,
     bedtimeFrom: 0,
     due: false,
@@ -103,6 +118,13 @@ const app = {
             );
         }
         this.refreshShelf();
+        // A sleeping bud wakes once a grown-up stops the timer.
+        stage.wake();
+    },
+
+    // The time is up: a timer has run out, and no grown-up has stopped it or started another.
+    timeUp() {
+        return !!this.bedtime && Date.now() >= this.bedtime;
     },
 
     // Called every second while the timer runs, and whenever it changes.
@@ -128,7 +150,7 @@ const app = {
     openToy(id) {
         const toy = TOYS.find((t) => t.id === id);
         // Once the time is up, no toy opens: the night is coming to the shelf.
-        if (!toy || stage.busy || this.current || this.due) return;
+        if (!toy || stage.busy || this.current || this.timeUp()) return;
         this.current = id;
         audio.play('whoosh', { variant: 'up' }, { gain: 1, wet: 0.25 });
         toy.signature();
@@ -231,11 +253,11 @@ audio.setVolume(settings.volume);
 audio.setThroughSilent(settings.throughSilent);
 app.band = setupBand(app);
 setupParent(app, gate);
-stage.show(new StartScene(app));
 
-// A timer survives a reload, and one that ran out while the playroom was away still brings the
-// night, unless that was hours ago.
-if (settings.timer) app.timeBedtime(settings.timer.ends > Date.now() - STALE ? settings.timer : null);
+// A timer survives a reload. One that has run out, however long ago, and whether the night came
+// or the playroom was away when it ran out, keeps the bud asleep until a grown-up opens it again.
+if (settings.timer) app.timeBedtime(settings.timer);
+app.showBud();
 
 // The bloom's chord renders while the bud waits to be touched.
 setTimeout(() => audio.prepare(startSounds()), 60);
@@ -247,8 +269,9 @@ setTimeout(() => audio.prepare(startSounds()), 60);
 // rather than started again (always, under Guided Access), so the worker is asked to look for a
 // newer copy whenever the playroom comes to the front, not only when it loads. Once a newer worker
 // has taken over, the page changes to it at the first quiet moment: straight away if the bud has
-// not been touched yet, and otherwise the next time the playroom is put away or brought back,
-// when it starts again from the bud as if newly opened. Nothing is ever swapped mid-play.
+// not been touched yet (or sleeps, with no grown-up in the corner over it), and otherwise the next
+// time the playroom is put away or brought back, when it starts again from the bud as if newly
+// opened. Nothing is ever swapped mid-play, or under a grown-up typing the passcode.
 const secure =
     location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 if ('serviceWorker' in navigator && secure) {
@@ -258,7 +281,7 @@ if ('serviceWorker' in navigator && secure) {
     let looked = Boolean(workers.controller);
     let registration = null;
     let newer = false;
-    const quiet = () => stage.scene instanceof StartScene && !stage.scene.blooming;
+    const quiet = () => stage.scene instanceof StartScene && !stage.scene.blooming && !app.cornerOpen;
     const look = () => {
         if (registration) registration.update().catch(() => {});
     };

@@ -51,7 +51,13 @@ an adult can hold still. The panel has words in it, because it is for someone wh
   shows. While the timer runs, a thin band round the edge of every screen empties clockwise, green
   to yellow to rose; when it has gone, the band turns night blue and goodnight begins: on the shelf
   at once, and in a toy after a minute's grace with the moon on the house button, when the toy puts
-  itself away. The timer is kept with the settings, so reopening the playroom does not lose it.
+  itself away. Then play is over. The playroom closes to its bud, asleep under the moon, and stays
+  closed however often it is tapped, and however often, or however long after, it is opened again,
+  until a grown-up opens it: the leaf to the corner stays beside the sleeping bud, and **Open the
+  playroom again**, or a new timer, asks for the passcode. The timer that has run out is itself
+  the lock. It is kept with the settings until a grown-up clears it, so reopening the playroom
+  loses neither a running timer nor a closed playroom. The moon in the shelf's window, the child's
+  own goodnight, closes to a bud that opens again, and leaves a running timer running.
 - **Sound.** Whether to play through the silent switch, and an overall volume.
 
 Settings live in the iPad's local storage for this site and survive restarts. Nothing records what
@@ -75,7 +81,8 @@ one by one, from the last tray, each to the next note of a lullaby; a tap tucks 
 When the last is asleep, the playroom closes to its bud. A grown-up can choose instead that each toy
 waits to be tucked in. And a grown-up's goodnight timer brings the night: a band round every
 screen shows the time going, with no clock and no numbers, the sun in the window sets as it does,
-and when it has gone the night comes, after a minute's grace if a toy is out. The band is an SVG
+and when it has gone the night comes, after a minute's grace if a toy is out. Then play is over:
+the bud sleeps, and does not open again until a grown-up opens the playroom. The band is an SVG
 over the canvas (`js/band.js`): the canvas draws only while something moves, and the band has to
 keep time when nothing does.
 
@@ -406,9 +413,13 @@ It also checks:
 - goodnight: that a tap on the moon brings the night, a tap tucks a toy in, and the playroom closes
   to its bud, which opens it again with its hello; that the timer's band is half round the screen
   and yellow half way through, with the sun half set; that run out in a toy, the house button
-  shows the moon and the band turns night blue, and after the grace the toy puts itself away, the
-  night comes and the timer is done; that when the child is to tuck them in, the night waits,
-  drawing little, until each toy is tapped; and that a running timer and its band survive the
+  shows the moon and the band turns night blue, and after the grace the toy puts itself away and
+  the night comes; that the playroom then closes to a sleeping bud, the timer kept and the leaf to
+  the corner beside it, which taps only stir; that opened again a day later it is still closed,
+  and silent when tapped; that in the corner, cancelled, it stays closed, and with the passcode
+  the timer goes and the bud wakes, then opens with its hello; that when the child is to tuck them
+  in, the night waits, drawing little, until each toy is tapped; that the moon's goodnight leaves
+  a running timer running, and its bud opens; and that a running timer and its band survive the
   playroom being opened again;
 - that a rotation is followed;
 - that the page opens with no connection;
@@ -443,7 +454,8 @@ playroom/
     audio.js                the Web Audio engine
     synth.js                every sound, as a recipe; the tuning; the mix
     draw.js, util.js        palette, shapes, layers, springs, colour, paint mixing
-    start.js, shelf.js      the bud, and the shelf with its hello and goodnight
+    start.js, shelf.js      the bud, asleep once the timer has run out, and the shelf with its
+                            hello and goodnight
     settings.js, parent.js  the grown-ups' corner; keypad.js its passcode, band.js the
                             goodnight timer's band
     friend.js               the friend, its moods and how it shows them

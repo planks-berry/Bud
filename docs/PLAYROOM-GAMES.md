@@ -5,7 +5,7 @@ revised. The technical side (the old iPad, the audio engine, the tests) is in
 [PLAYROOM.md](PLAYROOM.md). This file is about what each game is and why. The code calls the games
 "toys".
 
-**Status, 24 October 2026.**
+**Status, 25 October 2026.**
 - **Built:** fifteen games, tested in two simulated iPad browsers (one with everything Safari 12
   lacks removed). The newest are phase 2 of the proposal for new games, music that takes turns and
   says feelings: two new games, Weather Song and Freeze Parade, and the friend at the turntable.
@@ -14,6 +14,9 @@ revised. The technical side (the old iPad, the audio engine, the tests) is in
   goodnight; then a goodnight timer a grown-up locks with a passcode, shown as a band round the
   edge of every screen, and a choice between toys that fall asleep by themselves and toys he tucks
   in. Every new thing has a switch in the grown-ups' corner, which can also set the shelf's order.
+  Since then: the building site reworked to go a step at a time, and the timer made to end play
+  time for good: once its goodnight is over, the bud sleeps until a grown-up opens the playroom
+  again with the passcode.
 - **Where:** live at https://planks-berry.github.io/Bud/playroom/, published from `main`. Work
   continues on branch `claude/montessori-playroom`.
 - **Not yet checked on a real iPad:** the speaker mix and the iPad Air's frame rate can only be
@@ -104,6 +107,25 @@ programme. Each has a switch in the grown-ups' corner, on to begin with.
   once; in a game, the house button shows the moon, and a minute later the game puts itself away
   and the night comes. The timer survives the playroom being reopened, and stopping or changing it
   takes the passcode. It works whether or not the goodnight moon is switched on.
+- **Play time is over.** After you ran the timer through to the end: "Then the app reverted back
+  to the opening screen of the flower where a single tap reopens the shelf with no timers. This is
+  a huge failure mode and needs fixed immediately." So once the timer's goodnight is over, the
+  playroom closes to its bud asleep: the room dark, the moon and the stars out, the bud nodding,
+  with two z's. It does not open. A tap only stirs it, in silence, and one more z rises; the
+  screen is otherwise still, and draws nothing. It stays closed through a reload, the app being
+  closed and opened again, and the next day, however long after the time ran out (before, a timer
+  that had run out over two hours earlier was forgotten). The band stays night blue round it.
+  Only a grown-up opens it: hold the leaf beside the sleeping bud for three seconds, then **Open
+  the playroom again**, or choose a new timer, either with the passcode; the bud wakes, and opens
+  with its hello. The timer that has run out is itself the lock, kept until a grown-up clears it.
+  The moon in the window, his own goodnight, no longer stops a timer that is running: it closes
+  to a bud that opens again, with the timer still going.
+
+**Questions**
+
+- Should the playroom open again by itself in the morning, at a time you choose, or only ever
+  for a grown-up, as now?
+- Should a tap on the sleeping bud stay silent, or make one soft sleepy note?
 
 ## The friend
 

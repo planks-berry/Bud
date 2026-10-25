@@ -74,8 +74,7 @@ export function setupParent(app, gate) {
         panel.hidden = true;
         app.cornerOpen = false;
         clearInterval(clock);
-        // The leaf belongs to the shelf: not in a toy, and not on the bud after a goodnight.
-        gate.hidden = app.stage.scene !== app.shelf;
+        app.placeGate();
         // A toy moved on needs its new sounds ready before it is opened.
         app.warmUp();
         app.stage.wake();
@@ -183,9 +182,11 @@ export function setupParent(app, gate) {
     }
 
     // The goodnight timer: four lengths, and the one running pressed. Starting, changing and stopping
-    // it all ask for the passcode.
+    // it all ask for the passcode. Once it has run out, the playroom stays closed until it is opened
+    // again here, which asks for the passcode too; so does a new timer, which also opens it.
     function renderTimer() {
-        const running = app.bedtime ? Math.round((app.bedtime - app.bedtimeFrom) / 60000) : 0;
+        const up = app.timeUp();
+        const running = app.bedtime && !up ? Math.round((app.bedtime - app.bedtimeFrom) / 60000) : 0;
         const choices = panel.querySelector('[data-timer]');
         choices.innerHTML = '';
         for (const minutes of TIMER_MINUTES) {
@@ -200,18 +201,22 @@ export function setupParent(app, gate) {
         const left = Math.ceil((app.bedtime - Date.now()) / 60000);
         panel.querySelector('[data-timer-state]').textContent = !app.bedtime
             ? 'No timer is running. Choose a length to start one, locked.'
-            : left > 0
+            : !up
               ? `Goodnight in ${left} minute${left === 1 ? '' : 's'}. Locked.`
-              : 'The time is up: goodnight has begun.';
-        panel.querySelector('[data-timer-stop]').hidden = !app.bedtime;
+              : 'The time is up. After goodnight the playroom stays closed, its bud asleep, until it is opened again here. A new timer opens it too.';
+        const stop = panel.querySelector('[data-timer-stop]');
+        stop.hidden = !app.bedtime;
+        stop.textContent = up ? 'Open the playroom again' : 'Stop the timer';
     }
 
     async function chooseTimer(minutes, running) {
         if (minutes === running) return;
         const ok = await keypad.ask(
-            running
-                ? `To change the timer to ${minutes} minutes`
-                : `To start and lock a ${minutes} minute timer`
+            app.timeUp()
+                ? `To open the playroom again with a ${minutes} minute timer`
+                : running
+                  ? `To change the timer to ${minutes} minutes`
+                  : `To start and lock a ${minutes} minute timer`
         );
         if (!ok) return;
         app.setBedtime(minutes);
@@ -219,7 +224,8 @@ export function setupParent(app, gate) {
     }
 
     panel.querySelector('[data-timer-stop]').addEventListener('click', async () => {
-        if (!(await keypad.ask('To stop the timer'))) return;
+        const why = app.timeUp() ? 'To open the playroom again' : 'To stop the timer';
+        if (!(await keypad.ask(why))) return;
         app.setBedtime(0);
         render();
     });
