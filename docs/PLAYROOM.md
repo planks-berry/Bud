@@ -67,12 +67,14 @@ the child does: no reports, no history, nothing sent anywhere.
 
 ## The shelf
 
-Thirteen toys in rows, ordered as a Montessori shelf is: simple to complex, left to right, top to
+Sixteen toys in rows, ordered as a Montessori shelf is: simple to complex, left to right, top to
 bottom. The first toys ask for nothing but a touch; then a steadier hand, and then symbols. Then
 the builders': the dig, where a finger is a digger's bucket; the crane, which does the same work at
 a distance, through a hook; and the farm and the building site, worlds to build rather than
-materials, which hold a little of everything before them. A new toy joins at the end, so the trays
-a child knows keep their order, until a grown-up moves it.
+materials, which hold a little of everything before them. After them come the new games, in the
+order they were made: Bird Song, Weather Song, Freeze Parade and the Fix-it Shop. A new toy joins at
+the end, so the trays a child knows keep their order, until a grown-up moves it. The shelf takes up
+to four rows, of as many trays as the toys need.
 
 **Hello and goodnight.** The playroom opens and closes the same way every day. When the bud opens,
 the trays wake one by one, each with a note, climbing the scale. The picture on the shelf's wall
@@ -111,6 +113,7 @@ Every toy has three layers, which are found by playing, never unlocked:
 | **Building site** | None: the farm's builder | Tap anything: every piece answers, a machine with nothing to do with its engine and a little of its work | As the farm, with earth, roads and plots for tiles, from an empty table, and the broom to sweep it plain and then away; but its machines and pieces stand on the ground rather than taking its place, and only on flat ground, earth or road | Machines that work a step at a time, each step one machine's job: the digger digs a plot a tile a tap, the crane lowers the forms into the hole, the mixer pours the concrete, the crane lifts a building onto the foundation a floor at a time, each floor a note higher, and tops it out with a tree. The earth always goes somewhere: into a truck that tips it over the edge of the site, onto a pile, and at Bloom into a hole, pushed by the bulldozer, and rolled flat. At Bloom roads are built too: marked out, scraped to dirt by the bulldozer, rolled by the roller, paved by the paver. The foreman's whistle sets them all going | 6 / 9 / 13 kinds of piece and an earth tile, on a table of 5 × 4 / 6 × 5 / 7 × 5 tiles |
 | **Weather song** | Music; and feelings, after Mister Rogers | Tip the rain-stick, ring a bell, beat the big drum: each is a weather; tap the friend and it hops | Push the cloud along: wind, and the friend's scarf flies out | His music is the friend's weather and mood: a drizzle and a sleepy friend under a leaf, the sun and a dance, thunder and a cross friend who sighs and smiles when it passes; a whole day, morning to night, when the friend sleeps until a tap brings the morning | a rain-stick and 3 bells / and 5 bells and the big drum / and fog with a shy friend, a rainbow with a proud one, and the day painted as a strip of sky |
 | **Freeze parade** | Music: rhythm and movement; self-control | Each beat on the big drum is a step for the parade; tap an animal and it calls out | A steady beat marches them, quick beats hurry them; stopping freezes them mid-step | A parade round the pond, over the bridge and home past the barn, where the rooster crows; stopped, they freeze in silly poses, wobble, one sneezes, and at last they lie down to wait | a drum, a cow, a sheep and a pig / and two ducks with a tambourine / and a quick hare, a slow tortoise, and a band playing along |
+| **Fix-it shop** | Practical life, and sensorial: shape | Tap a broken toy: a dream shows what it does when it works; tap a part to turn it; tap a mended toy on the shelf for its part in the band | Carry a part from the drawer to the gap it leaves: one that fits clicks in, one that does not slides back; the right part the wrong way round lies by the toy until it is turned. At Bloom, the screwdriver turns a screw home | Broken toys, one at a time, mended and come to life: a car that drives, a drum, a music box, a robot that waves, a train that toots, a boat that sails; each hops up to the shelf and joins the band | one part missing, a drawer of two / a drawer of three, the part to be turned / two parts missing, a drawer of four, and a screw |
 | **Bird song** | Music, auditory sense; and taking turns | Tap a bell flower for its colour's note; tap the bird to hand it the turn, or, before playing, to hear its tune again | Run a finger along the flowers: a glide, and the bird glides it back | The bird sings a tune and waits, wing to its ear, asking with rings and a hop when he pauses, and, every five seconds he plays on, by standing tall and flapping; handed the turn, it sings his notes back in the same rhythm, then a new tune from the last note played. Tunes grow by a note after three answered turns, and never shrink | 3 flowers, tunes of 2 / 5 flowers, tunes of 3 / and a second bird, tunes growing to 5 |
 
 ### How Montessori and Pok Pok were reconciled
@@ -306,6 +309,11 @@ In Node:
   or later than 2.2; the cow, the sheep and the pig march to the drum at any pace, the ducks only
   to the tambourine, the hare two steps a hop only to a quick beat, the tortoise only to a slow
   one; and each stage's parade is as described, the band's march on the scale and ending on C.
+- the Fix-it Shop's rules, over 400 drawers for each toy and stage: the drawer always holds the
+  parts the toy is missing and others to choose from, all different, of different kinds at Seed;
+  no other part fits; from Sprout the parts it needs lie turned, round ones aside, and a few taps
+  turn them to fit; the toys come one each a round, never the last one first again; and the band
+  plays on the scale and in time, the drum on every beat.
 
 Then in Chromium, as an iPad (1024 × 768 at 2×, touch), the suite drives every toy with real touch
 events. It measures the audio that reaches the speaker through an analyser after the compressor.
@@ -393,6 +401,13 @@ It also checks:
   and marching; that passing the barn opens its door; that at Sprout the ducks march to the
   tambourine and only to it; and at Bloom, that the hare hops ahead to a quick beat while the
   tortoise waits, the tortoise walks to a slow one while the hare waits, and the band plays along;
+- in the fix-it shop: that a broken toy comes in through the door with a dream of it working, and
+  the drawer holds three parts, its own turned; that a part that does not fit slides back to the
+  drawer; that the right part the wrong way round lies by the toy, and taps turn it; that turned it
+  clicks in and the toy comes to life, audibly; that it hops to the shelf, the band plays, and the
+  next toy comes in; that a broken toy waiting draws nothing until, left a while, its gap glows;
+  that a tap on a mended toy plays its part; and at Bloom, that two parts are missing and the first
+  waits for the screwdriver, which turns its screw home;
 - at the turntable with the friend: that at Seed it waits while he plays and then answers his
   pads on the same pads, reaching over to tap each; that at Sprout it leads with a scratch and a
   pad and waits for him, and answers his scratch with a scratch; that at Bloom, with the record
@@ -464,6 +479,8 @@ playroom/
                             turntable's records, scratch.js how its record follows a hand,
                             tunes.js Bird Song's tunes, skies.js Weather Song's weather,
                             march.js and paradeart.js Freeze Parade's rules and animals,
+                            repairs.js and fixitart.js the Fix-it Shop's rules and its toys
+                            and parts,
                             instruments.js the drum and tambourine they share,
                             deckfriend.js the friend at the turntable,
                             farmart.js the farm's pictures, board.js the isometric board the

@@ -879,6 +879,92 @@ check(
     );
 }
 
+// ---- Fix-it Shop: what is missing, what lies in the drawer, what fits, and the band ------------------
+
+{
+    const repairs = await import(pathToFileURL(join(here, 'js/toys/repairs.js')).href);
+    const { KINDS, PARTS, STAGES, missing, fits, drawer, round, SCORE, bandNotes } = repairs;
+    const { rng } = await import(pathToFileURL(join(here, 'js/util.js')).href);
+    const drawerFaults = [];
+    for (let seed = 1; seed <= 400; seed++) {
+        const next = rng(seed);
+        for (const kind of KINDS) {
+            for (let level = 0; level < 3; level++) {
+                const need = missing(kind, level);
+                const tray = drawer(kind, level, next);
+                const names = tray.map((item) => item.part);
+                const families = names.map((name) => PARTS[name].family);
+                const fault =
+                    tray.length !== STAGES[level].drawer ||
+                    need.length !== STAGES[level].gaps ||
+                    need.some((name) => names.indexOf(name) < 0) ||
+                    new Set(names).size !== names.length ||
+                    (level === 0 && new Set(families).size !== families.length) ||
+                    tray.some(
+                        (item) =>
+                            need.indexOf(item.part) < 0 &&
+                            need.some((want) => fits(item.part, item.rot, want, level))
+                    ) ||
+                    tray.some((item) => {
+                        if (need.indexOf(item.part) < 0) return false;
+                        const turns = PARTS[item.part].turns;
+                        const now = fits(item.part, item.rot, item.part, level);
+                        // At Seed every part fits as it lies; from Sprout an orientable part never does
+                        // until it is turned, a round one always does; and turning finds the way.
+                        if (level === 0) return !now || item.rot !== 0;
+                        if (turns > 1 && now) return true;
+                        if (turns === 1 && !now) return true;
+                        return ![0, 1, 2, 3].some((taps) =>
+                            fits(item.part, item.rot + taps, item.part, level)
+                        );
+                    });
+                if (fault) drawerFaults.push(`${kind} ${level} ${JSON.stringify(tray)}`);
+            }
+        }
+    }
+    check(
+        "the Fix-it Shop's drawer always holds the parts a toy is missing and others to choose from, all different, of different kinds at Seed; no other part fits; from Sprout the parts it needs lie turned, and a few taps turn them to fit",
+        drawerFaults.length === 0,
+        drawerFaults.slice(0, 2).join(' | ')
+    );
+    const roundFaults = [];
+    let last = null;
+    const next = rng(9);
+    for (let i = 0; i < 300; i++) {
+        const order = round(last, next);
+        if (order.length !== KINDS.length || new Set(order).size !== KINDS.length || order[0] === last)
+            roundFaults.push(order.join(' '));
+        last = order[order.length - 1];
+    }
+    const notes = bandNotes(KINDS);
+    check(
+        'the broken toys come one each a round, never the last one first again; and the band plays on the playroom scale, in time, the drum on every beat',
+        roundFaults.length === 0 &&
+            KINDS.every((kind) => SCORE[kind] && SCORE[kind].length) &&
+            notes.every((n, i) => n.beat >= 0 && n.beat < 8 && (i === 0 || notes[i - 1].beat <= n.beat)) &&
+            notes.every(
+                (n) =>
+                    n.note.degree === undefined ||
+                    (Number.isInteger(n.note.degree) && n.note.degree >= 0 && n.note.degree <= 5)
+            ) &&
+            SCORE.drum.length === 8,
+        roundFaults.slice(0, 2).join(' | ')
+    );
+    check(
+        'at Seed a toy is missing one part, at Sprout one that must be turned, at Bloom two, the first held by a screw',
+        KINDS.every((kind) => missing(kind, 0).length === 1 && missing(kind, 2).length === 2) &&
+            !STAGES[0].turn &&
+            STAGES[1].turn &&
+            STAGES[2].screw &&
+            !STAGES[1].screw &&
+            fits('sail', 1, 'sail', 0) &&
+            !fits('sail', 1, 'sail', 1) &&
+            fits('sail', 4, 'sail', 1) &&
+            fits('wheel', 3, 'wheel', 2) &&
+            !fits('wheel', 0, 'skin', 0)
+    );
+}
+
 //==============================================================================
 // The browser
 
@@ -1056,8 +1142,8 @@ async function suite(mode) {
     check('then the shelf', (await sceneName()) === 'ShelfScene');
     const trays = await scene(() => window.playroom.shelf.items.map((item) => item.toy.id));
     check(
-        'fifteen trays on the shelf, the newest last',
-        trays.length === 15 && trays.slice(12).join(' ') === 'birdsong weather parade',
+        'sixteen trays on the shelf, the newest last',
+        trays.length === 16 && trays.slice(12).join(' ') === 'birdsong weather parade fixit',
         trays.join(' ')
     );
 
@@ -3861,6 +3947,223 @@ async function suite(mode) {
     await home();
     await page.evaluate(async () => (await import('./js/settings.js')).setStage('parade', 'sprout'));
 
+    // ---- fix-it shop -------------------------------------------------------------------------------
+    //
+    // Broken toys come in through the door, and a dream shows each one working. A part that does not
+    // fit slides back to the drawer; the right part the wrong way round lies by the toy until it is
+    // turned; a part that fits clicks in, and the toy comes to life, hops up to the shelf, and the
+    // band plays. At Bloom a screw holds the first part until the screwdriver turns it home.
+
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('fixit', 'sprout'));
+    await open('fixit');
+    check('the fix-it shop opens', (await sceneName()) === 'FixitScene');
+    const shop = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            const t = s.toy;
+            return {
+                kind: t && t.kind,
+                phase: t && t.phase,
+                need: t ? t.need : [],
+                has: t ? Object.keys(t.has) : [],
+                screw: t && t.screw,
+                parts: s.parts.map((p) => ({ part: p.part, rot: p.rot, state: p.state, x: p.x, y: p.y })),
+                shelf: Object.keys(s.shelf),
+                band: !!s.band,
+                dream: !!s.dream,
+            };
+        });
+    // The toys that come next, chosen for the test, as the shop chooses them in play.
+    const nextToys = (kinds) =>
+        scene((kinds) => {
+            const s = window.playroom.stage.scene;
+            s.toy = null;
+            s.parts = [];
+            s.queue = kinds;
+            s.nextAt = s.time;
+            window.playroom.stage.wake();
+        }, kinds);
+    const fixing = (kind) =>
+        page
+            .waitForFunction(
+                (kind) => {
+                    const s = window.playroom.stage.scene;
+                    return (
+                        s.toy &&
+                        s.toy.kind === kind &&
+                        s.toy.phase === 'fix' &&
+                        s.parts.every((p) => p.delay <= 0)
+                    );
+                },
+                kind,
+                { timeout: 9000 }
+            )
+            .then(
+                () => true,
+                () => false
+            );
+    const slotOf = (name) => scene((name) => window.playroom.stage.scene.slotAt(name), name);
+    const partOf = async (name) => (await shop()).parts.find((p) => p.part === name);
+    const carry = (from, to) => touch.drag(line(from.x, from.y, to.x, to.y, 14), 16, 60);
+
+    await nextToys(['robot', 'boat', 'train']);
+    const robotIn = await fixing('robot');
+    let fix = await shop();
+    check(
+        'a broken toy comes in through the door, missing a part; a dream shows it working; the drawer holds three parts, its own among them, turned',
+        robotIn &&
+            fix.need.join() === 'arm' &&
+            fix.dream &&
+            fix.parts.length === 3 &&
+            fix.parts.some((p) => p.part === 'arm' && p.rot % 4 !== 0),
+        JSON.stringify(fix)
+    );
+    await shot('fixit');
+    const armGap = await slotOf('arm');
+    const other = fix.parts.find((p) => p.part !== 'arm');
+    await carry(other, armGap);
+    await page.waitForTimeout(700);
+    const slidBack = await partOf(other.part);
+    check(
+        'a part that does not fit slides gently back to the drawer, and the toy is still waiting',
+        slidBack.state === 'drawer' &&
+            Math.abs(slidBack.x - other.x) < 3 &&
+            Math.abs(slidBack.y - other.y) < 3 &&
+            (await shop()).has.length === 0,
+        JSON.stringify(slidBack)
+    );
+    let arm = await partOf('arm');
+    await carry(arm, armGap);
+    await page.waitForTimeout(700);
+    const beside = await partOf('arm');
+    for (let i = 0; i < (4 - beside.rot) % 4; i++) {
+        await touch.tap(beside.x, beside.y);
+        await page.waitForTimeout(250);
+    }
+    arm = await partOf('arm');
+    check(
+        'the right part the wrong way round lies by the toy; a tap turns it a quarter, until it is the right way round',
+        beside.state === 'bench' && arm.state === 'bench' && arm.rot % 4 === 0,
+        JSON.stringify({ beside, arm })
+    );
+    await carry(arm, armGap);
+    const comesAlive = await peak(700);
+    fix = await shop();
+    check(
+        'turned, it fits: it clicks in, and the robot comes to life, waving and singing',
+        fix.has.join() === 'arm' && fix.phase === 'alive' && comesAlive > 0.05,
+        `${fix.phase} ${comesAlive.toFixed(3)}`
+    );
+    const banded = await page
+        .waitForFunction(
+            () => !!window.playroom.stage.scene.band && !!window.playroom.stage.scene.shelf.robot,
+            null,
+            {
+                timeout: 8000,
+            }
+        )
+        .then(
+            () => true,
+            () => false
+        );
+    const boatIn = await fixing('boat');
+    check(
+        'mended, it hops up to the shelf and the band plays; then the next broken toy comes in',
+        banded && boatIn && (await shop()).shelf.join() === 'robot',
+        JSON.stringify(await shop())
+    );
+    await page.waitForFunction(() => !window.playroom.stage.scene.dream, null, { timeout: 6000 });
+    // A tap on the wall: the shop is touched, and then still.
+    await touch.tap(60, 260);
+    await page.waitForTimeout(400);
+    const stillA = await scene(() => window.playroom.stage.frames);
+    await page.waitForTimeout(800);
+    const stillB = await scene(() => window.playroom.stage.frames);
+    const asking = await scene(() => {
+        const s = window.playroom.stage.scene;
+        s.touched = s.time - 6;
+        window.playroom.stage.wake();
+        return s.askingFor();
+    });
+    await page.waitForTimeout(500);
+    const askingFrames = (await scene(() => window.playroom.stage.frames)) - stillB;
+    check(
+        'a broken toy waiting draws nothing; left a while, its gap glows to show where a part goes',
+        stillB === stillA && asking && askingFrames > 10,
+        `${stillB - stillA} frames still, ${askingFrames} asking`
+    );
+    const robotSpot = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { x: s.spots.robot.x, y: s.spots.robot.y - s.ss * 0.4 };
+    });
+    await touch.tap(robotSpot.x, robotSpot.y);
+    await page.waitForTimeout(100);
+    check(
+        'a tap on a mended toy on the shelf plays its part in the band',
+        await scene(() => window.playroom.stage.scene.shelf.robot.on > 0.5)
+    );
+    await home();
+
+    // At Bloom: two parts missing, and the first held by a screw until the screwdriver turns it home.
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('fixit', 'bloom'));
+    await open('fixit');
+    await nextToys(['car']);
+    const carIn = await fixing('car');
+    fix = await shop();
+    const wheel = fix.parts.find((p) => p.part === 'wheel');
+    await carry(wheel, await slotOf('wheel'));
+    await page.waitForTimeout(500);
+    let carHorn = await partOf('horn');
+    for (let i = 0; i < (4 - carHorn.rot) % 4; i++) {
+        await touch.tap(carHorn.x, carHorn.y);
+        await page.waitForTimeout(250);
+    }
+    carHorn = await partOf('horn');
+    await carry(carHorn, await slotOf('horn'));
+    await page.waitForTimeout(500);
+    const screwed = await shop();
+    const driver = await scene(() => {
+        const s = window.playroom.stage.scene;
+        const d = s.driver;
+        return { x: d.x + d.k * 0.72, y: d.y, k: d.k };
+    });
+    const screwAt = await slotOf('wheel');
+    // The hand holds the handle; the tip, below it, goes on the screw.
+    const hand = { x: screwAt.x + 4, y: screwAt.y - driver.k * 0.62 };
+    await touch.down(driver.x, driver.y);
+    for (const [x, y] of line(driver.x, driver.y, hand.x, hand.y, 12)) {
+        await page.waitForTimeout(16);
+        await touch.move(x, y);
+    }
+    await shot('fixit-screw');
+    const turned = await page
+        .waitForFunction(
+            () => window.playroom.stage.scene.toy && window.playroom.stage.scene.toy.phase === 'alive',
+            null,
+            {
+                timeout: 6000,
+            }
+        )
+        .then(
+            () => true,
+            () => false
+        );
+    await touch.up();
+    check(
+        'at Bloom a toy is missing two parts, and the first is held by a screw: in, it waits for the screwdriver, which turns it home, and the car drives',
+        carIn &&
+            fix.need.join() === 'wheel,horn' &&
+            fix.parts.length === 4 &&
+            screwed.has.length === 2 &&
+            screwed.phase === 'fix' &&
+            screwed.screw &&
+            screwed.screw.name === 'wheel' &&
+            turned,
+        JSON.stringify(screwed)
+    );
+    await home();
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('fixit', 'sprout'));
+
     // ---- the grown-up's corner ------------------------------------------------------------------
 
     const gate = await page.evaluate(() => {
@@ -3922,9 +4225,9 @@ async function suite(mode) {
     );
 
     await page.click('[data-toy="busy"] .switch');
-    check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 14);
+    check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 15);
     await page.click('[data-toy="busy"] .switch');
-    check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 15);
+    check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 16);
 
     // The shelf's order: the arrows move a toy along it, the list follows, the order is remembered,
     // and the playroom's own order is a press away. A new game says so.
@@ -3938,7 +4241,7 @@ async function suite(mode) {
     const ownOrder = await shelfOrder();
     const ends = await page.evaluate(() => ({
         first: document.querySelector('[data-toy="pond"] [data-earlier]').disabled,
-        last: document.querySelector('[data-toy="parade"] [data-later]').disabled,
+        last: document.querySelector('[data-toy="fixit"] [data-later]').disabled,
         badges: [...document.querySelectorAll('[data-shelf] .badge')]
             .map((b) => b.closest('[data-toy]').getAttribute('data-toy'))
             .join(' '),
@@ -3953,7 +4256,7 @@ async function suite(mode) {
         "the arrows move a toy along the shelf, the list follows and it is remembered; one press brings back the playroom's own order",
         ends.first &&
             ends.last &&
-            ends.badges === 'birdsong weather parade' &&
+            ends.badges === 'birdsong weather parade fixit' &&
             movedOrder.split(' ').indexOf('birdsong') === 10 &&
             movedList === movedOrder &&
             keptOrder.indexOf('birdsong') === 10 &&

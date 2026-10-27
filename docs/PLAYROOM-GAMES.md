@@ -5,8 +5,8 @@ revised. The technical side (the old iPad, the audio engine, the tests) is in
 [PLAYROOM.md](PLAYROOM.md). This file is about what each game is and why. The code calls the games
 "toys".
 
-**Status, 25 October 2026.**
-- **Built:** fifteen games, tested in two simulated iPad browsers (one with everything Safari 12
+**Status, 26 October 2026.**
+- **Built:** sixteen games, tested in two simulated iPad browsers (one with everything Safari 12
   lacks removed). The newest are phase 2 of the proposal for new games, music that takes turns and
   says feelings: two new games, Weather Song and Freeze Parade, and the friend at the turntable.
   With them comes the friend, a small make-believe character with feelings, who lives in Weather
@@ -16,7 +16,7 @@ revised. The technical side (the old iPad, the audio engine, the tests) is in
   in. Every new thing has a switch in the grown-ups' corner, which can also set the shelf's order.
   Since then: the building site reworked to go a step at a time, and the timer made to end play
   time for good: once its goodnight is over, the bud sleeps until a grown-up opens the playroom
-  again with the passcode.
+  again with the passcode. Phase 3 has begun, with the Fix-it Shop.
 - **Where:** live at https://planks-berry.github.io/Bud/playroom/, published from `main`. Work
   continues on branch `claude/montessori-playroom`.
 - **Not yet checked on a real iPad:** the speaker mix and the iPad Air's frame rate can only be
@@ -1120,11 +1120,77 @@ knocks, ta-dum. The band's march is on the playroom's scale and comes home to C.
 
 ---
 
+### 16. Fix-it shop
+
+**What it is:** a workbench at the back of a toy shop, with a pegboard behind it, a drawer of
+parts pulled out in front, a shelf along the top, and a little door at the end of the bench. A
+bell over the door rings, and a broken toy comes in: a car with a wheel off, a drum with no skin,
+a music box with no handle, a robot short of an arm, a train with no chimney, a boat with no sail.
+Where the part should be, its shape shows, dashed, like the place for a piece in a wooden puzzle.
+A dream bubble over the bench shows the toy mended and working. A part from the drawer that fits
+clicks in, and the toy springs to life: the car drives along the bench and back and honks, the
+drum plays, the music box plays its tune while the bird on top turns, the robot waves and sings,
+the train toots and puffs, the boat rocks on its waves and sounds its horn. Then it hops up to the
+shelf, and the mended toys play together as a band, the newest with them. Then the bell rings
+again.
+
+**Roots:** Mister Rogers' factory visits, how crayons and shoes are made; Edmark's Fripple Shop,
+where a child worked out what a customer wanted; Montessori's control of error, which is physical,
+never a verdict.
+
+**Layers**
+- Touch: tap a broken toy and the dream shows what it does when it works. Tap a part and it turns a
+  quarter. Tap a mended toy on the shelf and it plays its part of the band.
+- Move: carry a part to the gap. From Sprout, turn it to fit. At Bloom, carry the screwdriver to
+  the screw and hold it there, or turn it round, until the screw is home.
+- Make: a shelf of mended toys that play together, a band that grows by one with each toy mended.
+
+**Stages**
+- Seed: one part missing; a drawer of two, of plainly different shapes; nothing to turn.
+- Sprout: a drawer of three, and the part must be turned the way its place is: it lies turned in
+  the drawer. A wheel or a drum's skin, being round, fits any way.
+- Bloom: two parts missing and a drawer of four, and the first part is held by a screw: in, it
+  waits for the screwdriver.
+
+**Sound:** each toy its own: an engine and a horn, a drum, a music box, a robot's glassy notes, a
+toot and a puff of steam, a ship's bell and a foghorn. A part fitting clicks in with a knock of
+wood; a part that does not fit slides back with a rustle; a turn is a click on the scale; the
+screw ticks up the scale as it turns. The band: the drum on every beat, the music box the tune,
+the boat a low bell at the start of each bar, the robot a pair of high notes, the car its horn, the
+train a toot to end on, all on the playroom's scale.
+
+**Decisions so far**
+- Nothing says wrong. A part that does not fit is simply a shape that does not go in, and it
+  slides back where it came from. The right part the wrong way round tries, rocks, and lies by the
+  toy, ready to turn.
+- Turning is a tap, a quarter at a time, because a two-finger twist is beyond most three-year-olds.
+- The screwdriver turns the screw by itself, slowly, while it is held on it, and faster as the hand
+  turns it round: holding it there is enough, so no one is stuck at the last step.
+- The dream shows each toy working as it comes in, and again on a tap, with its sound, far off: what
+  it is for, before it is mended.
+- The toys come one each a round, in a new order each round, in new colours each round. Once a toy
+  of each kind is on the shelf, the whole band plays twice; after that each one mended takes the
+  place of the one before it, which hops off home.
+- Left alone, a waiting toy's gap glows now and then to show where something goes, and after forty
+  seconds the shop rests and draws nothing.
+- It joins the shelf after Freeze Parade, with its own switch.
+
+**Questions**
+- When a part does not fit, does he try another, or the same one again, or go back to the dream?
+  The first is the confidence the proposal hoped for; the last would say the dream should stay up
+  longer.
+- Is a tap to turn a part discoverable for him, or does he need to see a grown-up do it once?
+
+**Ideas**
+-
+
+---
+
 ## Not built yet
 
-- **The rest of the proposal for new games**: phases 3 and 4, the Fix-it Shop, Torch in the
-  Dark, Bug Maker and the Bakery, then the Marble Machine and the Puppet Theatre, in "Playroom
-  proposal: twelve new games".
+- **The rest of the proposal for new games**: the rest of phase 3, Torch in the Dark, Bug Maker
+  and the Bakery, then phase 4, the Marble Machine and the Puppet Theatre, in "Playroom proposal:
+  twelve new games".
 - **A garden:** seeds, a watering can, flowers that open with a chime, and the bud's own story.
   The farm's fields and watering farmer now cover some of it.
 - **The movable alphabet** (see the letters).
@@ -1145,7 +1211,8 @@ knocks, ta-dum. The band's march is on the playroom's scale and comes home to C.
   beside it (`farmart.js`, `digart.js`, `craneart.js`, `siteart.js`), the colour beats' cubes in
   `cubes.js`, Bird Song's tunes in `tunes.js`, Weather Song's weather in `skies.js`, Freeze
   Parade's rules in `march.js` and its animals in `paradeart.js`, the drum and tambourine they
-  share in `instruments.js`, the friend at the decks in `deckfriend.js`, the machines the dig and
+  share in `instruments.js`, the friend at the decks in `deckfriend.js`, the Fix-it Shop's rules
+  in `repairs.js` and its toys and parts in `fixitart.js`, the machines the dig and
   the site share in `machines.js`, and the board the farm and the site share in `board.js`. The
   friend itself is `playroom/js/friend.js`; the shelf, with its hello and goodnight,
   `playroom/js/shelf.js`.
