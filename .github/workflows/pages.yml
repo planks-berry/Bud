@@ -28,7 +28,9 @@ concurrency:
 jobs:
   build:
     name: Build and test the web bundle
-    runs-on: ubuntu-latest
+    # Pinned: the playroom's Playwright (1.56, the version its browser builds are matched to) will
+    # not install its browser on Ubuntu 26.04, which ubuntu-latest became in October 2026.
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4

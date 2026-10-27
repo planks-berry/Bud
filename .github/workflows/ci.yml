@@ -77,7 +77,9 @@ jobs:
   # and every toy driven by touch twice, once with the post-Safari-12 APIs taken away.
   playroom:
     name: Playroom
-    runs-on: ubuntu-latest
+    # Pinned: the playroom's Playwright (1.56, the version its browser builds are matched to) will
+    # not install its browser on Ubuntu 26.04, which ubuntu-latest became in October 2026.
+    runs-on: ubuntu-24.04
 
     defaults:
       run:
