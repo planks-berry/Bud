@@ -16,7 +16,8 @@ revised. The technical side (the old iPad, the audio engine, the tests) is in
   in. Every new thing has a switch in the grown-ups' corner, which can also set the shelf's order.
   Since then: the building site reworked to go a step at a time, and the timer made to end play
   time for good: once its goodnight is over, the bud sleeps until a grown-up opens the playroom
-  again with the passcode. Phase 3 is under way: the Fix-it Shop and Torch in the Dark.
+  again with the passcode. Phase 3 is under way: the Fix-it Shop, Torch in the Dark and the Bug
+  Maker.
 - **Where:** live at https://planks-berry.github.io/Bud/playroom/, published from `main`. Work
   continues on branch `claude/montessori-playroom`.
 - **Not yet checked on a real iPad:** the speaker mix and the iPad Air's frame rate can only be
@@ -1247,9 +1248,74 @@ has a little of the night's echo.
 
 ---
 
+### 18. Bug maker
+
+**What it is:** a big leaf on the table, and around it trays of parts: three bodies (a round one, a
+long one and a heart), three heads (a round one with tall antennae, one with big eyes, one with
+horns), and three sets of legs, two pairs, three or four; from Sprout three pairs of wings (a
+beetle's, a dragonfly's, a butterfly's) and five pots of spots in the playroom's colours. Above the
+table is a meadow. Parts carried onto the leaf make a bug, and each part brings something to its
+song: its legs are the rhythm, a step a beat with two pairs, quicker with three, quicker still with
+four; its body is its note; its head is its voice, a marimba, a glockenspiel or a woodblock; its
+wings buzz on its note; its spots tick their colours' notes. Every time it changes, the bug sings
+what it has become. Carried up off the leaf, it walks off into the meadow, and all the bugs there
+sing together, twice round, the newest's footsteps leading. Then the leaf is clear for the next.
+
+**Roots:** Edmark's Feathered Friends, where children designed their own bird; Mario Paint's
+composer, which gave a dog's woof and a cat's meow places on a staff.
+
+**Layers**
+- Touch: tap a part for its sound: a body knocks its note on wood, a head sings its voice, a set of
+  legs patters at its pace, a pair of wings buzzes. Tap the bug and it sings; tap one of its spots
+  for that spot's note. Tap a bug in the meadow and it sings alone.
+- Move: carry parts onto the leaf, a part of a kind already there taking its place; carry spots onto
+  its back, where they stay. Carry the bug up into the meadow once it has a body, a head and legs;
+  without them it stays on its leaf, and ripples ring the parts it is missing.
+- Make: a meadow of bugs he designed, a choir of his own.
+
+**Stages**
+- Seed: three bodies, three heads and three sets of legs.
+- Sprout: and wings, and spots, up to four on a bug, each ticking its note between the beats, left
+  to right.
+- Bloom: one note a spot, up to six: a bug with four spots sings four notes, one a beat, each spot
+  lit as it sings. Counting, heard, never asked.
+
+**Sound:** a new sound, the buzz: a beetle's low, bumbling hum, a dragonfly's thinner whirr, and a
+butterfly's soft note an octave up that swells with each slow beat of its wings, each on the bug's
+note. The voices are the playroom's marimba, bell and woodblock; footsteps are soft ticks; the spots
+tick high, on their notes. Every bug sings in one octave, on the playroom's scale, so any bugs sing
+together in tune.
+
+**Decisions so far**
+- The trays never run out: a part carried off leaves its copy in the tray, so the same body can go
+  on bug after bug.
+- A full back makes room: a spot put on a bug that has all it can carry takes the place of the spot
+  nearest it. A new body keeps the spots that fit on it.
+- The bug sings after every change, a moment after the part's own sound, so what a part brings is
+  heard at once.
+- The meadow holds six bugs; when a seventh comes, the one there longest flies off.
+- In the meadow the bugs wander, quicker the more legs they have, and stand to sing; their footsteps
+  keep time with their songs. Left alone forty seconds, the meadow rests and nothing moves.
+- It joins the shelf after Torch in the Dark, with its own switch.
+
+**Questions**
+- Does he make a second bug different from the first on purpose? The proposal's watch-for: choosing
+  to vary is creativity. If every bug comes out the same, the trays could start each bug with one
+  part already on it, a different one each time.
+- At Bloom, does he count the spots, or the notes? If neither, the spots could light one by one as
+  they are put on, as well as when they sing.
+- The proposal had a pinch to make a bug bigger, and so lower. It is left out for now: a two-finger
+  pinch is hard at three, and one octave keeps every choir in tune. Should it come back, with its
+  own switch?
+
+**Ideas**
+-
+
+---
+
 ## Not built yet
 
-- **The rest of the proposal for new games**: the rest of phase 3, Bug Maker and the Bakery, then
+- **The rest of the proposal for new games**: the rest of phase 3, the Bakery, then
   phase 4, the Marble Machine and the Puppet Theatre, in "Playroom proposal: twelve new games".
 - **A garden:** seeds, a watering can, flowers that open with a chime, and the bud's own story.
   The farm's fields and watering farmer now cover some of it.
@@ -1273,7 +1339,8 @@ has a little of the night's echo.
   Parade's rules in `march.js` and its animals in `paradeart.js`, the drum and tambourine they
   share in `instruments.js`, the friend at the decks in `deckfriend.js`, the Fix-it Shop's rules
   in `repairs.js` and its toys and parts in `fixitart.js`, Torch in the Dark's rules in
-  `hiding.js` and its garden in `torchart.js`, the machines the dig and
+  `hiding.js` and its garden in `torchart.js`, the Bug Maker's rules in `choir.js` and its bugs in
+  `bugart.js`, the machines the dig and
   the site share in `machines.js`, and the board the farm and the site share in `board.js`. The
   friend itself is `playroom/js/friend.js`; the shelf, with its hello and goodnight,
   `playroom/js/shelf.js`.

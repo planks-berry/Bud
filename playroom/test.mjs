@@ -188,6 +188,12 @@ const PARAMS = {
         { beats: 3, gap: 0.2 },
         { beats: 4, gap: 0.2 },
     ],
+    buzz: [
+        { f: noteHz(0, 60), wings: 0 },
+        { f: noteHz(0, 60), wings: 1 },
+        { f: noteHz(0, 60), wings: 2 },
+        { f: noteHz(4, 72), wings: 1 },
+    ],
     rainstick: [{}],
     thunder: [{}],
     sigh: [{}],
@@ -325,7 +331,21 @@ const BANDS = [
     [
         'voices',
         [-21.5, -16.5],
-        ['moo', 'baa', 'oink', 'cluck', 'quack', 'ribbit', 'hoot', 'toot', 'crow', 'meow', 'woof', 'sneeze'],
+        [
+            'moo',
+            'baa',
+            'oink',
+            'cluck',
+            'quack',
+            'ribbit',
+            'hoot',
+            'toot',
+            'crow',
+            'meow',
+            'woof',
+            'sneeze',
+            'buzz',
+        ],
     ],
     [
         'foley',
@@ -1076,6 +1096,123 @@ check(
     );
 }
 
+// ---- Bug Maker: what each part brings to a bug's song --------------------------------------------
+
+{
+    const choir = await import(pathToFileURL(join(here, 'js/toys/choir.js')).href);
+    const {
+        STAGES,
+        BODIES,
+        HEADS,
+        LEGS,
+        WINGS,
+        SPOT_COLOURS,
+        BODY_NOTE,
+        VOICE,
+        WING_BUZZ,
+        BAR,
+        ready,
+        song,
+    } = choir;
+    const of = (tune, kind) => tune.events.filter((e) => e.kind === kind);
+    const walkers = LEGS.map(
+        (pairs) => of(song({ body: 'round', head: 'round', legs: pairs, spots: [] }, 0), 'step').length
+    );
+    const plain = song(
+        { body: 'long', head: 'eyes', legs: 2, wings: 'round', spots: [{ x: 0, y: 0, degree: 3 }] },
+        0
+    );
+    check(
+        'Bug Maker: a bug sings a bar, its legs the rhythm, more legs a quicker step, and its body its note at the start of each half; at Seed wings and spots, had it any, add nothing; it can walk off once it has a body, a head and legs',
+        walkers.join(' ') === '4 6 8' &&
+            plain.beats === BAR &&
+            of(plain, 'note')
+                .map((e) => `${e.at}:${e.degree}`)
+                .join(' ') === `0:${BODY_NOTE.long} 2:${BODY_NOTE.long}` &&
+            of(plain, 'buzz').length === 0 &&
+            of(plain, 'spot').length === 0 &&
+            ready({ body: 'round', head: 'horns', legs: 3 }) &&
+            !ready({ body: 'round', head: 'horns' }) &&
+            !ready({ head: 'eyes', legs: 2 }) &&
+            !ready({ body: 'heart', legs: 4 }),
+        `${walkers.join(' ')} ${JSON.stringify(plain.events)}`
+    );
+    const scattered = [0.3, -0.3, 0.1, -0.1, 0.2, -0.2].map((x, i) => ({
+        x,
+        y: 0,
+        degree: SPOT_COLOURS[i % SPOT_COLOURS.length].degree,
+    }));
+    const sprout = song(
+        { body: 'heart', head: 'horns', legs: 4, wings: 'butterfly', spots: scattered.slice(0, 3) },
+        1
+    );
+    const ticks = of(sprout, 'spot');
+    const buzz = of(sprout, 'buzz');
+    check(
+        'from Sprout its wings buzz on its note, and its spots tick their notes, left to right, one after each beat',
+        sprout.beats === BAR &&
+            buzz.length === 1 &&
+            buzz[0].degree === BODY_NOTE.heart &&
+            buzz[0].wings === 'butterfly' &&
+            ticks.map((e) => `${e.at}:${e.spot}`).join(' ') === '0.5:1 1.5:2 2.5:0' &&
+            ticks.every((e) => !e.sung && e.degree === scattered[e.spot].degree),
+        JSON.stringify(ticks)
+    );
+    const bloom = song({ body: 'round', head: 'round', legs: 3, wings: 'long', spots: scattered }, 2);
+    const four = song({ body: 'round', head: 'round', legs: 3, spots: scattered.slice(0, 4) }, 2);
+    const two = song({ body: 'round', head: 'round', legs: 3, spots: scattered.slice(0, 2) }, 2);
+    check(
+        'at Bloom each spot is a note of its tune, one a beat, left to right: four spots, four notes; the bar grows to fit six, and the legs keep their pace',
+        bloom.beats === 6 &&
+            four.beats === BAR &&
+            two.beats === BAR &&
+            of(bloom, 'spot').every((e, i) => e.sung && e.at === i) &&
+            of(bloom, 'spot')
+                .map((e) => e.spot)
+                .join(' ') === '1 5 3 2 4 0' &&
+            of(bloom, 'step').length === 9 &&
+            of(four, 'spot').length === 4 &&
+            of(two, 'spot').length === 2,
+        `${bloom.beats} ${of(bloom, 'spot')
+            .map((e) => e.spot)
+            .join(' ')} ${of(bloom, 'step').length}`
+    );
+    // Every bug that can be built, at every stage, keeps time and sings on the playroom's scale.
+    const tuneFaults = [];
+    for (const level of [0, 1, 2])
+        for (const body of BODIES)
+            for (const head of HEADS)
+                for (const legs of LEGS)
+                    for (const wings of [null].concat(WINGS)) {
+                        const bug = {
+                            body,
+                            head,
+                            legs,
+                            wings,
+                            spots: scattered.slice(0, STAGES[level].spots),
+                        };
+                        const tune = song(bug, level);
+                        const bad = tune.events.some(
+                            (e, i) =>
+                                e.at < 0 ||
+                                e.at >= tune.beats ||
+                                (i > 0 && e.at < tune.events[i - 1].at) ||
+                                (e.degree !== undefined &&
+                                    (!Number.isInteger(e.degree) || e.degree < 0 || e.degree > 9))
+                        );
+                        if (bad) tuneFaults.push(`${level} ${JSON.stringify(bug)}`);
+                    }
+    check(
+        'every bug that can be built, at every stage, keeps to its bar and sings on the playroom scale; each head has its voice, each pair of wings its buzz, and the stages give spots 0, 4 and 6',
+        tuneFaults.length === 0 &&
+            HEADS.every((head) => typeof VOICE[head] === 'string') &&
+            WINGS.every((wings) => Number.isInteger(WING_BUZZ[wings])) &&
+            BODIES.every((body) => Number.isInteger(BODY_NOTE[body])) &&
+            STAGES.map((s) => s.spots).join(' ') === '0 4 6',
+        tuneFaults.slice(0, 2).join(' | ')
+    );
+}
+
 //==============================================================================
 // The browser
 
@@ -1253,8 +1390,8 @@ async function suite(mode) {
     check('then the shelf', (await sceneName()) === 'ShelfScene');
     const trays = await scene(() => window.playroom.shelf.items.map((item) => item.toy.id));
     check(
-        'seventeen trays on the shelf, the newest last',
-        trays.length === 17 && trays.slice(12).join(' ') === 'birdsong weather parade fixit torch',
+        'eighteen trays on the shelf, the newest last',
+        trays.length === 18 && trays.slice(12).join(' ') === 'birdsong weather parade fixit torch bugs',
         trays.join(' ')
     );
 
@@ -4444,6 +4581,230 @@ async function suite(mode) {
     await home();
     await page.evaluate(async () => (await import('./js/settings.js')).setStage('torch', 'sprout'));
 
+    // ---- bug maker ---------------------------------------------------------------------------------
+    //
+    // Parts carried onto the leaf make a bug, and each time it changes it sings what it has become.
+    // Carried up with a body, a head and legs, it walks off into the meadow, and the meadow's bugs sing
+    // together; without them it stays, and ripples ring the parts it is missing. Spots stay where they
+    // are put on its back. At Bloom a bug with four spots sings four notes, each spot lit as it sings.
+
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('bugs', 'sprout'));
+    await open('bugs');
+    check('bug maker opens', (await sceneName()) === 'BugsScene');
+    const bugBench = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            return {
+                bug: JSON.parse(JSON.stringify(s.bug)),
+                trays: s.trays.map((t) => ({ kind: t.kind, value: t.value, x: t.x, y: t.y })),
+                pots: s.pots.map((p) => ({ degree: p.degree, x: p.x, y: p.y })),
+                leaf: { x: s.leaf.x, y: s.leaf.y },
+                k: s.k,
+                ground: s.ground,
+                meadow: s.meadow.map((b) => ({
+                    x: b.x,
+                    y: b.y,
+                    body: b.bug.body,
+                    singing: !!b.song,
+                    leaving: b.leaving,
+                    arrived: b.arrive >= 1,
+                })),
+                singing: !!s.preview,
+                hint: s.hint ? s.hint.kinds.join(' ') : '',
+            };
+        });
+    const bugTable = await bugBench();
+    const bugLeaf = bugTable.leaf;
+    const bugK = bugTable.k;
+    const bugTray = (kind, value) => bugTable.trays.find((t) => t.kind === kind && t.value === value);
+    const bugCarry = (from, x, y) => touch.drag(line(from.x, from.y, x, y, 12), 16, 60);
+    check(
+        'an empty leaf, and the parts in their trays: three bodies, three heads, three sets of legs and at Sprout three pairs of wings, and five pots of spots',
+        bugTable.trays.length === 12 && bugTable.pots.length === 5 && !bugTable.bug.body && !bugTable.singing
+    );
+    await shot('bugs');
+    await touch.tap(bugTray('legs', 4).x, bugTray('legs', 4).y);
+    const bugLegsSound = await peak(500);
+    await bugCarry(bugTray('body', 'round'), bugLeaf.x, bugLeaf.y);
+    const bugBodyOn = await bugBench();
+    check(
+        'a tap on a part sounds it; a body carried onto the leaf goes on, and the bug sings what it has become',
+        bugLegsSound > 0.02 && bugBodyOn.bug.body === 'round' && bugBodyOn.singing,
+        `${bugLegsSound.toFixed(3)} ${JSON.stringify(bugBodyOn.bug)}`
+    );
+    await touch.drag(line(bugLeaf.x, bugLeaf.y, bugLeaf.x, bugTable.ground * 0.6, 12), 16, 60);
+    const bugNudged = await bugBench();
+    check(
+        'with no head or legs yet, the bug carried up stays on its leaf, and ripples ring the parts it is missing',
+        bugNudged.meadow.length === 0 && bugNudged.bug.body === 'round' && bugNudged.hint === 'head legs',
+        bugNudged.hint
+    );
+    await bugCarry(bugTray('head', 'eyes'), bugLeaf.x, bugLeaf.y);
+    await bugCarry(bugTray('legs', 3), bugLeaf.x, bugLeaf.y);
+    await bugCarry(bugTray('wings', 'butterfly'), bugLeaf.x, bugLeaf.y);
+    // Three spots on its back, one of them high on it, and one let go of beside it, which does not stay.
+    const bugPots = bugTable.pots;
+    await bugCarry(bugPots[1], bugLeaf.x - bugK * 0.2, bugLeaf.y);
+    await bugCarry(bugPots[3], bugLeaf.x + bugK * 0.15, bugLeaf.y + bugK * 0.1);
+    await bugCarry(bugPots[4], bugLeaf.x, bugLeaf.y - bugK * 0.3);
+    await bugCarry(bugPots[0], bugLeaf.x + bugK * 1.1, bugLeaf.y + bugK * 0.6);
+    const bugBuilt = await bugBench();
+    await bugCarry(bugTray('body', 'long'), bugLeaf.x, bugLeaf.y);
+    const bugSwapped = await bugBench();
+    check(
+        'parts carried onto the leaf make a bug; spots stay where they are put on its back, and nowhere else; a new body takes the place of the old, and the spots that do not fit on it fall away',
+        bugBuilt.bug.head === 'eyes' &&
+            bugBuilt.bug.legs === 3 &&
+            bugBuilt.bug.wings === 'butterfly' &&
+            bugBuilt.bug.spots.map((s) => s.degree).join(' ') ===
+                [bugPots[1], bugPots[3], bugPots[4]].map((p) => p.degree).join(' ') &&
+            bugSwapped.bug.body === 'long' &&
+            bugSwapped.bug.head === 'eyes' &&
+            bugSwapped.bug.spots.length === 2,
+        `${JSON.stringify(bugBuilt.bug)} | ${JSON.stringify(bugSwapped.bug)}`
+    );
+    await shot('bugs-built');
+    const bugSpot = bugSwapped.bug.spots[0];
+    await touch.tap(bugLeaf.x + bugSpot.x * bugK, bugLeaf.y + bugSpot.y * bugK);
+    const bugLit = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return s.lit ? s.lit.index : -1;
+    });
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        s.songs = [];
+        s.preview = null;
+    });
+    await touch.tap(bugLeaf.x - bugK * 0.3, bugLeaf.y + bugK * 0.15);
+    const bugSang = await scene(() => !!window.playroom.stage.scene.preview);
+    const bugSong = await peak(1200);
+    check(
+        "a tap on one of its spots sounds that spot's note and lights it; a tap on the bug, and it sings",
+        bugLit === 0 && bugSang && bugSong > 0.03,
+        `${bugLit} ${bugSang} ${bugSong.toFixed(3)}`
+    );
+    await touch.drag(line(bugLeaf.x, bugLeaf.y, bugLeaf.x + 120, bugTable.ground * 0.7, 14), 16, 60);
+    const bugUp = await bugBench();
+    const bugChoir = await peak(1800);
+    check(
+        'finished, the bug carried up into the meadow walks to a place there, the leaf is clear for the next, and the meadow sings',
+        bugUp.meadow.length === 1 &&
+            bugUp.meadow[0].body === 'long' &&
+            bugUp.meadow[0].singing &&
+            !bugUp.bug.body &&
+            bugUp.bug.spots.length === 0 &&
+            bugChoir > 0.03,
+        `${JSON.stringify(bugUp.meadow)} ${bugChoir.toFixed(3)}`
+    );
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        for (let i = 0; i < 6; i++) {
+            s.bug = { body: 'heart', head: 'horns', legs: 2, wings: null, spots: [] };
+            s.release(s.w * (0.2 + i * 0.1), s.ground * 0.7);
+        }
+    });
+    const bugFull = await bugBench();
+    check(
+        'the meadow holds six bugs: when a seventh comes, the one there longest flies off',
+        bugFull.meadow.filter((b) => !b.leaving).length === 6 &&
+            bugFull.meadow
+                .filter((b) => b.leaving)
+                .map((b) => b.body)
+                .join(' ') === 'long',
+        JSON.stringify(bugFull.meadow.map((b) => [b.body, b.leaving]))
+    );
+    await page.waitForTimeout(1000);
+    await shot('bugs-meadow');
+    await scene(() => {
+        window.playroom.stage.scene.songs = [];
+    });
+    await page.waitForTimeout(150);
+    const bugOne = (await bugBench()).meadow.find((b) => !b.leaving && b.arrived);
+    await touch.tap(bugOne.x, bugOne.y);
+    const bugAlone = await scene(() => window.playroom.stage.scene.meadow.filter((b) => b.song).length);
+    check('a tap on a bug in the meadow, and it sings alone', bugAlone === 1, `${bugAlone}`);
+    // Left alone, the meadow rests and draws nothing.
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        s.songs = [];
+        s.meadow = s.meadow.filter((b) => !b.leaving);
+        s.touched = s.time - 60;
+    });
+    await page.waitForTimeout(2000);
+    const bugRestA = await scene(() => window.playroom.stage.frames);
+    await page.waitForTimeout(700);
+    const bugRestB = await scene(() => window.playroom.stage.frames);
+    check(
+        'left alone a while, the meadow rests and draws nothing',
+        bugRestB === bugRestA,
+        `${bugRestB - bugRestA} frames`
+    );
+    await home();
+
+    // At Bloom, a bug with four spots sings four notes, one a beat, each spot lit as it sings.
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('bugs', 'bloom'));
+    await open('bugs');
+    // The toy's own hello rings out first.
+    await page.waitForTimeout(2500);
+    const bugCount = await scene(async () => {
+        const { BEAT } = await import('./js/toys/choir.js');
+        const s = window.playroom.stage.scene;
+        s.bug = {
+            body: 'round',
+            head: 'round',
+            legs: 2,
+            wings: 'long',
+            spots: [
+                { x: 0.25, y: 0, colour: '#E79A98', degree: 0 },
+                { x: -0.25, y: 0, colour: '#F1CF5E', degree: 2 },
+                { x: 0.05, y: -0.15, colour: '#7FB2DE', degree: 4 },
+                { x: -0.05, y: 0.15, colour: '#AE93D6', degree: 5 },
+            ],
+        };
+        s.singLeaf();
+        window.playroom.stage.wake();
+        const tune = s.preview.tune;
+        const lit = [0, 1, 2, 3].map(
+            (beat) => s.lookOf(s.bug, { t: (beat + 0.5) * BEAT, tune }, 0, false).lit
+        );
+        return {
+            sung: tune.events.filter((e) => e.kind === 'spot' && e.sung).length,
+            lit: lit.join(' '),
+            trays: s.trays.length,
+            pots: s.pots.length,
+        };
+    });
+    const bugCountSound = await peak(1200);
+    await shot('bugs-bloom');
+    const bugCountSent = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return s.preview ? s.preview.next : -1;
+    });
+    check(
+        'at Bloom a bug with four spots sings four notes, one a beat, each spot lit as it sings, left to right',
+        bugCount.sung === 4 &&
+            bugCount.lit === '1 3 2 0' &&
+            bugCount.trays === 12 &&
+            bugCount.pots === 5 &&
+            bugCountSent > 4 &&
+            bugCountSound > 0.03,
+        `${JSON.stringify(bugCount)} ${bugCountSent} ${bugCountSound.toFixed(3)}`
+    );
+    await home();
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('bugs', 'seed'));
+    await open('bugs');
+    const bugSeed = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { trays: s.trays.map((t) => t.kind).join(' '), pots: s.pots.length };
+    });
+    check(
+        'at Seed, three bodies, three heads and three sets of legs, and no wings or spots',
+        bugSeed.trays === 'body body body head head head legs legs legs' && bugSeed.pots === 0,
+        JSON.stringify(bugSeed)
+    );
+    await home();
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('bugs', 'sprout'));
+
     // ---- the grown-up's corner ------------------------------------------------------------------
 
     const gate = await page.evaluate(() => {
@@ -4505,9 +4866,9 @@ async function suite(mode) {
     );
 
     await page.click('[data-toy="busy"] .switch');
-    check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 16);
+    check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 17);
     await page.click('[data-toy="busy"] .switch');
-    check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 17);
+    check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 18);
 
     // The shelf's order: the arrows move a toy along it, the list follows, the order is remembered,
     // and the playroom's own order is a press away. A new game says so.
@@ -4521,7 +4882,7 @@ async function suite(mode) {
     const ownOrder = await shelfOrder();
     const ends = await page.evaluate(() => ({
         first: document.querySelector('[data-toy="pond"] [data-earlier]').disabled,
-        last: document.querySelector('[data-toy="torch"] [data-later]').disabled,
+        last: document.querySelector('[data-toy="bugs"] [data-later]').disabled,
         badges: [...document.querySelectorAll('[data-shelf] .badge')]
             .map((b) => b.closest('[data-toy]').getAttribute('data-toy'))
             .join(' '),
@@ -4536,7 +4897,7 @@ async function suite(mode) {
         "the arrows move a toy along the shelf, the list follows and it is remembered; one press brings back the playroom's own order",
         ends.first &&
             ends.last &&
-            ends.badges === 'birdsong weather parade fixit torch' &&
+            ends.badges === 'birdsong weather parade fixit torch bugs' &&
             movedOrder.split(' ').indexOf('birdsong') === 10 &&
             movedList === movedOrder &&
             keptOrder.indexOf('birdsong') === 10 &&

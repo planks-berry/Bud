@@ -851,6 +851,44 @@ export const recipes = {
         return finish(out, sr, 0.6);
     },
 
+    // A bug's wings, humming on a note. `wings` 0: a beetle's round wings, a low hum that bumbles as
+    // it flies; 1: a dragonfly's long ones, a thinner whirr, each quick beat of its wings heard in it;
+    // 2: a butterfly's, an octave up, a soft, almost pure note that swells with each slow beat of its
+    // wings. One cycle of the tone is built from its harmonics once and read round, so a long buzz
+    // costs no more than a short one.
+    buzz(sr, p) {
+        const kind = p.wings || 0;
+        const f = (p.f || noteHz(0, 60)) * (kind === 2 ? 2 : 1);
+        // The tone's harmonics and how fast they fall away, how fast the wings beat and how deep each
+        // beat is, how much the pitch wavers, how long it lasts, and its peak, which evens out how loud
+        // the three sound: a near-pure note is loud for its peak, a deep whirr quiet.
+        const [harmonics, tilt, beat, depth, waver, len, peak] = [
+            [9, 1.1, 6, 0.22, 0.014, 0.6, 0.55],
+            [7, 0.8, 24, 0.55, 0.006, 0.55, 0.79],
+            [3, 2.4, 4, 0.8, 0.004, 0.8, 0.45],
+        ][kind];
+        const size = 1024;
+        const table = new Float32Array(size + 1);
+        for (let h = 1; h <= harmonics && f * h < sr * 0.4; h++) {
+            const amp = Math.pow(h, -tilt);
+            for (let i = 0; i <= size; i++) table[i] += amp * Math.sin((TAU * h * i) / size);
+        }
+        const out = makeBuffer(sr, len);
+        let pos = 0;
+        for (let n = 0; n < out.length; n++) {
+            const t = n / sr;
+            pos += (f * (1 + waver * Math.sin(TAU * 5 * t))) / sr;
+            pos -= Math.floor(pos);
+            const x = pos * size;
+            const i = Math.floor(x);
+            const tone = table[i] + (table[i + 1] - table[i]) * (x - i);
+            const beating = 1 - depth * (0.5 + 0.5 * Math.cos(TAU * beat * t));
+            const env = clamp(t / 0.04, 0, 1) * clamp((len - t) / 0.2, 0, 1);
+            out[n] = tone * beating * env;
+        }
+        return finish(out, sr, peak);
+    },
+
     // A small bird's wings: `beats` soft beats of air, `gap` seconds apart, each a puff of noise
     // through feathers that lasts half a beat, the downstroke.
     flutter(sr, p) {
@@ -1388,6 +1426,7 @@ export const MIX = {
     chirp: 0.44,
     warble: 0.32,
     flutter: 0.92,
+    buzz: 0.41,
     rainstick: 0.9,
     jingle: 0.68,
     cymbal: 0.72,
