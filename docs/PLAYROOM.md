@@ -67,14 +67,14 @@ the child does: no reports, no history, nothing sent anywhere.
 
 ## The shelf
 
-Eighteen toys in rows, ordered as a Montessori shelf is: simple to complex, left to right, top to
+Nineteen toys in rows, ordered as a Montessori shelf is: simple to complex, left to right, top to
 bottom. The first toys ask for nothing but a touch; then a steadier hand, and then symbols. Then
 the builders': the dig, where a finger is a digger's bucket; the crane, which does the same work at
 a distance, through a hook; and the farm and the building site, worlds to build rather than
 materials, which hold a little of everything before them. After them come the new games, in the
-order they were made: Bird Song, Weather Song, Freeze Parade, the Fix-it Shop, Torch in the Dark and
-the Bug Maker. A new toy joins at the end, so the trays a child knows keep their order, until a
-grown-up moves it. The shelf takes up to four rows, of as many trays as the toys need.
+order they were made: Bird Song, Weather Song, Freeze Parade, the Fix-it Shop, Torch in the Dark, the
+Bug Maker and the Bakery. A new toy joins at the end, so the trays a child knows keep their order,
+until a grown-up moves it. The shelf takes up to four rows, of as many trays as the toys need.
 
 **Hello and goodnight.** The playroom opens and closes the same way every day. When the bud opens,
 the trays wake one by one, each with a note, climbing the scale. The picture on the shelf's wall
@@ -116,6 +116,7 @@ Every toy has three layers, which are found by playing, never unlocked:
 | **Fix-it shop** | Practical life, and sensorial: shape | Tap a broken toy: a dream shows what it does when it works; tap a part to turn it; tap a mended toy on the shelf for its part in the band | Carry a part from the drawer to the gap it leaves: one that fits clicks in, one that does not slides back; the right part the wrong way round lies by the toy until it is turned. At Bloom, the screwdriver turns a screw home | Broken toys, one at a time, mended and come to life: a car that drives, a drum, a music box, a robot that waves, a train that toots, a boat that sails; each hops up to the shelf and joins the band | one part missing, a drawer of two / a drawer of three, the part to be turned / two parts missing, a drawer of four, and a screw |
 | **Torch in the dark** | Nature, and the senses: looking | Tap the torch to click it on and off; touch the garden and the beam goes there | Sweep the beam slowly: a creature wakes only when the light rests on it; let go and the beam stays, so it can rest by itself. Moths come to a beam left still | A night garden of friends asleep, an owl, a hedgehog, a snail, a frog, a mouse, a cricket, who wake gently one by one, each lighting a lantern; with every lantern lit they sing a night song and sleep again. The dark is never black, and awake eyes catch the light | a wide beam and 4 friends / a narrower beam, 6 friends, new hiding places each night / and the moon rising, and fireflies' rhythms to blink back |
 | **Bug maker** | Practical life and art (making things), and music | Tap a part for its sound: a body knocks its note, a head sings in its voice, legs patter at their pace, wings buzz; tap the bug and it sings; tap a spot for its note; tap a bug in the meadow and it sings alone | Carry parts onto the leaf, a part of a kind already there taking its place; spots stay where they are put on its back. Carry the bug up into the meadow once it has a body, a head and legs; without them it stays, and ripples ring what it is missing | A bug of his own design that sings the song its parts make: its legs the rhythm, its body the note, its head the voice, its wings a buzz, its spots their colours' notes; up in the meadow it walks with the others, and each time one joins they all sing together, a choir of his bugs | 3 bodies, 3 heads, 3 sets of legs / and wings, and spots in five colours / and one note a spot, a bug of four spots singing four |
+| **Bakery** | Practical life (preparing food), and waiting well | Tap the flour jar for a puff, the jug for a splash; tap the dough to knead it; tap what is on the rack to share it, a piece each; tap an animal and it calls | Carry a jar over the bowl and it pours; stir round and round; carry the dough to the oven. From Sprout, roll it out, cut it with a cutter, sprinkle on toppings | Bread and buns that rise and brown in the oven's window to a ticking song, then shared with the animals who line up for a piece; at Bloom, a cake from the recipe on the wall, with candles, for the friend's birthday, its tune, and the candles blown out | one bun, 20 seconds in the oven / rolls, shapes, toppings, two in the oven / and the recipe's cake, rising with eggs and flat without |
 | **Bird song** | Music, auditory sense; and taking turns | Tap a bell flower for its colour's note; tap the bird to hand it the turn, or, before playing, to hear its tune again | Run a finger along the flowers: a glide, and the bird glides it back | The bird sings a tune and waits, wing to its ear, asking with rings and a hop when he pauses, and, every five seconds he plays on, by standing tall and flapping; handed the turn, it sings his notes back in the same rhythm, then a new tune from the last note played. Tunes grow by a note after three answered turns, and never shrink | 3 flowers, tunes of 2 / 5 flowers, tunes of 3 / and a second bird, tunes growing to 5 |
 
 ### How Montessori and Pok Pok were reconciled
@@ -329,6 +330,12 @@ In Node:
   and its spots tick their notes left to right, one after each beat; at Bloom each spot is a note of
   its tune, one a beat, the bar growing to fit six; and every bug that can be built, at every stage,
   keeps to its bar and sings on the scale.
+- the Bakery's rules: flour and water make dough, flour with eggs or sugar a batter, and anything
+  short of that nothing yet, eggs and sugar only at Bloom; stirring counts turns of the spoon either
+  way round, across the join too, and a jump across the bowl counts for only a short stroke; in the
+  oven a bun rises first and browns after, never going back, done at its time, and a cake with no
+  eggs hardly rises; and the ticking song, the stirring tune and the birthday tune are on the scale,
+  the birthday tune keeping time.
 
 Then in Chromium, as an iPad (1024 × 768 at 2×, touch), the suite drives every toy with real touch
 events. It measures the audio that reaches the speaker through an analyser after the compressor.
@@ -439,6 +446,16 @@ It also checks:
   off when a seventh comes; that a tap on a bug in the meadow sets it singing alone; that left alone
   the meadow draws nothing; at Bloom, that a bug of four spots sings four notes, each spot lit in
   turn, left to right; and at Seed, that there are no wings and no spots;
+- in the bakery: that the bowl and the board start empty; that a tap on the flour jar puffs, and
+  jars carried over the bowl pour until it has enough; that stirred round, flour and water come
+  together and the dough hops onto the board; that pressed five times it is smooth, a cutter cuts
+  it into a star and seeds sprinkle onto it; that carried to the oven it bakes to a ticking song;
+  that done, it comes out onto the rack, risen and brown, and four animals line up; that taps
+  share it, a piece each, until it is gone; that left alone the kitchen draws nothing; at Bloom,
+  that flour, an egg and sugar make a batter in a tin, ticked off on the recipe, the cake rises, the
+  friend comes, three candles go on, a tap lights them, the tune plays, they are blown out, and
+  the friend has the first piece; that a cake without eggs is flat; and at Seed, that there are
+  only flour and water and room in the oven for one;
 - at the turntable with the friend: that at Seed it waits while he plays and then answers his
   pads on the same pads, reaching over to tap each; that at Sprout it leads with a scratch and a
   pad and waits for him, and answers his scratch with a scratch; that at Bloom, with the record
@@ -513,7 +530,7 @@ playroom/
                             repairs.js and fixitart.js the Fix-it Shop's rules and its toys
                             and parts, hiding.js and torchart.js Torch in the Dark's rules and
                             its garden, choir.js and bugart.js the Bug Maker's rules and its
-                            bugs,
+                            bugs, baking.js and bakeryart.js the Bakery's rules and its kitchen,
                             instruments.js the drum and tambourine they share,
                             deckfriend.js the friend at the turntable,
                             farmart.js the farm's pictures, board.js the isometric board the

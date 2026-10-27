@@ -1213,6 +1213,86 @@ check(
     );
 }
 
+// ---- the Bakery: what the bowl makes, the oven, and the songs ------------------------------------
+
+{
+    const baking = await import(pathToFileURL(join(here, 'js/toys/baking.js')).href);
+    const {
+        STAGES,
+        pantry,
+        mixOf,
+        stirred,
+        STROKE,
+        stirNeeded,
+        OVEN_SONG,
+        STIR_TUNE,
+        BIRTHDAY,
+        timings,
+        piecesFor,
+    } = baking;
+    const bowl = (flour, water, egg, sugar) => ({ flour, water, egg, sugar });
+    check(
+        'the Bakery: flour and water make dough, flour with eggs or sugar a batter, and anything short of that nothing yet; eggs and sugar are on the shelf only at Bloom',
+        mixOf(bowl(1, 1, 0, 0)) === 'dough' &&
+            mixOf(bowl(1, 0, 1, 0)) === 'batter' &&
+            mixOf(bowl(1, 0, 0, 1)) === 'batter' &&
+            mixOf(bowl(1, 1, 0, 1)) === 'batter' &&
+            mixOf(bowl(1, 0, 0, 0)) === null &&
+            mixOf(bowl(0.9, 1, 0, 0)) === null &&
+            mixOf(bowl(0, 1, 1, 1)) === null &&
+            pantry(0).join(' ') === 'flour water' &&
+            pantry(1).join(' ') === 'flour water' &&
+            pantry(2).join(' ') === 'flour water egg sugar'
+    );
+    // Round and round, either way, counts; a jump across the bowl counts for no more than a stroke.
+    let round = 0;
+    for (let i = 1; i <= 80; i++) round += stirred(((i - 1) / 20) * Math.PI * 2, (i / 20) * Math.PI * 2);
+    let back = 0;
+    for (let i = 1; i <= 40; i++) back += stirred(-((i - 1) / 20) * Math.PI * 2, -(i / 20) * Math.PI * 2);
+    const jump = stirred(0, Math.PI * 0.98);
+    const wrap = stirred(Math.PI * 0.95, -Math.PI * 0.95);
+    check(
+        'stirring counts turns of the spoon either way round, across the join at the back of the bowl too, and a jump across the bowl counts for only a short stroke; Seed wants two turns, Sprout and Bloom three',
+        Math.abs(round - 8 * Math.PI) < 1e-6 &&
+            Math.abs(back - 4 * Math.PI) < 1e-6 &&
+            jump === STROKE &&
+            Math.abs(wrap - Math.PI * 0.1) < 1e-6 &&
+            Math.abs(stirNeeded(0) - 4 * Math.PI) < 1e-9 &&
+            Math.abs(stirNeeded(2) - 6 * Math.PI) < 1e-9,
+        `${round.toFixed(3)} ${back.toFixed(3)} ${jump} ${wrap.toFixed(3)}`
+    );
+    const looks = [];
+    for (let t = 0; t <= 20; t += 0.5) looks.push(baking.baking(t, 20));
+    const flat = baking.baking(30, 30, true);
+    check(
+        'in the oven a bun rises first and browns after, never going back, done at its time; Seed bakes twenty seconds, one at a time, Sprout and Bloom two at once; a cake with no eggs hardly rises',
+        looks.every((l, i) => i === 0 || (l.rise >= looks[i - 1].rise && l.brown >= looks[i - 1].brown)) &&
+            looks[0].rise === 0 &&
+            looks[0].brown === 0 &&
+            baking.baking(14, 20).rise === 1 &&
+            baking.baking(5, 20).brown === 0 &&
+            looks[looks.length - 1].brown === 1 &&
+            !baking.baking(19.9, 20).done &&
+            baking.baking(20, 20).done &&
+            flat.rise <= 0.15 &&
+            STAGES[0].bake === 20 &&
+            STAGES.map((s) => s.oven).join(' ') === '1 2 2',
+        JSON.stringify(looks.filter((l, i) => i % 8 === 0))
+    );
+    const birthday = timings(BIRTHDAY);
+    check(
+        "the oven's ticking song, the stirring tune and the friend's birthday tune are all on the playroom scale, and the birthday tune keeps time; a cake is shared one piece each, and one for the friend",
+        OVEN_SONG.concat(
+            STIR_TUNE,
+            BIRTHDAY.map(([d]) => d)
+        ).every((d) => Number.isInteger(d) && d >= 0 && d <= 9) &&
+            birthday.every((n, i) => i === 0 || n.at === birthday[i - 1].at + birthday[i - 1].beats) &&
+            birthday[0].at === 0 &&
+            piecesFor(STAGES[2].animals, true) === STAGES[2].animals.length + 1 &&
+            piecesFor(STAGES[0].animals, false) === 3
+    );
+}
+
 //==============================================================================
 // The browser
 
@@ -1390,8 +1470,9 @@ async function suite(mode) {
     check('then the shelf', (await sceneName()) === 'ShelfScene');
     const trays = await scene(() => window.playroom.shelf.items.map((item) => item.toy.id));
     check(
-        'eighteen trays on the shelf, the newest last',
-        trays.length === 18 && trays.slice(12).join(' ') === 'birdsong weather parade fixit torch bugs',
+        'nineteen trays on the shelf, the newest last',
+        trays.length === 19 &&
+            trays.slice(12).join(' ') === 'birdsong weather parade fixit torch bugs bakery',
         trays.join(' ')
     );
 
@@ -4805,6 +4886,340 @@ async function suite(mode) {
     await home();
     await page.evaluate(async () => (await import('./js/settings.js')).setStage('bugs', 'sprout'));
 
+    // ---- the bakery --------------------------------------------------------------------------------
+    //
+    // Flour and water carried over the bowl pour into it; stirred round, they come together, and the
+    // dough hops onto the board; pressed, it turns smooth; cut, sprinkled, and carried to the oven, it
+    // bakes to a ticking song, and comes out onto the rack, and the animals line up for a piece each.
+    // At Bloom, a cake from the recipe on the wall, with candles, for the friend's birthday.
+
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('bakery', 'sprout'));
+    await open('bakery');
+    check('the bakery opens', (await sceneName()) === 'BakeryScene');
+    const kitchen = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            return {
+                jars: s.jars.map((j) => ({ kind: j.kind, x: j.home.x, y: j.home.y })),
+                jk: s.jk,
+                bowl: { x: s.bowl.x, y: s.bowl.y, r: s.bowl.r },
+                mix: Object.assign({}, s.mix),
+                board: { x: s.board.x, y: s.board.y },
+                dough: s.dough
+                    ? {
+                          landed: s.dough.landed,
+                          smooth: s.dough.smooth,
+                          presses: s.dough.presses,
+                          shape: s.dough.shape,
+                          toppings: s.dough.toppings.length,
+                          kind: s.dough.kind,
+                      }
+                    : null,
+                cutters: s.cutters.map((c) => ({ shape: c.shape, x: c.home.x, y: c.home.y })),
+                oven: { x: s.oven.x + s.oven.w / 2, y: s.oven.window.y + s.oven.window.h / 2 },
+                slots: s.slots.map((slot) => (slot ? { t: slot.t, total: slot.total } : null)),
+                rack: s.rackItems.map((r, i) =>
+                    r
+                        ? Object.assign(
+                              {
+                                  landed: r.landed,
+                                  left: r.left,
+                                  candles: r.candles,
+                                  lit: r.lit,
+                                  sung: r.sung,
+                                  rise: r.look.rise,
+                              },
+                              s.rackSpot(i)
+                          )
+                        : null
+                ),
+                animals: s.animals.map((a) => ({ name: a.name, state: a.state, spot: a.spot, x: a.x })),
+                friend: s.friend ? { ready: s.friend.ready, fed: s.friend.fed } : null,
+                recipe: s.recipe,
+            };
+        });
+    let bake = await kitchen();
+    const jarOf = (kind) => bake.jars.find((j) => j.kind === kind);
+    // Carry a jar over the bowl and hold it there while it pours.
+    const pourIn = async (kind, ms = 1100) => {
+        const jar = jarOf(kind);
+        const from = [jar.x, jar.y - bake.jk * 0.4];
+        const to = [
+            bake.bowl.x + (jar.x < bake.bowl.x ? -1 : 1) * bake.bowl.r * 0.6,
+            bake.bowl.y - bake.bowl.r * 1.6,
+        ];
+        await touch.down(...from);
+        for (const [x, y] of line(from[0], from[1], to[0], to[1], 10).slice(1)) {
+            await page.waitForTimeout(16);
+            await touch.move(x, y);
+        }
+        await page.waitForTimeout(ms);
+        await touch.up();
+        await page.waitForTimeout(150);
+    };
+    check(
+        'an empty bowl and an empty board; flour and water on the shelf, and at Sprout seeds, sprinkles and berries, three cutters and a rolling pin',
+        bake.jars.map((j) => j.kind).join(' ') === 'flour water seeds sprinkles berries' &&
+            bake.cutters.length === 3 &&
+            bake.mix.flour === 0 &&
+            !bake.dough
+    );
+    await shot('bakery');
+    await touch.tap(jarOf('flour').x, jarOf('flour').y - bake.jk * 0.4);
+    const puffed = await scene(() => window.playroom.stage.scene.puffs.length);
+    const puffSound = await peak(400);
+    await pourIn('flour');
+    await pourIn('water');
+    bake = await kitchen();
+    check(
+        'a tap on the flour jar sends up a puff; carried over the bowl, a jar tips and pours, until the bowl has enough',
+        puffed === 1 && puffSound > 0.02 && bake.mix.flour === 1 && bake.mix.water === 1,
+        `${puffed} ${puffSound.toFixed(3)} ${JSON.stringify(bake.mix)}`
+    );
+    // Stir: round and round inside the bowl.
+    const b0 = bake.bowl;
+    await touch.drag(
+        arc(b0.x, b0.y, b0.r * 0.5, 0, Math.PI * 2 * 3.6, 120).map(([x, y]) => [x, b0.y + (y - b0.y) * 0.34]),
+        12
+    );
+    await page
+        .waitForFunction(
+            () => {
+                const d = window.playroom.stage.scene.dough;
+                return d && d.landed;
+            },
+            null,
+            { timeout: 4000 }
+        )
+        .catch(() => {});
+    bake = await kitchen();
+    check(
+        'stirred round and round, flour and water come together, and the dough hops out onto the board, and the bowl is empty again',
+        bake.dough &&
+            bake.dough.landed &&
+            bake.dough.kind === 'dough' &&
+            !bake.dough.smooth &&
+            bake.mix.flour === 0,
+        JSON.stringify(bake.dough)
+    );
+    for (let i = 0; i < 5; i++) {
+        await touch.tap(bake.board.x, bake.board.y);
+        await page.waitForTimeout(120);
+    }
+    const kneaded = (await kitchen()).dough;
+    const star = bake.cutters.find((c) => c.shape === 'star');
+    await touch.drag(line(star.x, star.y, bake.board.x, bake.board.y, 12), 16, 60);
+    const seedsJar = jarOf('seeds');
+    await touch.down(seedsJar.x, seedsJar.y - bake.jk * 0.4);
+    for (const [x, y] of line(
+        seedsJar.x,
+        seedsJar.y - bake.jk * 0.4,
+        bake.board.x + 30,
+        bake.board.y - 140,
+        10
+    ).slice(1)) {
+        await page.waitForTimeout(16);
+        await touch.move(x, y);
+    }
+    await page.waitForTimeout(1000);
+    await touch.up();
+    bake = await kitchen();
+    check(
+        'pressed five times, the dough turns smooth; a cutter let go of on it cuts it into a star; seeds held over it sprinkle onto it',
+        kneaded.presses === 5 && kneaded.smooth && bake.dough.shape === 'star' && bake.dough.toppings > 2,
+        `${JSON.stringify(kneaded)} ${JSON.stringify(bake.dough)}`
+    );
+    await shot('bakery-shaped');
+    await touch.drag(line(bake.board.x, bake.board.y, bake.oven.x, bake.oven.y, 16), 16, 60);
+    await page.waitForTimeout(200);
+    bake = await kitchen();
+    const ovenSong = await peak(1500);
+    check(
+        'carried to the oven, it goes in, and bakes to a ticking song, the board clear for the next',
+        bake.slots[0] && bake.slots[0].total === 25 && !bake.dough && ovenSong > 0.02,
+        `${JSON.stringify(bake.slots)} ${ovenSong.toFixed(3)}`
+    );
+    await shot('bakery-baking');
+    // Most of the way through, to save waiting: it comes out, and the animals come for it.
+    await scene(() => {
+        const slot = window.playroom.stage.scene.slots[0];
+        slot.t = slot.total - 0.3;
+    });
+    await page
+        .waitForFunction(
+            () => {
+                const s = window.playroom.stage.scene;
+                return (
+                    s.rackItems[0] &&
+                    s.rackItems[0].landed &&
+                    s.animals.length === 4 &&
+                    s.animals.every((a) => a.state === 'waiting')
+                );
+            },
+            null,
+            { timeout: 12000 }
+        )
+        .catch(() => {});
+    bake = await kitchen();
+    check(
+        'done, the bell, and out it comes onto the rack, risen and brown; four animals come and line up for a piece',
+        bake.rack[0] &&
+            bake.rack[0].rise === 1 &&
+            bake.animals.map((a) => a.name).join(' ') === 'cow sheep pig duck' &&
+            bake.animals.every((a) => a.state === 'waiting'),
+        `${JSON.stringify(bake.rack)} ${JSON.stringify(bake.animals)}`
+    );
+    await shot('bakery-animals');
+    const served = [];
+    for (let i = 0; i < 4; i++) {
+        await page
+            .waitForFunction(
+                () => window.playroom.stage.scene.animals.some((a) => a.state === 'waiting' && a.spot === 0),
+                null,
+                {
+                    timeout: 6000,
+                }
+            )
+            .catch(() => {});
+        await touch.tap(bake.rack[0].x, bake.rack[0].y);
+        await page.waitForTimeout(250);
+        served.push(
+            (await kitchen()).animals.filter(
+                (a) => a.state === 'eating' || a.state === 'fed' || a.state === 'leaving'
+            ).length
+        );
+    }
+    bake = await kitchen();
+    check(
+        'a tap on it shares it, a piece to the first in line, who eats it and goes; four pieces, and it is gone',
+        served[0] === 1 && !bake.rack[0] && served[3] >= 1,
+        `${served.join(' ')} ${JSON.stringify(bake.rack)}`
+    );
+    // Left alone, the kitchen rests.
+    await page
+        .waitForFunction(() => window.playroom.stage.scene.animals.length === 0, null, { timeout: 8000 })
+        .catch(() => {});
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        s.touched = s.time - 60;
+    });
+    await page.waitForTimeout(1500);
+    const bakeRestA = await scene(() => window.playroom.stage.frames);
+    await page.waitForTimeout(700);
+    const bakeRestB = await scene(() => window.playroom.stage.frames);
+    check(
+        'left alone, with nothing in the oven, the kitchen rests and draws nothing',
+        bakeRestB === bakeRestA,
+        `${bakeRestB - bakeRestA} frames`
+    );
+    await home();
+
+    // At Bloom: the recipe's cake, with eggs, rises; candles on it, a tap lights them, the friend's
+    // tune plays and the friend blows them out, and has the first piece.
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('bakery', 'bloom'));
+    await open('bakery');
+    bake = await kitchen();
+    check(
+        'at Bloom, eggs and sugar on the shelf too, and the recipe on the wall',
+        bake.jars
+            .map((j) => j.kind)
+            .slice(0, 4)
+            .join(' ') === 'flour water egg sugar'
+    );
+    await pourIn('flour');
+    await pourIn('egg', 300);
+    await pourIn('sugar');
+    const recipeOne = (await kitchen()).recipe;
+    await touch.drag(
+        arc(b0.x, b0.y, b0.r * 0.5, 0, Math.PI * 2 * 3.6, 120).map(([x, y]) => [x, b0.y + (y - b0.y) * 0.34]),
+        12
+    );
+    await page
+        .waitForFunction(
+            () => {
+                const d = window.playroom.stage.scene.dough;
+                return d && d.landed;
+            },
+            null,
+            { timeout: 4000 }
+        )
+        .catch(() => {});
+    bake = await kitchen();
+    const batter = bake.dough;
+    await touch.drag(line(bake.board.x, bake.board.y, bake.oven.x, bake.oven.y, 16), 16, 60);
+    await page.waitForTimeout(200);
+    await scene(() => {
+        const slot = window.playroom.stage.scene.slots[0];
+        slot.t = slot.total - 0.3;
+    });
+    await page
+        .waitForFunction(
+            () => {
+                const s = window.playroom.stage.scene;
+                return s.rackItems[0] && s.rackItems[0].landed && s.friend && s.friend.ready;
+            },
+            null,
+            { timeout: 8000 }
+        )
+        .catch(() => {});
+    bake = await kitchen();
+    const candleBox = await scene(() => window.playroom.stage.scene.candleBox);
+    for (let i = 0; i < 3; i++) {
+        await touch.tap(candleBox.x, candleBox.y - candleBox.k * 0.2);
+        await page.waitForTimeout(450);
+    }
+    const candled = (await kitchen()).rack[0];
+    await touch.tap(candled.x, candled.y);
+    await page.waitForTimeout(300);
+    const lit = (await kitchen()).rack[0].lit;
+    const tuneSound = await peak(1500);
+    await shot('bakery-birthday');
+    await page
+        .waitForFunction(
+            () => {
+                const s = window.playroom.stage.scene;
+                return s.rackItems[0] && s.rackItems[0].sung;
+            },
+            null,
+            { timeout: 12000 }
+        )
+        .catch(() => {});
+    await touch.tap(candled.x, candled.y);
+    await page.waitForTimeout(700);
+    bake = await kitchen();
+    check(
+        'at Bloom flour, an egg and sugar, stirred, make a batter in a tin, ticked off on the recipe; baked, the cake rises and the friend comes for its birthday; three candles, lit with a tap, its tune, and blown out; and the friend has the first piece',
+        recipeOne === 1 &&
+            batter &&
+            batter.kind === 'cake' &&
+            bake.recipe === 3 &&
+            candled.candles === 3 &&
+            candled.rise === 1 &&
+            lit === 1 &&
+            tuneSound > 0.03 &&
+            bake.friend &&
+            bake.friend.fed,
+        `${recipeOne} ${JSON.stringify(batter)} ${JSON.stringify(candled)} ${lit} ${tuneSound.toFixed(3)} ${JSON.stringify(bake.friend)}`
+    );
+    // A cake with no eggs comes out flat.
+    const flatRise = await scene(async () => {
+        const { baking } = await import('./js/toys/baking.js');
+        return baking(30, 30, true).rise;
+    });
+    check('a cake with no eggs in it comes out flat', flatRise <= 0.15);
+    await home();
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('bakery', 'seed'));
+    await open('bakery');
+    bake = await kitchen();
+    check(
+        'at Seed, flour and water, and an oven for one bun at a time; no cutters, no toppings',
+        bake.jars.map((j) => j.kind).join(' ') === 'flour water' &&
+            bake.slots.length === 1 &&
+            bake.cutters.length === 0
+    );
+    await home();
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('bakery', 'sprout'));
+
     // ---- the grown-up's corner ------------------------------------------------------------------
 
     const gate = await page.evaluate(() => {
@@ -4866,9 +5281,9 @@ async function suite(mode) {
     );
 
     await page.click('[data-toy="busy"] .switch');
-    check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 17);
+    check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 18);
     await page.click('[data-toy="busy"] .switch');
-    check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 18);
+    check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 19);
 
     // The shelf's order: the arrows move a toy along it, the list follows, the order is remembered,
     // and the playroom's own order is a press away. A new game says so.
@@ -4882,7 +5297,7 @@ async function suite(mode) {
     const ownOrder = await shelfOrder();
     const ends = await page.evaluate(() => ({
         first: document.querySelector('[data-toy="pond"] [data-earlier]').disabled,
-        last: document.querySelector('[data-toy="bugs"] [data-later]').disabled,
+        last: document.querySelector('[data-toy="bakery"] [data-later]').disabled,
         badges: [...document.querySelectorAll('[data-shelf] .badge')]
             .map((b) => b.closest('[data-toy]').getAttribute('data-toy'))
             .join(' '),
@@ -4897,7 +5312,7 @@ async function suite(mode) {
         "the arrows move a toy along the shelf, the list follows and it is remembered; one press brings back the playroom's own order",
         ends.first &&
             ends.last &&
-            ends.badges === 'birdsong weather parade fixit torch bugs' &&
+            ends.badges === 'birdsong weather parade fixit torch bugs bakery' &&
             movedOrder.split(' ').indexOf('birdsong') === 10 &&
             movedList === movedOrder &&
             keptOrder.indexOf('birdsong') === 10 &&

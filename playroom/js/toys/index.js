@@ -24,6 +24,7 @@ import { toy as parade } from './parade.js';
 import { toy as fixit } from './fixit.js';
 import { toy as torch } from './torch.js';
 import { toy as bugs } from './bugs.js';
+import { toy as bakery } from './bakery.js';
 
 export const TOYS = [
     pond,
@@ -44,4 +45,5 @@ export const TOYS = [
     fixit,
     torch,
     bugs,
+    bakery,
 ];

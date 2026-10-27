@@ -5,19 +5,19 @@ revised. The technical side (the old iPad, the audio engine, the tests) is in
 [PLAYROOM.md](PLAYROOM.md). This file is about what each game is and why. The code calls the games
 "toys".
 
-**Status, 26 October 2026.**
-- **Built:** seventeen games, tested in two simulated iPad browsers (one with everything Safari 12
-  lacks removed). The newest are phase 2 of the proposal for new games, music that takes turns and
-  says feelings: two new games, Weather Song and Freeze Parade, and the friend at the turntable.
-  With them comes the friend, a small make-believe character with feelings, who lives in Weather
-  Song and visits the turntable. Before them, phase 1: Bird Song, the shy fish, and hello and
-  goodnight; then a goodnight timer a grown-up locks with a passcode, shown as a band round the
-  edge of every screen, and a choice between toys that fall asleep by themselves and toys he tucks
-  in. Every new thing has a switch in the grown-ups' corner, which can also set the shelf's order.
-  Since then: the building site reworked to go a step at a time, and the timer made to end play
-  time for good: once its goodnight is over, the bud sleeps until a grown-up opens the playroom
-  again with the passcode. Phase 3 is under way: the Fix-it Shop, Torch in the Dark and the Bug
-  Maker.
+**Status, 27 October 2026.**
+- **Built:** nineteen games, tested in two simulated iPad browsers (one with everything Safari 12
+  lacks removed). The newest are phase 3 of the proposal for new games, hands and eyes: the Fix-it
+  Shop, Torch in the Dark, the Bug Maker and the Bakery. Before them, phase 2, music that takes turns
+  and says feelings: two new games, Weather Song and Freeze Parade, and the friend at the turntable.
+  With them came the friend, a small make-believe character with feelings, who lives in Weather Song,
+  visits the turntable, and has its birthday in the Bakery. Before them, phase 1: Bird Song, the shy
+  fish, and hello and goodnight; then a goodnight timer a grown-up locks with a passcode, shown as a
+  band round the edge of every screen, and a choice between toys that fall asleep by themselves and
+  toys he tucks in. Every new thing has a switch in the grown-ups' corner, which can also set the
+  shelf's order. Along the way: the building site reworked to go a step at a time, and the timer made
+  to end play time for good: once its goodnight is over, the bud sleeps until a grown-up opens the
+  playroom again with the passcode.
 - **Where:** live at https://planks-berry.github.io/Bud/playroom/, published from `main`. Work
   continues on branch `claude/montessori-playroom`.
 - **Not yet checked on a real iPad:** the speaker mix and the iPad Air's frame rate can only be
@@ -1313,10 +1313,77 @@ together in tune.
 
 ---
 
+### 19. Bakery
+
+**What it is:** a kitchen: a shelf of jars on a tiled wall, a counter with a mixing bowl and a
+board, a rack for things to cool on, and an oven on the wall with a big window. Flour and water,
+carried over the bowl, tip and pour into it until it has enough, and the jar straightens up.
+Stirred round and round with the wooden spoon, they come together into a ball of dough, which hops
+out onto the board. Pressed a few times it turns smooth, and carried to the oven, it goes in. There
+it rises and browns, slowly, to a soft ticking song, the timer's hand going round, until the bell.
+Out it comes onto the rack, and the animals come and line up for a piece: a tap shares it, a piece
+to whoever is first, who eats it and goes. Meanwhile there is always the next one to make.
+
+**Roots:** Cookie Monster learning ways to wait for his cookies: something to watch, something to
+do meanwhile; Mister Rogers' factory visits; Montessori's practical life.
+
+**Layers**
+- Touch: tap the flour jar for a puff of flour, the jug for a splash; tap the dough to knead it; tap
+  what has come out of the oven to share it; tap an animal and it calls.
+- Move: carry a jar over the bowl and it pours; stir round and round; carry the dough to the oven.
+  From Sprout, roll it out long with the rolling pin, cut it into a star, a heart or a flower with a
+  cutter, and sprinkle seeds, sprinkles or berries on it from a jar held over it, before it bakes
+  or after.
+- Make: bread, buns, and at Bloom a cake with candles for the friend's birthday.
+
+**Stages**
+- Seed: one bun at a time, twenty seconds in the oven; the cow, the sheep and the pig come for it.
+- Sprout: rolls and shapes and toppings; two in the oven at once, twenty-five seconds; and the duck
+  comes too.
+- Bloom: and eggs and sugar on the shelf, thirty seconds in the oven, and a recipe on the wall in
+  pictures, three steps for a cake: flour, an egg and sugar; stirred; into the oven. Each step is ticked as it is done. The
+  batter pours itself into a tin. Out of the oven, the friend comes up behind the counter: it is its
+  birthday. Candles from the box go on the cake, a tap lights them, the friend's own tune plays on
+  the music box, and it blows them out; it has the first piece. A cake with no eggs in it comes out
+  flat, and is eaten just as happily.
+
+**Sound:** a puff of flour; flour pouring with a soft rustle, water in drops on the scale; each
+ingredient's note when the bowl has enough, and a pop and a bell when it comes together; the stirring
+plays a tune up the scale and down, a note each quarter turn; kneading pats with a rising note; the
+oven's door creaks and latches; it ticks while it bakes, tick and tock, with a music box note every
+other beat; the bell; the animals' voices and their munching; the birthday tune, the friend's
+breath, and a jingle.
+
+**Decisions so far**
+- Nothing can go wrong: a jar pours only while the bowl has room, flour alone just swishes (and the
+  jug nods), a bun let go of anywhere but the oven goes back to the board, and a cake with no eggs is
+  still a cake.
+- While something bakes, the bowl and the board are free: the next one can be made, or the last one
+  sprinkled on the rack.
+- A smooth bun waiting on the board gets the oven's light to blink now and then, to show where it
+  goes.
+- One piece each: a bun is shared among exactly the animals who came, and the friend has the first
+  piece of its birthday cake.
+- The proposal's moves were stir, knead, roll and pinch. Shapes come from the rolling pin and the
+  cutters instead of pinching: a two-finger pinch is hard at three, as in the Bug Maker.
+- The kitchen rests after forty seconds untouched, unless something is in the oven.
+- It joins the shelf after the Bug Maker, with its own switch.
+
+**Questions**
+- Does he stay with the oven, or go off and come back for it? The proposal's watch-for: both are
+  waiting well. If he loses interest in the wait, Seed could bake faster.
+- Is twenty seconds right? It is the proposal's; if it is too long to wait at first, the oven could
+  start at ten seconds at Seed.
+
+**Ideas**
+-
+
+---
+
 ## Not built yet
 
-- **The rest of the proposal for new games**: the rest of phase 3, the Bakery, then
-  phase 4, the Marble Machine and the Puppet Theatre, in "Playroom proposal: twelve new games".
+- **The rest of the proposal for new games**: phase 4, the Marble Machine and the Puppet Theatre,
+  in "Playroom proposal: twelve new games".
 - **A garden:** seeds, a watering can, flowers that open with a chime, and the bud's own story.
   The farm's fields and watering farmer now cover some of it.
 - **The movable alphabet** (see the letters).
@@ -1340,7 +1407,8 @@ together in tune.
   share in `instruments.js`, the friend at the decks in `deckfriend.js`, the Fix-it Shop's rules
   in `repairs.js` and its toys and parts in `fixitart.js`, Torch in the Dark's rules in
   `hiding.js` and its garden in `torchart.js`, the Bug Maker's rules in `choir.js` and its bugs in
-  `bugart.js`, the machines the dig and
+  `bugart.js`, the Bakery's rules in `baking.js` and its kitchen in `bakeryart.js`, the machines the
+  dig and
   the site share in `machines.js`, and the board the farm and the site share in `board.js`. The
   friend itself is `playroom/js/friend.js`; the shelf, with its hello and goodnight,
   `playroom/js/shelf.js`.
