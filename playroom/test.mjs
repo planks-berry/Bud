@@ -965,6 +965,117 @@ check(
     );
 }
 
+// ---- Torch in the Dark: where they hide, how the light wakes them, and the fireflies -------------
+
+{
+    const hiding = await import(pathToFileURL(join(here, 'js/toys/hiding.js')).href);
+    const {
+        STAGES,
+        SPOTS,
+        CREATURES,
+        hide,
+        rest,
+        SLOW,
+        call,
+        echo,
+        grown,
+        FLASH,
+        FIRST,
+        MOST,
+        SONG,
+        VOICE_AT,
+    } = hiding;
+    const { rng } = await import(pathToFileURL(join(here, 'js/util.js')).href);
+    const seed = hide(0, null, rng(3));
+    const seedAgain = hide(0, seed, rng(4));
+    const hideFaults = [];
+    let repeats = 0;
+    let stays = 0;
+    for (const level of [1, 2]) {
+        const next = rng(level * 11);
+        let last = null;
+        for (let night = 0; night < 400; night++) {
+            const places = hide(level, last, next);
+            const used = Object.values(places);
+            if (
+                Object.keys(places).length !== STAGES[level].creatures.length ||
+                new Set(used).size !== used.length ||
+                Object.keys(places).some(
+                    (who) => !SPOTS[places[who]] || SPOTS[places[who]].who.indexOf(who) < 0
+                )
+            )
+                hideFaults.push(JSON.stringify(places));
+            if (last) {
+                for (const who of Object.keys(places)) {
+                    stays++;
+                    if (places[who] === last[who]) repeats++;
+                }
+            }
+            last = places;
+        }
+    }
+    check(
+        'Torch in the Dark: at Seed four friends sleep in the same places every night; from Sprout six, somewhere new each night, each in a place that suits it, never two in one place, and seldom where it slept the night before',
+        Object.keys(seed).length === 4 &&
+            JSON.stringify(seed) === JSON.stringify(seedAgain) &&
+            STAGES[1].creatures.length === CREATURES.length &&
+            hideFaults.length === 0 &&
+            repeats / stays < 0.1,
+        `${hideFaults.slice(0, 2).join(' | ')} repeats ${repeats}/${stays}`
+    );
+    let lit = 0;
+    for (let i = 0; i < 30; i++) lit = rest(lit, 1 / 60, true, SLOW * 0.5);
+    const rested = lit;
+    for (let i = 0; i < 30; i++) lit = rest(lit, 1 / 60, true, SLOW * 2);
+    const swept = lit;
+    let fast = 0;
+    for (let i = 0; i < 60; i++) fast = rest(fast, 1 / 60, true, SLOW * 3);
+    check(
+        'the light wakes a creature only by resting on it: it gathers while the beam is still on it, and drains when the beam sweeps fast; a beam that only sweeps never gathers any',
+        Math.abs(rested - 0.5) < 0.01 &&
+            swept === 0 &&
+            fast === 0 &&
+            STAGES.every((s, i) => i === 0 || s.wake >= STAGES[i - 1].wake),
+        `${rested.toFixed(2)} ${swept.toFixed(2)}`
+    );
+    const rhythmFaults = [];
+    const next = rng(5);
+    for (let i = 0; i < 300; i++) {
+        const length = FIRST + (i % (MOST - FIRST + 1));
+        const times = call(length, next);
+        const gaps = times.slice(1).map((t, j) => t - times[j]);
+        if (
+            times.length !== length ||
+            times[0] !== 0 ||
+            gaps.some((g) => Math.abs(g - FLASH) > 1e-9 && Math.abs(g - 2 * FLASH) > 1e-9)
+        )
+            rhythmFaults.push(times.join(' '));
+    }
+    const back = echo([0, 0.05, 0.4, 3, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7]);
+    let growth = { streak: 0, length: FIRST };
+    const lengths = [];
+    for (let i = 0; i < 10; i++) {
+        growth = grown(growth.streak, growth.length);
+        lengths.push(growth.length);
+    }
+    check(
+        'the fireflies blink rhythms of short and long gaps, from two blinks growing by one every second rhythm he answers, to five; they blink his back in his own time, a quick flicker and a long wait kept within bounds, at most eight',
+        rhythmFaults.length === 0 &&
+            back.length === 8 &&
+            back[0] === 0 &&
+            back.slice(1).every((t, j) => t - back[j] >= 0.14 - 1e-9 && t - back[j] <= 0.7 + 1e-9) &&
+            lengths.join(' ') === '2 3 3 4 4 5 5 5 5 5',
+        `${rhythmFaults.slice(0, 2).join(' | ')} ${lengths.join(' ')} ${back.map((t) => t.toFixed(2)).join(' ')}`
+    );
+    check(
+        'the night song is on the playroom scale, and every friend has its note in it',
+        SONG.every((d) => Number.isInteger(d) && d >= 0 && d <= 5) &&
+            CREATURES.every(
+                (who) => Number.isInteger(VOICE_AT[who]) && VOICE_AT[who] >= 0 && VOICE_AT[who] < SONG.length
+            )
+    );
+}
+
 //==============================================================================
 // The browser
 
@@ -1142,8 +1253,8 @@ async function suite(mode) {
     check('then the shelf', (await sceneName()) === 'ShelfScene');
     const trays = await scene(() => window.playroom.shelf.items.map((item) => item.toy.id));
     check(
-        'sixteen trays on the shelf, the newest last',
-        trays.length === 16 && trays.slice(12).join(' ') === 'birdsong weather parade fixit',
+        'seventeen trays on the shelf, the newest last',
+        trays.length === 17 && trays.slice(12).join(' ') === 'birdsong weather parade fixit torch',
         trays.join(' ')
     );
 
@@ -4164,6 +4275,175 @@ async function suite(mode) {
     await home();
     await page.evaluate(async () => (await import('./js/settings.js')).setStage('fixit', 'sprout'));
 
+    // ---- torch in the dark ------------------------------------------------------------------------
+    //
+    // The garden at night: a beam swept quickly wakes no one; rested on a creature, it wakes it, and
+    // its lantern lights. With every lantern lit they sing, and sleep, and the next night they hide
+    // somewhere new. The torch clicks on and off; moths come to a beam left still; at Bloom the moon
+    // rises and the fireflies blink a rhythm for him to blink back.
+
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('torch', 'sprout'));
+    await open('torch');
+    check('torch in the dark opens', (await sceneName()) === 'TorchScene');
+    const garden = () =>
+        scene(() => {
+            const s = window.playroom.stage.scene;
+            return {
+                creatures: s.creatures.map((c) => ({
+                    who: c.who,
+                    x: c.x,
+                    y: c.y,
+                    state: c.state,
+                    act: c.act,
+                })),
+                places: Object.assign({}, s.places),
+                lanterns: s.lanterns.map((l) => l.glow.target),
+                song: !!s.song,
+                beam: { on: s.beam.on, x: s.beam.x, y: s.beam.y },
+                k: s.k,
+                moths: s.moths.length,
+                torch: s.torchAt,
+            };
+        });
+    // The finger, for the beam to rest on a creature: the beam sits a little above the finger.
+    const fingerFor = (c, k) => [c.x, c.y - k * 0.4 + 36];
+    let night = await garden();
+    check(
+        'six friends asleep in the dark garden, each lantern unlit, the torch off',
+        night.creatures.length === 6 &&
+            night.creatures.every((c) => c.state === 'asleep') &&
+            night.lanterns.every((g) => g === 0) &&
+            !night.beam.on
+    );
+    await shot('torch');
+    const firstFriend = night.creatures[0];
+    const [fx, fy] = fingerFor(firstFriend, night.k);
+    const sweepFrom = Math.max(20, fx - 220);
+    await touch.drag(line(sweepFrom, fy, Math.min(1000, fx + 220), fy, 8), 16);
+    await page.waitForTimeout(300);
+    const swept = (await garden()).creatures[0];
+    await touch.tap(fx, fy);
+    const friendWoke = await page
+        .waitForFunction(() => window.playroom.stage.scene.creatures[0].state === 'awake', null, {
+            timeout: 4000,
+        })
+        .then(
+            () => true,
+            () => false
+        );
+    const wokeSound = await peak(600);
+    night = await garden();
+    check(
+        'a beam swept quickly past a friend wakes no one; rested on it, the torch clicked on, it wakes, calls, and its lantern lights',
+        swept.state === 'asleep' &&
+            friendWoke &&
+            night.beam.on &&
+            night.lanterns[0] === 1 &&
+            wokeSound > 0.03,
+        `${swept.state} ${friendWoke} ${wokeSound.toFixed(3)}`
+    );
+    await shot('torch-awake');
+    // Moths come to a beam left still.
+    const mothsCame = await page
+        .waitForFunction(() => window.playroom.stage.scene.moths.length > 0, null, { timeout: 5000 })
+        .then(
+            () => true,
+            () => false
+        );
+    check('moths come to a beam left still', mothsCame);
+    const torchBefore = night.places;
+    for (const c of night.creatures.slice(1)) {
+        await touch.tap(...fingerFor(c, night.k));
+        await page.waitForFunction(
+            (who) => window.playroom.stage.scene.creatures.find((c) => c.who === who).state === 'awake',
+            c.who,
+            { timeout: 4000 }
+        );
+    }
+    night = await garden();
+    const sang = night.song;
+    const newNight = await page
+        .waitForFunction(
+            () => {
+                const s = window.playroom.stage.scene;
+                return !s.song && s.creatures.every((c) => c.state === 'asleep');
+            },
+            null,
+            { timeout: 15000 }
+        )
+        .then(
+            () => true,
+            () => false
+        );
+    const after = (await garden()).places;
+    const torchMoved = Object.keys(after).filter((who) => after[who] !== torchBefore[who]).length;
+    check(
+        'every friend awake and every lantern lit, they sing a night song, go back to sleep, and the next night hide somewhere new',
+        night.lanterns.every((g) => g === 1) && sang && newNight && torchMoved >= 3,
+        `${torchMoved} moved`
+    );
+    const torchAt = night.torch;
+    await touch.tap(torchAt.x - torchAt.k * 0.5, torchAt.y);
+    await page.waitForTimeout(200);
+    const off = (await garden()).beam.on;
+    await touch.tap(torchAt.x - torchAt.k * 0.5, torchAt.y);
+    await page.waitForTimeout(200);
+    check('a tap on the torch clicks it off, and on again', !off && (await garden()).beam.on);
+    // Left alone, the garden rests and draws nothing.
+    await touch.tap(torchAt.x - torchAt.k * 0.5, torchAt.y);
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        s.touched = s.time - 60;
+    });
+    await page.waitForTimeout(2200);
+    const torchRestA = await scene(() => window.playroom.stage.frames);
+    await page.waitForTimeout(700);
+    const torchRestB = await scene(() => window.playroom.stage.frames);
+    check(
+        'left alone a while, the garden rests and draws nothing',
+        torchRestB === torchRestA,
+        `${torchRestB - torchRestA} frames`
+    );
+    await home();
+
+    // At Bloom: the moon climbs, and the fireflies blink a rhythm for him to blink back.
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('torch', 'bloom'));
+    await open('torch');
+    await scene(() => {
+        const s = window.playroom.stage.scene;
+        s.flies.t = 0;
+    });
+    const listening = await page
+        .waitForFunction(() => window.playroom.stage.scene.flies.state === 'listen', null, { timeout: 5000 })
+        .then(
+            () => true,
+            () => false
+        );
+    const called = await scene(() => window.playroom.stage.scene.flies.times.length);
+    const torchNow = await scene(() => window.playroom.stage.scene.torchAt);
+    for (let i = 0; i < 3; i++) {
+        await touch.tap(torchNow.x - torchNow.k * 0.5, torchNow.y);
+        await page.waitForTimeout(260);
+    }
+    const echoed = await page
+        .waitForFunction(() => window.playroom.stage.scene.flies.state === 'echo', null, { timeout: 4000 })
+        .then(
+            () => true,
+            () => false
+        );
+    const flies = await scene(() => {
+        const s = window.playroom.stage.scene;
+        return { back: s.flies.times.length, streak: s.flies.streak, moon: s.moon };
+    });
+    check(
+        'at Bloom the fireflies blink a rhythm and wait; blinked back with the torch, they blink his rhythm to him; and the moon is rising',
+        listening && called === 2 && echoed && flies.back === 3 && flies.streak === 1 && flies.moon > 0,
+        JSON.stringify(flies)
+    );
+    await shot('torch-bloom');
+    await home();
+    await page.evaluate(async () => (await import('./js/settings.js')).setStage('torch', 'sprout'));
+
     // ---- the grown-up's corner ------------------------------------------------------------------
 
     const gate = await page.evaluate(() => {
@@ -4225,9 +4505,9 @@ async function suite(mode) {
     );
 
     await page.click('[data-toy="busy"] .switch');
-    check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 15);
+    check('a toy can be put away', (await scene(() => window.playroom.shelf.items.length)) === 16);
     await page.click('[data-toy="busy"] .switch');
-    check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 16);
+    check('and brought back', (await scene(() => window.playroom.shelf.items.length)) === 17);
 
     // The shelf's order: the arrows move a toy along it, the list follows, the order is remembered,
     // and the playroom's own order is a press away. A new game says so.
@@ -4241,7 +4521,7 @@ async function suite(mode) {
     const ownOrder = await shelfOrder();
     const ends = await page.evaluate(() => ({
         first: document.querySelector('[data-toy="pond"] [data-earlier]').disabled,
-        last: document.querySelector('[data-toy="fixit"] [data-later]').disabled,
+        last: document.querySelector('[data-toy="torch"] [data-later]').disabled,
         badges: [...document.querySelectorAll('[data-shelf] .badge')]
             .map((b) => b.closest('[data-toy]').getAttribute('data-toy'))
             .join(' '),
@@ -4256,7 +4536,7 @@ async function suite(mode) {
         "the arrows move a toy along the shelf, the list follows and it is remembered; one press brings back the playroom's own order",
         ends.first &&
             ends.last &&
-            ends.badges === 'birdsong weather parade fixit' &&
+            ends.badges === 'birdsong weather parade fixit torch' &&
             movedOrder.split(' ').indexOf('birdsong') === 10 &&
             movedList === movedOrder &&
             keptOrder.indexOf('birdsong') === 10 &&

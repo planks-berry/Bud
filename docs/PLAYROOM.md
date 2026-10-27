@@ -67,12 +67,13 @@ the child does: no reports, no history, nothing sent anywhere.
 
 ## The shelf
 
-Sixteen toys in rows, ordered as a Montessori shelf is: simple to complex, left to right, top to
+Seventeen toys in rows, ordered as a Montessori shelf is: simple to complex, left to right, top to
 bottom. The first toys ask for nothing but a touch; then a steadier hand, and then symbols. Then
 the builders': the dig, where a finger is a digger's bucket; the crane, which does the same work at
 a distance, through a hook; and the farm and the building site, worlds to build rather than
 materials, which hold a little of everything before them. After them come the new games, in the
-order they were made: Bird Song, Weather Song, Freeze Parade and the Fix-it Shop. A new toy joins at
+order they were made: Bird Song, Weather Song, Freeze Parade, the Fix-it Shop and Torch in the Dark.
+A new toy joins at
 the end, so the trays a child knows keep their order, until a grown-up moves it. The shelf takes up
 to four rows, of as many trays as the toys need.
 
@@ -114,6 +115,7 @@ Every toy has three layers, which are found by playing, never unlocked:
 | **Weather song** | Music; and feelings, after Mister Rogers | Tip the rain-stick, ring a bell, beat the big drum: each is a weather; tap the friend and it hops | Push the cloud along: wind, and the friend's scarf flies out | His music is the friend's weather and mood: a drizzle and a sleepy friend under a leaf, the sun and a dance, thunder and a cross friend who sighs and smiles when it passes; a whole day, morning to night, when the friend sleeps until a tap brings the morning | a rain-stick and 3 bells / and 5 bells and the big drum / and fog with a shy friend, a rainbow with a proud one, and the day painted as a strip of sky |
 | **Freeze parade** | Music: rhythm and movement; self-control | Each beat on the big drum is a step for the parade; tap an animal and it calls out | A steady beat marches them, quick beats hurry them; stopping freezes them mid-step | A parade round the pond, over the bridge and home past the barn, where the rooster crows; stopped, they freeze in silly poses, wobble, one sneezes, and at last they lie down to wait | a drum, a cow, a sheep and a pig / and two ducks with a tambourine / and a quick hare, a slow tortoise, and a band playing along |
 | **Fix-it shop** | Practical life, and sensorial: shape | Tap a broken toy: a dream shows what it does when it works; tap a part to turn it; tap a mended toy on the shelf for its part in the band | Carry a part from the drawer to the gap it leaves: one that fits clicks in, one that does not slides back; the right part the wrong way round lies by the toy until it is turned. At Bloom, the screwdriver turns a screw home | Broken toys, one at a time, mended and come to life: a car that drives, a drum, a music box, a robot that waves, a train that toots, a boat that sails; each hops up to the shelf and joins the band | one part missing, a drawer of two / a drawer of three, the part to be turned / two parts missing, a drawer of four, and a screw |
+| **Torch in the dark** | Nature, and the senses: looking | Tap the torch to click it on and off; touch the garden and the beam goes there | Sweep the beam slowly: a creature wakes only when the light rests on it; let go and the beam stays, so it can rest by itself. Moths come to a beam left still | A night garden of friends asleep, an owl, a hedgehog, a snail, a frog, a mouse, a cricket, who wake gently one by one, each lighting a lantern; with every lantern lit they sing a night song and sleep again. The dark is never black, and awake eyes catch the light | a wide beam and 4 friends / a narrower beam, 6 friends, new hiding places each night / and the moon rising, and fireflies' rhythms to blink back |
 | **Bird song** | Music, auditory sense; and taking turns | Tap a bell flower for its colour's note; tap the bird to hand it the turn, or, before playing, to hear its tune again | Run a finger along the flowers: a glide, and the bird glides it back | The bird sings a tune and waits, wing to its ear, asking with rings and a hop when he pauses, and, every five seconds he plays on, by standing tall and flapping; handed the turn, it sings his notes back in the same rhythm, then a new tune from the last note played. Tunes grow by a note after three answered turns, and never shrink | 3 flowers, tunes of 2 / 5 flowers, tunes of 3 / and a second bird, tunes growing to 5 |
 
 ### How Montessori and Pok Pok were reconciled
@@ -314,6 +316,13 @@ In Node:
   no other part fits; from Sprout the parts it needs lie turned, round ones aside, and a few taps
   turn them to fit; the toys come one each a round, never the last one first again; and the band
   plays on the scale and in time, the drum on every beat.
+- Torch in the Dark's rules, over 400 nights at Sprout and at Bloom: at Seed four friends sleep in
+  the same places every night; from Sprout six, somewhere new each night, each in a place that suits
+  it, never two in one place, and seldom where it slept the night before; the light wakes a friend
+  only by resting on it, gathering while the beam is still and draining when it sweeps; the
+  fireflies' rhythms have short and long gaps, grow from two blinks by one every second rhythm he
+  answers, to five, and blink his back in his own time, kept within bounds; and the night song is on
+  the scale, with a note for every friend.
 
 Then in Chromium, as an iPad (1024 × 768 at 2×, touch), the suite drives every toy with real touch
 events. It measures the audio that reaches the speaker through an analyser after the compressor.
@@ -408,6 +417,12 @@ It also checks:
   next toy comes in; that a broken toy waiting draws nothing until, left a while, its gap glows;
   that a tap on a mended toy plays its part; and at Bloom, that two parts are missing and the first
   waits for the screwdriver, which turns its screw home;
+- in torch in the dark: that six friends sleep in the dark, the lanterns unlit and the torch off;
+  that a beam swept quickly past a friend wakes no one, and rested on it, the torch clicked on, it
+  wakes, calls and lights its lantern; that moths come to a beam left still; that with every friend
+  awake they sing, sleep, and the next night hide somewhere new; that the torch clicks off and on;
+  that left alone the garden draws nothing; and at Bloom, that the fireflies blink a rhythm, wait,
+  and blink his back to him, and that the moon is rising;
 - at the turntable with the friend: that at Seed it waits while he plays and then answers his
   pads on the same pads, reaching over to tap each; that at Sprout it leads with a scratch and a
   pad and waits for him, and answers his scratch with a scratch; that at Bloom, with the record
@@ -480,7 +495,8 @@ playroom/
                             tunes.js Bird Song's tunes, skies.js Weather Song's weather,
                             march.js and paradeart.js Freeze Parade's rules and animals,
                             repairs.js and fixitart.js the Fix-it Shop's rules and its toys
-                            and parts,
+                            and parts, hiding.js and torchart.js Torch in the Dark's rules and
+                            its garden,
                             instruments.js the drum and tambourine they share,
                             deckfriend.js the friend at the turntable,
                             farmart.js the farm's pictures, board.js the isometric board the

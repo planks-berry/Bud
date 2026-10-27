@@ -22,6 +22,7 @@ import { toy as birdsong } from './birdsong.js';
 import { toy as weather } from './weather.js';
 import { toy as parade } from './parade.js';
 import { toy as fixit } from './fixit.js';
+import { toy as torch } from './torch.js';
 
 export const TOYS = [
     pond,
@@ -40,4 +41,5 @@ export const TOYS = [
     weather,
     parade,
     fixit,
+    torch,
 ];

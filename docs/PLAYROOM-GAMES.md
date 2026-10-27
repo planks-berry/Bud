@@ -6,7 +6,7 @@ revised. The technical side (the old iPad, the audio engine, the tests) is in
 "toys".
 
 **Status, 26 October 2026.**
-- **Built:** sixteen games, tested in two simulated iPad browsers (one with everything Safari 12
+- **Built:** seventeen games, tested in two simulated iPad browsers (one with everything Safari 12
   lacks removed). The newest are phase 2 of the proposal for new games, music that takes turns and
   says feelings: two new games, Weather Song and Freeze Parade, and the friend at the turntable.
   With them comes the friend, a small make-believe character with feelings, who lives in Weather
@@ -16,7 +16,7 @@ revised. The technical side (the old iPad, the audio engine, the tests) is in
   in. Every new thing has a switch in the grown-ups' corner, which can also set the shelf's order.
   Since then: the building site reworked to go a step at a time, and the timer made to end play
   time for good: once its goodnight is over, the bud sleeps until a grown-up opens the playroom
-  again with the passcode. Phase 3 has begun, with the Fix-it Shop.
+  again with the passcode. Phase 3 is under way: the Fix-it Shop and Torch in the Dark.
 - **Where:** live at https://planks-berry.github.io/Bud/playroom/, published from `main`. Work
   continues on branch `claude/montessori-playroom`.
 - **Not yet checked on a real iPad:** the speaker mix and the iPad Air's frame rate can only be
@@ -1186,11 +1186,71 @@ train a toot to end on, all on the playroom's scale.
 
 ---
 
+### 17. Torch in the dark
+
+**What it is:** the garden at night: a tree with a branch and a hole in its trunk, a fence, a
+shed, a path, a log, a bush, flowerpots, a pond with lily pads, and a string of paper lanterns
+across the sky. It is dark, but never black: the shapes can still be made out, and the fireflies
+blink. In the corner lies a torch. His finger is its beam: where the beam rests, the garden shows in
+its own colours, and anyone asleep there wakes, gently. The owl on its branch opens its eyes and
+hoots; the hedgehog uncurls and sniffs; the snail feels the light and pulls its eyes in, then
+slowly puts them out again; the frog sings; the mouse peeks out of its hole; the cricket chirps.
+Each one woken lights a lantern. Once every lantern is lit, they all sing a night song together,
+the music box playing a lullaby and each friend singing on its own note, and then they go back to
+sleep, one by one, and the lanterns go out. The next night they are asleep again.
+
+**Roots:** Edmark's Oranga Banga, whose hardest game is played in the dark, by ear; Humongous, who
+hid their surprises in new places each time (Putt-Putt); Mister Rogers, who made fears
+mentionable.
+
+**Layers**
+- Touch: tap the torch to click it on and off. Touch the garden and the beam goes there.
+- Move: sweep the beam slowly. A friend wakes only when the light rests on it; swept past quickly,
+  it sleeps on. Let go, and the beam stays where it was, so it can rest on something by itself.
+  Moths come to a beam left still, and flutter off when it moves on.
+- Make: the longer he looks, the more lanterns glow and friends wake, until they sing.
+
+**Stages**
+- Seed: a wide beam, four friends (the owl, the hedgehog, the snail and the frog), asleep in the
+  same places every night, and woken by half a second's light.
+- Sprout: a narrower beam, six friends, and new hiding places each night, each in a place that
+  suits it: the owl up high, the frog by the water.
+- Bloom: the moon rises slowly from behind the fence, over two and a half minutes of play, and the
+  garden grows lighter as it climbs; and the fireflies blink a rhythm together and wait, for him to
+  blink back by clicking the torch. Whatever he blinks, they blink back to him, in his time, and come
+  a little nearer; every second rhythm he answers, theirs grow by a blink, to five.
+
+**Sound:** the torch's click; the owl's hoot, the hedgehog's sniffing in the leaves, the snail's
+little gulp, the frog's ribbit, the mouse's peep, the cricket's trill; a bell for each lantern, a
+note of the scale; the fireflies' high, soft notes; and the night song on the music box. Every voice
+has a little of the night's echo.
+
+**Decisions so far**
+- Nothing jumps out. Waking takes a second or so, eyes opening slowly; the sounds are soft.
+- The dark is friendly: the garden is drawn twice, once in its colours and once mostly lost in the
+  night's blue, so the shapes are always there; and the eyes of anyone awake catch the light, even
+  outside the beam.
+- The beam sits a little above the finger, so the finger does not hide what it lights.
+- Resting is what wakes: the light gathers while the beam is still on a friend and drains away when
+  it sweeps fast, so looking slowly is what finds them.
+- Left alone forty seconds, the garden rests: the fireflies settle and nothing moves.
+- It joins the shelf after the Fix-it Shop, with its own switch.
+
+**Questions**
+- Is the dark comfortable for him, or does he want the torch on all the time? If the dark worries
+  him, the garden could start with the moon up at every stage.
+- Does he sweep, or rest? The proposal's watch-for is slow searching; if he only sweeps, the light
+  could wake friends a little sooner at Seed.
+
+**Ideas**
+-
+
+---
+
 ## Not built yet
 
-- **The rest of the proposal for new games**: the rest of phase 3, Torch in the Dark, Bug Maker
-  and the Bakery, then phase 4, the Marble Machine and the Puppet Theatre, in "Playroom proposal:
-  twelve new games".
+- **The rest of the proposal for new games**: the rest of phase 3, Bug Maker and the Bakery, then
+  phase 4, the Marble Machine and the Puppet Theatre, in "Playroom proposal: twelve new games".
 - **A garden:** seeds, a watering can, flowers that open with a chime, and the bud's own story.
   The farm's fields and watering farmer now cover some of it.
 - **The movable alphabet** (see the letters).
@@ -1212,7 +1272,8 @@ train a toot to end on, all on the playroom's scale.
   `cubes.js`, Bird Song's tunes in `tunes.js`, Weather Song's weather in `skies.js`, Freeze
   Parade's rules in `march.js` and its animals in `paradeart.js`, the drum and tambourine they
   share in `instruments.js`, the friend at the decks in `deckfriend.js`, the Fix-it Shop's rules
-  in `repairs.js` and its toys and parts in `fixitart.js`, the machines the dig and
+  in `repairs.js` and its toys and parts in `fixitart.js`, Torch in the Dark's rules in
+  `hiding.js` and its garden in `torchart.js`, the machines the dig and
   the site share in `machines.js`, and the board the farm and the site share in `board.js`. The
   friend itself is `playroom/js/friend.js`; the shelf, with its hello and goodnight,
   `playroom/js/shelf.js`.
